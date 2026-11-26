@@ -282,6 +282,48 @@ describe('the settings load', () => {
 			)
 		).rejects.toBe(failure);
 	});
+
+	it.each([
+		['an error', () => new Error('late password failure'), 'error'],
+		['a refusal', unauthenticated, 'warn']
+	] as const)(
+		'reports %s from a lookup that settles after the parent failed',
+		async (_, lateFailure, level) => {
+			const failure = lateFailure();
+			let rejectLookup!: (error: unknown) => void;
+			fake.replies.set(
+				'users:hasPassword',
+				() => new Promise((_resolve, reject) => (rejectLookup = reject))
+			);
+			const parentFailure = new Error('parent load failed');
+			const event: Parameters<typeof settingsLoad>[0] = fakeEvent(
+				{ token: JWT },
+				{
+					parent: async () => {
+						throw parentFailure;
+					}
+				}
+			);
+
+			await expect(settingsLoad(event)).rejects.toBe(parentFailure);
+			expect(lines('error')).toEqual([]);
+			rejectLookup(failure);
+
+			await vi.waitFor(() =>
+				expect(lines(level)).toEqual([
+					expect.stringMatching(/^\[settings\] hasPassword lookup failed /)
+				])
+			);
+			if (level === 'error') {
+				expect(capture).toHaveBeenCalledOnce();
+				expect(capture.mock.calls[0]?.[0]).toBe(failure);
+			} else {
+				expect(lines('warn')[0]).toContain('code=UNAUTHENTICATED');
+				expect(lines('error')).toEqual([]);
+				expect(capture).not.toHaveBeenCalled();
+			}
+		}
+	);
 });
 
 describe('the root layout load', () => {
