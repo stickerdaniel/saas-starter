@@ -29,10 +29,10 @@ import {
 	TurnArgsSchema,
 	TurnWatchArgsSchema,
 	UnansweredTurnSchema,
-	UploadRegistrationArgsSchema,
 	VisitorMessageListArgsSchema,
 	WarmThreadArgsSchema
 } from './schemas';
+import { UploadRegistrationArgsSchema } from '../files/schemas';
 
 const cases: ReadonlyArray<{
 	name: string;

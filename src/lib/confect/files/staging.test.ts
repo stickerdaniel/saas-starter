@@ -17,15 +17,16 @@ type UploadArgs = {
 	storageId: string;
 	uploadToken: string;
 	mimeType: string;
+	accessKey?: string;
 	width?: number;
 	height?: number;
 };
 type SaveHandler = { _handler: (ctx: ActionCtx, args: UploadArgs) => Promise<unknown> };
 
 describe.each([
-	['support', saveSupportFile],
-	['AI chat', saveChatFile]
-])('%s upload staging', (_name, fn) => {
+	['support', saveSupportFile, 'support'],
+	['AI chat', saveChatFile, 'ai-chat']
+])('%s upload staging', (_name, fn, defaultAccessKey) => {
 	const save = (fn as unknown as SaveHandler)._handler;
 	const args: UploadArgs = {
 		storageId: 'staging-id',
@@ -37,6 +38,7 @@ describe.each([
 		// Shapes come from files-control 0.5.8 and Agent 0.7.1, exercised on the local backend.
 		const staging = new Map<string, number | null>();
 		const agentFiles = new Map<string, string>();
+		const accessKeys: { finalized?: unknown; consumed?: unknown } = {};
 		const error = new Error('Processing failed');
 		vi.spyOn(console, 'error').mockImplementation(() => {});
 		vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
@@ -63,11 +65,15 @@ describe.each([
 				input: Record<string, unknown>
 			) => {
 				const address = JSON.stringify(getFunctionAddress(ref));
-				if (address.includes('finalizeUpload'))
+				if (address.includes('finalizeUpload')) {
 					staging.set(String(input.storageId), input.expiresAt as number | null);
+					accessKeys.finalized = input.accessKeys;
+				}
 				if (address.includes('createDownloadGrant')) return { downloadToken: 'download-token' };
-				if (address.includes('consumeDownloadGrantForUrl'))
+				if (address.includes('consumeDownloadGrantForUrl')) {
+					accessKeys.consumed = input.accessKey;
 					return { status: 'ok', downloadUrl: 'https://staging.test' };
+				}
 				if (address.includes('storeFileMetadata') && failure === 'metadata') throw error;
 				if (address.includes('deleteFile')) {
 					if (failure === 'cleanup') throw new Error('Cleanup failed');
@@ -79,8 +85,18 @@ describe.each([
 			runAction: vi.fn(),
 			vectorSearch: vi.fn()
 		} as unknown as ActionCtx;
-		return { ctx, staging, agentFiles, error };
+		return { ctx, staging, agentFiles, accessKeys, error };
 	}
+
+	it.each([
+		{ given: undefined, expected: defaultAccessKey },
+		{ given: '   ', expected: defaultAccessKey },
+		{ given: 'explicit-key', expected: 'explicit-key' }
+	])('grants and consumes $expected for access key $given', async ({ given, expected }) => {
+		const { ctx, accessKeys } = fixture();
+		await save(ctx, { ...args, accessKey: given });
+		expect(accessKeys).toEqual({ finalized: [expected], consumed: expected });
+	});
 
 	it('releases staging and preserves the promoted file', async () => {
 		const { ctx, staging, agentFiles } = fixture();

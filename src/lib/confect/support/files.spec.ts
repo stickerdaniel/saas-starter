@@ -2,14 +2,13 @@ import { FunctionSpec, GroupSpec } from '@confect/core';
 import * as Schema from 'effect/Schema';
 import { RateLimitedCodec } from '../errorCodecs';
 import VisitorAccess from '../middleware/VisitorAccess.spec';
+import { AttachmentTextArgsSchema, SupportOwnerArgsSchema } from './schemas';
 import {
-	AttachmentTextArgsSchema,
 	AttachmentTextSchema,
 	RegisteredUploadSchema,
-	SupportOwnerArgsSchema,
-	UploadRegistrationArgsSchema
-} from './schemas';
-import { UploadUrlSchema } from '../files/schemas';
+	UploadRegistrationArgsSchema,
+	UploadUrlSchema
+} from '../files/schemas';
 
 export default GroupSpec.make()
 	.addFunction(
