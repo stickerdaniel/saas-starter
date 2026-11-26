@@ -323,7 +323,7 @@
 		},
 		"storage": {
 			"authorizeUpload": ["internal", "mutation", "5151b7eb8536aa97", "00404e686415370f"],
-			"finalizeProfileImage": ["internal", "mutation", "48577822a01b405c", "00404e686415370f"],
+			"finalizeProfileImage": ["internal", "mutation", "7d592e379ed43500", "00404e686415370f"],
 			"generateUploadUrl": ["public", "mutation", "5151b7eb8536aa97", "71537c1f87837b16"],
 			"updateProfileImage": ["public", "mutation", "7d592e379ed43500", "00404e686415370f"]
 		},

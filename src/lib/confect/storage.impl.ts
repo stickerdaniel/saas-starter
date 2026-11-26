@@ -32,9 +32,10 @@ export default GroupImpl.make(databaseSchema, storage).pipe(
 			databaseSchema,
 			storage,
 			'finalizeProfileImage',
-			({ storageId, uploadToken, userId }) =>
+			({ storageId, uploadToken }) =>
 				Effect.gen(function* () {
 					const ctx = yield* MutationCtx;
+					const { _id: userId } = yield* CurrentUser;
 					yield* Effect.promise(() =>
 						ctx.runMutation(components.convexFilesControl.upload.finalizeUpload, {
 							uploadToken,

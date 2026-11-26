@@ -16,10 +16,10 @@ export default GroupSpec.make()
 	.addFunction(
 		FunctionSpec.internalMutation({
 			name: 'finalizeProfileImage',
-			args: () => ({ storageId: Schema.String, uploadToken: Schema.String, userId: Schema.String }),
+			args: () => ({ storageId: Schema.String, uploadToken: Schema.String }),
 			returns: () => Schema.String,
 			error: () => FileRefusalCodec
-		})
+		}).middleware(RequireUser)
 	)
 	.addFunction(
 		FunctionSpec.publicMutation({

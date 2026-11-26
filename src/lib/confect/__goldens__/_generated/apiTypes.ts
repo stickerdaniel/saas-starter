@@ -158,7 +158,7 @@ export type ApiTypeGoldens = [
 	Expect<Equal<Golden<typeof api.messages.send>, ['mutation', 'public', { readonly body: string; }, { readonly messageId: import("convex/values").GenericId<'messages'>; }]>>,
 	Expect<Equal<Golden<typeof internal.previewDev.ensurePreviewAdmin>, ['mutation', 'internal', {}, { readonly created: boolean; readonly updatedRole: boolean; readonly updatedVerification: boolean; readonly skipped: boolean; }]>>,
 	Expect<Equal<Golden<typeof internal.storage.authorizeUpload>, ['mutation', 'internal', {}, string]>>,
-	Expect<Equal<Golden<typeof internal.storage.finalizeProfileImage>, ['mutation', 'internal', { readonly storageId: string; readonly uploadToken: string; readonly userId: string; }, string]>>,
+	Expect<Equal<Golden<typeof internal.storage.finalizeProfileImage>, ['mutation', 'internal', { readonly storageId: string; readonly uploadToken: string; }, string]>>,
 	Expect<Equal<Golden<typeof api.storage.generateUploadUrl>, ['mutation', 'public', {}, { readonly uploadUrl: string; readonly uploadToken: string; readonly uploadTokenExpiresAt: number; readonly storageProvider: 'convex' | 'r2'; readonly storageId: string | null; }]>>,
 	Expect<Equal<Golden<typeof api.storage.updateProfileImage>, ['mutation', 'public', { readonly storageId: string; readonly uploadToken: string; }, string]>>,
 	Expect<Equal<Golden<typeof internal.support.files.authorizeUpload>, ['mutation', 'internal', { readonly anonymousUserId?: string | undefined; }, string]>>,

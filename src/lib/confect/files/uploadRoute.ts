@@ -53,18 +53,19 @@ function refusalOf(error: unknown, cors: HeadersInit): Response | undefined {
 }
 
 const UPLOAD_HEADERS = 'Authorization, Content-Type, X-Anonymous-User-Id';
+const VARY_ORIGIN = { Vary: 'Origin' };
 
 function corsFor(request: Request): HeadersInit | undefined {
 	const origin = request.headers.get('Origin');
-	if (origin === null) return {};
+	if (origin === null) return VARY_ORIGIN;
 	return buildTrustedOrigins().includes(origin)
-		? { 'Access-Control-Allow-Origin': origin }
+		? { ...VARY_ORIGIN, 'Access-Control-Allow-Origin': origin }
 		: undefined;
 }
 
 export function uploadPreflight(request: Request): Response {
 	const cors = corsFor(request);
-	if (cors === undefined) return refuse('UPLOAD_ORIGIN_FORBIDDEN', {});
+	if (cors === undefined) return refuse('UPLOAD_ORIGIN_FORBIDDEN', VARY_ORIGIN);
 	return new Response(null, {
 		status: 204,
 		headers: {
@@ -86,7 +87,9 @@ const authorize = (ctx: ActionCtx, request: Request, purpose: UploadPurpose) => 
 		case 'aiChat':
 			return ctx.runMutation(internal.aiChat.files.authorizeUpload, {});
 		case 'support': {
-			const anonymousUserId = request.headers.get('X-Anonymous-User-Id') ?? undefined;
+			const anonymousUserId = request.headers.has('Authorization')
+				? undefined
+				: (request.headers.get('X-Anonymous-User-Id') ?? undefined);
 			return ctx.runMutation(internal.support.files.authorizeUpload, { anonymousUserId });
 		}
 		case 'profileImage':
@@ -175,8 +178,7 @@ async function storeProfileImage(ctx: ActionCtx, blob: Blob, userId: string) {
 	try {
 		const url = await ctx.runMutation(internal.storage.finalizeProfileImage, {
 			storageId,
-			uploadToken,
-			userId
+			uploadToken
 		});
 		return { url };
 	} catch (error) {
@@ -189,7 +191,7 @@ export const receiveUpload =
 	(purpose: UploadPurpose) =>
 	async (ctx: ActionCtx, request: Request): Promise<Response> => {
 		const cors = corsFor(request);
-		if (cors === undefined) return refuse('UPLOAD_ORIGIN_FORBIDDEN', {});
+		if (cors === undefined) return refuse('UPLOAD_ORIGIN_FORBIDDEN', VARY_ORIGIN);
 		if (request.headers.has('Authorization') && !(await acceptedToken(ctx))) {
 			return refuse('Unauthenticated', cors);
 		}

@@ -108,6 +108,7 @@ async function signIn(t: Harness, email = 'ada@example.com') {
 	})) as { _id: string };
 	return {
 		userId: user._id,
+		sessionId: session._id,
 		caller: t.withIdentity({ subject: user._id, sessionId: session._id })
 	};
 }
@@ -396,7 +397,7 @@ describe('support upload identity', () => {
 		expect(response.status).toBe(200);
 	});
 
-	it('refuses a malformed anonymous id without a session and stores nothing', async () => {
+	it('refuses a visitor id without the anonymous prefix and stores nothing', async () => {
 		const t = harness();
 
 		const response = await post(t, 'support', PURPOSES.support.accepted(), {
@@ -404,6 +405,25 @@ describe('support upload identity', () => {
 		});
 
 		expect(response.status).toBe(401);
+		expect(await stored(t)).toEqual(nothingStored);
+	});
+
+	it('refuses a token without a live session instead of falling back to the visitor id', async () => {
+		const t = harness();
+		const { caller, sessionId } = await signIn(t);
+		await t.mutation(components.betterAuth.adapter.deleteOne, {
+			input: { model: 'session', where: [{ field: '_id', value: sessionId }] }
+		});
+
+		const response = await post(caller, 'support', PURPOSES.support.accepted(), {
+			headers: {
+				Authorization: 'Bearer token-of-the-ended-session',
+				'X-Anonymous-User-Id': `anon_${crypto.randomUUID()}`
+			}
+		});
+
+		expect(response.status).toBe(401);
+		expect(await response.json()).toEqual({ code: 'SUPPORT_AUTHENTICATION_REQUIRED' });
 		expect(await stored(t)).toEqual(nothingStored);
 	});
 
@@ -501,6 +521,7 @@ describe('upload route CORS', () => {
 
 			expect(response.status).toBe(403);
 			expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull();
+			expect(response.headers.get('Vary')).toBe('Origin');
 			expect(await stored(t)).toEqual(nothingStored);
 		}
 	);
@@ -520,11 +541,13 @@ describe('upload route CORS', () => {
 		expect(preflight.status).toBe(204);
 		expect(Object.fromEntries(preflight.headers)).toMatchObject({
 			'access-control-allow-origin': SITE_ORIGIN,
+			vary: 'Origin',
 			'access-control-allow-methods': 'POST',
 			'access-control-allow-headers': 'Authorization, Content-Type, X-Anonymous-User-Id'
 		});
 		expect(upload.status).toBe(200);
 		expect(upload.headers.get('Access-Control-Allow-Origin')).toBe(SITE_ORIGIN);
+		expect(upload.headers.get('Vary')).toBe('Origin');
 	});
 });
 
