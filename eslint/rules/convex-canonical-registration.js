@@ -566,7 +566,12 @@ export default {
 				const [variable] = context.sourceCode.getDeclaredVariables(specifier);
 				for (const reference of variable?.references ?? []) {
 					const identifier = reference.identifier;
-					if (reference.isTypeReference || identifier.parent.type === 'TSTypeQuery') continue;
+					if (
+						(reference.isTypeReference && !reference.isValueReference) ||
+						identifier.parent.type === 'TSTypeQuery'
+					) {
+						continue;
+					}
 					if (identifier.parent.type === 'TSQualifiedName') continue;
 					checkConfectReference(identifier, name);
 				}

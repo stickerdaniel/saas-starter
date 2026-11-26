@@ -426,4 +426,65 @@ describe('registration ratchet through the flat config', () => {
 			)
 		).toEqual(['inlineImplementation']);
 	}, 60_000);
+
+	it('refuses a constructor exported under another name and its two-barrel chain', async () => {
+		const chain: Array<[string, string]> = [
+			[
+				`import { FunctionSpec } from '@confect/core';
+				import { FunctionImpl } from '@confect/server';
+				export { FunctionSpec as FS, FunctionImpl as FI };`,
+				'src/lib/convex-components/constructors.ts'
+			],
+			[`export { FS, FI } from './constructors';`, 'src/lib/convex-components/constructors2.ts'],
+			[
+				`import { FS } from '../convex-components/constructors2';
+				import { GroupSpec } from '@confect/core';
+				import type { attach } from './autumn';
+				export default GroupSpec.make().addFunction(FS.convexPublicAction<typeof attach>()('attach'));`,
+				'src/lib/confect/probe.spec.ts'
+			],
+			[
+				`import { FI } from '../convex-components/constructors2';
+				import { GroupImpl } from '@confect/server';
+				import * as Layer from 'effect/Layer';
+				import databaseSchema from './_generated/schema';
+				import probe from './probe.spec';
+				import { attach } from './autumn';
+				export default GroupImpl.make(databaseSchema, probe).pipe(
+					Layer.provide(FI.make(databaseSchema, probe, 'attach', attach)),
+					GroupImpl.finalize
+				);`,
+				'src/lib/confect/probe.impl.ts'
+			]
+		];
+		const reports: Array<string | undefined> = [];
+		for (const [text, filePath] of chain) reports.push(...(await ratchetReports(text, filePath)));
+		expect(reports).toEqual(['indirectReference', 'indirectReference']);
+		expect(
+			await ratchetReports(
+				`import { FunctionSpec } from '@confect/core';
+				export default FunctionSpec;`,
+				'src/lib/convex-components/constructors.ts'
+			)
+		).toEqual(['indirectReference']);
+	}, 60_000);
+
+	it('refuses a raw builder in a helper outside the Convex directories', async () => {
+		expect(
+			await ratchetReports(
+				`import { httpActionGeneric } from 'convex/server';
+				export const plainHandler = httpActionGeneric(async () => new Response(null));`,
+				'src/lib/http/plainRoute.ts'
+			)
+		).toContain('plainRegistration');
+	}, 60_000);
+
+	it('refuses a barrel outside the Convex directories that re-exports a test helper', async () => {
+		expect(
+			await ratchetReports(
+				`export { plainHandler } from '../confect/__tests__/plainRoute';`,
+				'src/lib/http/plainRoute.ts'
+			)
+		).toEqual(['testModuleImport']);
+	}, 60_000);
 });

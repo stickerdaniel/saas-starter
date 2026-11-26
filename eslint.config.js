@@ -778,13 +778,6 @@ export default defineConfig(
 		},
 		rules: {
 			'@convex-dev/require-access-control': ['error', { pattern: convexAccessPattern }],
-			'local/convex-canonical-registration': [
-				'error',
-				{
-					libraryFunctions: Object.values(CONFECT_LIBRARY_FUNCTIONS).flat(),
-					httpRoutes: Object.keys(PLAIN_HTTP_ROUTES)
-				}
-			],
 			'local/convex-access-first': [
 				'error',
 				{
@@ -795,6 +788,22 @@ export default defineConfig(
 				}
 			],
 			'local/convex-effect-query-safety': 'error'
+		}
+	},
+	{
+		files: ['src/**/*.ts', 'src/**/*.js', 'src/**/*.svelte'],
+		ignores: Object.keys(PLAIN_REGISTRATION_PATHS),
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/convex-canonical-registration': [
+				'error',
+				{
+					libraryFunctions: Object.values(CONFECT_LIBRARY_FUNCTIONS).flat(),
+					httpRoutes: Object.keys(PLAIN_HTTP_ROUTES)
+				}
+			]
 		}
 	},
 	{
