@@ -9,6 +9,7 @@
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { Badge } from '#lib/components/ui/badge/index.js';
 	import { buttonVariants } from '#lib/components/ui/button/index.js';
+	import { cn } from '#lib/utils.js';
 	import { Input } from '#lib/components/ui/input/index.js';
 	import { Label } from '#lib/components/ui/label/index.js';
 	import {
@@ -79,10 +80,7 @@
 				href={asset(CATALOGUE_TEXT_FILE as AssetPath)}
 				download={CATALOGUE_TEXT_FILE}
 				aria-disabled={searching && results.length === 0 ? 'true' : undefined}
-				class={buttonVariants({
-					variant: 'outline',
-					class: 'shrink-0 aria-disabled:opacity-50'
-				})}
+				class={cn(buttonVariants({ variant: 'outline' }), 'shrink-0 aria-disabled:opacity-50')}
 				onclick={downloadResults}
 			>
 				<DownloadIcon aria-hidden="true" />
@@ -162,11 +160,10 @@
 								target="_blank"
 								rel="external noopener noreferrer"
 								aria-label={$t('licenses.source', { name: entry.name })}
-								class={buttonVariants({
-									variant: 'ghost',
-									size: 'icon-sm',
-									class: 'absolute top-2 right-3 text-muted-foreground'
-								})}
+								class={cn(
+									buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
+									'absolute top-2 right-3 text-muted-foreground'
+								)}
 							>
 								<ExternalLinkIcon aria-hidden="true" />
 							</a>

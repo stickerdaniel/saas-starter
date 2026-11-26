@@ -3,17 +3,10 @@ import { cn } from '#lib/utils.js';
 import { buttonVariants } from './button.svelte';
 
 describe('buttonVariants', () => {
-	it('lets a caller transition replace the color lane', () => {
-		const classes = cn(buttonVariants(), 'transition-all').split(' ');
-
-		expect(classes).toContain('transition-all');
-		expect(classes).not.toContain('transition-control-colors');
-	});
-
 	it.each(['transition-all', 'transition-colors'])(
-		'lets a caller %s passed to the helper replace the color lane',
+		'lets a caller %s replace the color lane',
 		(transition) => {
-			const classes = buttonVariants({ class: transition }).split(' ');
+			const classes = cn(buttonVariants(), transition).split(' ');
 
 			expect(classes).toContain(transition);
 			expect(classes).not.toContain('transition-control-colors');
@@ -30,10 +23,6 @@ describe('buttonVariants', () => {
 		const overridden = cn('min-w-0 rounded-theme-pill px-4', 'rounded-md').split(' ');
 		expect(overridden).toContain('rounded-md');
 		expect(overridden).not.toContain('rounded-theme-pill');
-
-		const helper = buttonVariants({ class: 'rounded-theme-pill' }).split(' ');
-		expect(helper).toContain('rounded-theme-pill');
-		expect(helper).not.toContain('rounded-md');
 	});
 
 	it('lets intentional transform animations suppress the translate', () => {

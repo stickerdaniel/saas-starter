@@ -491,6 +491,9 @@ export default defineConfig(async ({ command, mode }) => {
 		worker: {
 			plugins: () => [licenses.workerPlugin()]
 		},
+		resolve: {
+			alias: [{ find: /^tailwind-variants$/, replacement: 'tailwind-variants/lite' }]
+		},
 		// Local E2E renders the checked-in translations only; the root layout reads this
 		// to keep live Tolgee off. A define rather than an env var: varlock re-injects
 		// the parent's resolved env into this process, which empties a schema-declared
