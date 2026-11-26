@@ -86,7 +86,7 @@
 					text = capped.text;
 					truncated = res.truncated || capped.truncated;
 				} else if (remoteUrl && action && ctx?.client) {
-					const extraArgs = ctx.uploadConfig?.getGenerateUploadUrlArgs?.() ?? {};
+					const extraArgs = ctx.uploadConfig?.getVisitorArgs?.() ?? {};
 					const res = await ctx.client.action(action, {
 						url: remoteUrl,
 						locale: ctx.uploadConfig?.locale,

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { UploadError } from '../../uploads/transfer.js';
-import type { AttachmentUploadResult, UploadResult } from '../core/file-uploader.js';
+import type { AttachmentUploadResult } from '../core/file-uploader.js';
 import type { Attachment } from '../core/types.js';
 import {
 	AttachmentTransfer,
@@ -23,10 +23,9 @@ function deferred<T>() {
 	return { promise, resolve, reject };
 }
 
-const success: UploadResult = {
+const success: AttachmentUploadResult = {
 	fileId: 'file-1',
-	url: 'https://cdn.test/file-1',
-	storageId: 'storage-1'
+	url: 'https://cdn.test/file-1'
 };
 
 describe('AttachmentTransfer', () => {
@@ -73,7 +72,7 @@ describe('AttachmentTransfer', () => {
 	});
 
 	it('aborts active transport and ignores its late completion on disposal', async () => {
-		const uploadResult = deferred<UploadResult>();
+		const uploadResult = deferred<AttachmentUploadResult>();
 		const snapshots: AttachmentTransferSnapshot[] = [];
 		const activity: boolean[] = [];
 		let signal: AbortSignal | undefined;
@@ -155,8 +154,8 @@ describe('AttachmentTransfer', () => {
 	});
 
 	it('rejects progress and failure from a superseded attempt', async () => {
-		const first = deferred<UploadResult>();
-		const second = deferred<UploadResult>();
+		const first = deferred<AttachmentUploadResult>();
+		const second = deferred<AttachmentUploadResult>();
 		const progress: Array<(value: number) => void> = [];
 		const signals: AbortSignal[] = [];
 		const snapshots: AttachmentTransferSnapshot[] = [];

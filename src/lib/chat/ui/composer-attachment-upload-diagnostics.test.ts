@@ -4,9 +4,7 @@
  */
 
 import { inspect } from 'node:util';
-import { api } from '#lib/convex/_generated/api.js';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
-import type { ConvexClient } from 'convex/browser';
 import type * as FileUploader from '../core/file-uploader.js';
 import { UploadError, type UploadErrorCode } from '../../uploads/transfer.js';
 
@@ -43,10 +41,8 @@ async function failedUpload(error: unknown) {
 	uploadFileWithProgress.mockRejectedValueOnce(error);
 	const coordinator = new ComposerAttachmentCoordinator({
 		getThreadId: () => 'thread-a',
-		client: {} as ConvexClient,
 		uploadConfig: {
-			generateUploadUrl: api.support.files.generateUploadUrl,
-			saveUploadedFile: api.support.files.saveUploadedFile
+			purpose: 'support'
 		}
 	});
 	coordinators.push(coordinator);

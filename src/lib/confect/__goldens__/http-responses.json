@@ -70,6 +70,78 @@
 		"headers": { "content-type": "application/json" }
 	},
 	{
+		"method": "OPTIONS",
+		"path": "/uploads/aiChat",
+		"request": { "headers": { "access-control-request-method": "POST" } },
+		"status": [204],
+		"headers": {
+			"access-control-allow-headers": "Authorization, Content-Type, X-Anonymous-User-Id",
+			"access-control-allow-methods": "POST"
+		}
+	},
+	{
+		"method": "OPTIONS",
+		"path": "/uploads/aiChat",
+		"request": {
+			"headers": { "origin": "https://example.test", "access-control-request-method": "POST" }
+		},
+		"status": [403],
+		"headers": { "content-type": "application/json" }
+	},
+	{
+		"method": "POST",
+		"path": "/uploads/aiChat",
+		"request": { "headers": { "content-type": "image/png" }, "body": "golden" },
+		"status": [401],
+		"headers": { "content-type": "application/json" }
+	},
+	{
+		"method": "POST",
+		"path": "/uploads/aiChat",
+		"request": {
+			"headers": { "authorization": "Bearer golden", "content-type": "image/png" },
+			"body": "golden"
+		},
+		"status": [401],
+		"headers": { "content-type": "application/json" }
+	},
+	{
+		"method": "OPTIONS",
+		"path": "/uploads/profileImage",
+		"request": { "headers": { "access-control-request-method": "POST" } },
+		"status": [204],
+		"headers": {
+			"access-control-allow-headers": "Authorization, Content-Type, X-Anonymous-User-Id",
+			"access-control-allow-methods": "POST"
+		}
+	},
+	{
+		"method": "OPTIONS",
+		"path": "/uploads/profileImage",
+		"request": {
+			"headers": { "origin": "https://example.test", "access-control-request-method": "POST" }
+		},
+		"status": [403],
+		"headers": { "content-type": "application/json" }
+	},
+	{
+		"method": "POST",
+		"path": "/uploads/profileImage",
+		"request": { "headers": { "content-type": "image/png" }, "body": "golden" },
+		"status": [401],
+		"headers": { "content-type": "application/json" }
+	},
+	{
+		"method": "POST",
+		"path": "/uploads/profileImage",
+		"request": {
+			"headers": { "authorization": "Bearer golden", "content-type": "image/png" },
+			"body": "golden"
+		},
+		"status": [401],
+		"headers": { "content-type": "application/json" }
+	},
+	{
 		"method": "POST",
 		"path": "/autumn-webhook",
 		"request": { "headers": { "content-type": "application/json" }, "body": "{}" },

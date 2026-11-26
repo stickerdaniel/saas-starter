@@ -4,7 +4,13 @@
 	"GET /files/download",
 	"GET /files/inline",
 	"OPTIONS /files/download",
+	"OPTIONS /uploads/aiChat",
+	"OPTIONS /uploads/profileImage",
+	"OPTIONS /uploads/support",
 	"POST /api/auth/*",
 	"POST /autumn-webhook",
-	"POST /resend-webhook"
+	"POST /resend-webhook",
+	"POST /uploads/aiChat",
+	"POST /uploads/profileImage",
+	"POST /uploads/support"
 ]

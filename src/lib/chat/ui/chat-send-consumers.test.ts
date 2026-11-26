@@ -34,8 +34,12 @@ vi.mock('#lib/chat/ui/ChatMessages.svelte', () => ({ default: () => {} }));
 vi.mock('#lib/components/message-quota-banner.svelte', () => ({ default: () => {} }));
 vi.mock('svelte-sonner', () => ({ toast: { error: vi.fn() } }));
 vi.mock('$app/state', () => ({ page: { data: { lang: 'en' } } }));
+vi.mock('$app/env/public', () => ({ PUBLIC_CONVEX_SITE_URL: 'https://site.test' }));
 vi.mock('#lib/auth-client.js', () => ({
-	authClient: { useSession: () => ({ subscribe: () => () => {} }) }
+	authClient: {
+		convex: { token: async () => ({ data: { token: 'jwt-1' }, error: null }) },
+		useSession: () => ({ subscribe: () => () => {} })
+	}
 }));
 vi.mock('#lib/hooks/use-media.svelte.ts', () => ({
 	useMedia: () => ({ sm: false, lg: false, xl: false })
@@ -186,11 +190,7 @@ describe.each([
 
 		it('leaves a later pending upload active after success', async () => {
 			const pending = Promise.withResolvers<Record<string, never>>();
-			vi.spyOn(client, 'mutation').mockImplementation((reference) =>
-				getFunctionName(reference) === mutationName
-					? pending.promise
-					: Promise.resolve({ uploadUrl: 'https://storage.test', uploadToken: 'token' })
-			);
+			vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
 			const abort = stallUpload();
 			component = mount(ChatTestProvider<typeof contentProps>, {
 				target: document.body,

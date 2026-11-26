@@ -156,10 +156,10 @@
 			"status": ["internal", "query", "5151b7eb8536aa97", "8f02e1727ce52338"]
 		},
 		"aiChat/files": {
+			"authorizeUpload": ["internal", "mutation", "5151b7eb8536aa97", "00404e686415370f"],
 			"checkPreviewAccess": ["internal", "mutation", "5151b7eb8536aa97", "bcde375ebd4cbacf"],
 			"generateUploadUrl": ["public", "mutation", "5151b7eb8536aa97", "71537c1f87837b16"],
 			"getAttachmentText": ["public", "action", "14ef1120ab5b3177", "413e85261d58b45c"],
-			"requireFileAccess": ["internal", "mutation", "5151b7eb8536aa97", "bcde375ebd4cbacf"],
 			"saveUploadedFile": ["public", "action", "78a23a8f6c874a82", "6195014416e89a68"]
 		},
 		"aiChat/messages": {
@@ -322,10 +322,13 @@
 			"ensurePreviewAdmin": ["internal", "mutation", "5151b7eb8536aa97", "1c49ae7253550e23"]
 		},
 		"storage": {
+			"authorizeUpload": ["internal", "mutation", "5151b7eb8536aa97", "00404e686415370f"],
+			"finalizeProfileImage": ["internal", "mutation", "7d592e379ed43500", "00404e686415370f"],
 			"generateUploadUrl": ["public", "mutation", "5151b7eb8536aa97", "71537c1f87837b16"],
 			"updateProfileImage": ["public", "mutation", "7d592e379ed43500", "00404e686415370f"]
 		},
 		"support/files": {
+			"authorizeUpload": ["internal", "mutation", "a13bcd12cc862d69", "00404e686415370f"],
 			"checkPreviewAccess": ["internal", "mutation", "a13bcd12cc862d69", "bcde375ebd4cbacf"],
 			"generateUploadUrl": ["public", "mutation", "a13bcd12cc862d69", "71537c1f87837b16"],
 			"getAttachmentText": ["public", "action", "56a4ccd2490214f8", "413e85261d58b45c"],

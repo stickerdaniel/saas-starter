@@ -40,8 +40,7 @@
 			core,
 			client,
 			{
-				generateUploadUrl: api.aiChat.files.generateUploadUrl,
-				saveUploadedFile: api.aiChat.files.saveUploadedFile,
+				purpose: 'aiChat',
 				attachmentStore: new ChatAttachmentStore(surface)
 			},
 			'right',

@@ -1,7 +1,6 @@
 import { untrack } from 'svelte';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { toast } from 'svelte-sonner';
-import type { ConvexClient } from 'convex/browser';
 import type {
 	AttachmentsByThread,
 	ChatAttachmentStore
@@ -12,7 +11,7 @@ import {
 	type AttachmentTextAction,
 	type AttachmentUploadResult,
 	type ChatUploadApi,
-	type ChatUploadGrantArgs
+	type ChatVisitorArgs
 } from '../core/file-uploader.js';
 import { DEFAULT_ATTACHMENT_PROFILE, type Attachment } from '../core/types.js';
 import type { ComposerSendResources } from './composer-send-coordinator.js';
@@ -48,14 +47,12 @@ const LOGGED_UPLOAD_CODES: Record<UploadErrorCode, true> = {
 /** Settings every composer upload surface shares, whatever moves its bytes. */
 type UploadConfigBase = {
 	translate?: (key: string, params?: Record<string, string | number | bigint | Date>) => string;
-	/** Access key provider for file control. */
-	getAccessKey?: () => string | undefined;
 	/** Used by the attachment text preview. */
 	getAttachmentText?: AttachmentTextAction;
 	/** Locale sent with server calls whose errors are translated. */
 	locale?: string;
-	/** Caller identity sent with the direct upload grant and the text preview action. */
-	getGenerateUploadUrlArgs?: () => ChatUploadGrantArgs;
+	/** Caller identity sent with the direct upload and the text preview action. */
+	getVisitorArgs?: () => ChatVisitorArgs;
 	/**
 	 * What this surface accepts: types, size caps and the attachment count.
 	 * Every entry point and the composer read this one policy.
@@ -63,18 +60,21 @@ type UploadConfigBase = {
 	profile?: UploadProfile;
 };
 
-/** Uploads straight to Convex storage through the chat upload endpoints. */
+/** Uploads through the surface's route on the Convex site URL. */
 export type DirectUploadConfig = UploadConfigBase &
 	ChatUploadApi & {
 		/** Persistence adapter for successful attachment references. */
 		attachmentStore?: ChatAttachmentStore;
 		upload?: never;
 		release?: never;
+		getAccessKey?: never;
 	};
 
-/** Uploads through the surface's own transport instead of the storage endpoints. */
+/** Uploads through the surface's own transport instead of the upload route. */
 export type CustomUploadConfig = UploadConfigBase & {
 	upload: AttachmentTransferUpload;
+	/** Access key handed to the transport with each payload. */
+	getAccessKey?: () => string | undefined;
 	/**
 	 * Gives back a result the composer abandoned before sending it: removed,
 	 * replaced or dropped with the composer, or returned by an attempt already
@@ -87,8 +87,7 @@ export type CustomUploadConfig = UploadConfigBase & {
 	 * released it would point at a resource the surface already gave back.
 	 */
 	attachmentStore?: never;
-	generateUploadUrl?: never;
-	saveUploadedFile?: never;
+	purpose?: never;
 };
 
 export type UploadConfig = DirectUploadConfig | CustomUploadConfig;
@@ -109,7 +108,6 @@ export interface ActiveUploadsRegistry {
 
 export type ComposerAttachmentCoordinatorOptions = {
 	getThreadId: () => string | null;
-	client: ConvexClient;
 	uploadConfig?: UploadConfig;
 	activeUploads?: ActiveUploadsRegistry | null;
 	onForgetPersistedState?: () => void;
@@ -161,7 +159,6 @@ export class ComposerAttachmentCoordinator {
 	private readonly releasedFileIds = new Set<string>();
 
 	private readonly getThreadId: () => string | null;
-	private readonly client: ConvexClient;
 	private readonly uploadConfig?: UploadConfig;
 	private readonly activeUploads: ActiveUploadsRegistry | null;
 	private readonly onForgetPersistedState?: () => void;
@@ -175,7 +172,6 @@ export class ComposerAttachmentCoordinator {
 
 	constructor(options: ComposerAttachmentCoordinatorOptions) {
 		this.getThreadId = options.getThreadId;
-		this.client = options.client;
 		this.uploadConfig = options.uploadConfig;
 		this.activeUploads = options.activeUploads ?? null;
 		this.onForgetPersistedState = options.onForgetPersistedState;
@@ -818,13 +814,11 @@ export class ComposerAttachmentCoordinator {
 	private directUpload(config: DirectUploadConfig): AttachmentTransferUpload {
 		return (payload, onProgress, signal) =>
 			uploadFileWithProgress(
-				this.client,
 				payload.blob,
 				payload.filename,
 				onProgress,
 				config,
 				payload.dimensions,
-				payload.accessKey,
 				signal
 			);
 	}

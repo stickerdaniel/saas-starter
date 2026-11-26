@@ -1,5 +1,11 @@
+import * as Effect from 'effect/Effect';
+import { FileRefusal } from '../errorCodecs';
 import { FILE_ERROR_CODES, createFileError } from './errors';
 import { acceptsMimeType, UPLOAD_PROFILES, type UploadProfile } from '../../uploads/profiles';
+
+export const presignedUploadRefusal = Effect.fail(
+	new FileRefusal({ refusal: { code: FILE_ERROR_CODES.storageUnavailable } })
+);
 
 /**
  * Upload validation against a declared profile.

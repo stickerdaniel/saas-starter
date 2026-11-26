@@ -13,6 +13,14 @@ import {
 export default GroupSpec.make()
 	.addFunction(
 		FunctionSpec.internalMutation({
+			name: 'authorizeUpload',
+			args: () => ({}),
+			returns: () => Schema.String,
+			error: () => FileRefusalCodec
+		}).middleware(RequireUser)
+	)
+	.addFunction(
+		FunctionSpec.internalMutation({
 			name: 'checkPreviewAccess',
 			args: () => ({}),
 			returns: () => Schema.Null,
@@ -36,17 +44,10 @@ export default GroupSpec.make()
 		})
 	)
 	.addFunction(
-		FunctionSpec.internalMutation({
-			name: 'requireFileAccess',
-			args: () => ({}),
-			returns: () => Schema.Null
-		}).middleware(RequireUser)
-	)
-	.addFunction(
 		FunctionSpec.publicAction({
 			name: 'saveUploadedFile',
 			args: () => UploadRegistrationArgsSchema.fields,
 			returns: () => RegisteredUploadSchema,
-			error: () => UnauthenticatedCodec
+			error: () => FileRefusalCodec
 		})
 	);

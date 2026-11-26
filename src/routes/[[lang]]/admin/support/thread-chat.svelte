@@ -71,12 +71,10 @@
 
 	// Upload configuration for file attachments with locale for translated error messages
 	const uploadConfig: UploadConfig = {
-		generateUploadUrl: api.support.files.generateUploadUrl,
-		saveUploadedFile: api.support.files.saveUploadedFile,
+		purpose: 'support',
 		getAttachmentText: api.support.files.getAttachmentText,
 		locale: page.data.lang,
 		translate: (key, params) => $t(key, params),
-		getAccessKey: () => threadId || 'support-admin',
 		attachmentStore: new ChatAttachmentStore('admin-support')
 	};
 

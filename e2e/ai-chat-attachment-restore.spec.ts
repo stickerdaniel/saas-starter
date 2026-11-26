@@ -16,8 +16,8 @@ import { waitForAuthenticated } from './utils/auth';
 
 const NOTES = 'Attachment restore regression notes.\n';
 
-/** Presigned storage endpoint, served by Convex rather than by a route in this repo. */
-const STORAGE_UPLOAD = /\/api\/storage\/upload/;
+/** The AI chat upload route, served by the Convex site URL rather than by a route in this repo. */
+const STORAGE_UPLOAD = /\/uploads\/aiChat\?/;
 
 function chip(page: Page) {
 	return page.getByTestId('attachment-chip').first();

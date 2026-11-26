@@ -13,6 +13,10 @@ import type { ConvexClient } from 'convex/browser';
 import type { Attachment } from '../core/types.js';
 
 vi.mock('svelte-sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('$app/env/public', () => ({ PUBLIC_CONVEX_SITE_URL: 'https://site.test' }));
+vi.mock('../../auth-client.js', () => ({
+	authClient: { convex: { token: async () => ({ data: { token: 'jwt-1' }, error: null }) } }
+}));
 
 const mockCore = createChatSession();
 const mockClient = {} as ConvexClient;
@@ -123,46 +127,44 @@ describe('ChatUIContext attachment cleanup', () => {
 });
 
 describe('ChatUIContext upload failures', () => {
-	const uploadConfig = {
-		generateUploadUrl: 'generateUploadUrl' as never,
-		saveUploadedFile: 'saveUploadedFile' as never
+	const uploadConfig = { purpose: 'aiChat' } as const;
+
+	type Answer = { status: number; body: unknown };
+	const refused: Answer = {
+		status: 429,
+		body: { code: 'FILE_UPLOAD_RATE_LIMITED', retryAfter: 1_000 }
+	};
+	const accepted: Answer = {
+		status: 200,
+		body: { fileId: 'file-9', url: 'https://cdn.test/file-9', isImage: false }
 	};
 
-	/** A client whose presign step fails, so no transport stub is needed. */
-	function failingClient(): ConvexClient {
-		return {
-			mutation: vi.fn(async () => {
-				throw new Error('Rate limit exceeded');
-			}),
-			action: vi.fn()
-		} as unknown as ConvexClient;
-	}
-
-	function succeedingClient(): ConvexClient {
-		return {
-			mutation: vi.fn(async () => ({ uploadUrl: 'https://storage.test', uploadToken: 't' })),
-			action: vi.fn(async () => ({ fileId: 'file-9', url: 'https://cdn.test/file-9' }))
-		} as unknown as ConvexClient;
-	}
-
-	/** Transport stub that succeeds; the Convex client decides the outcome. */
-	function stubTransport() {
-		const handlers: Record<string, () => void> = {};
-		const xhr = {
-			status: 200,
-			responseText: JSON.stringify({ storageId: 'storage-9' }),
-			upload: { addEventListener: () => {} },
-			addEventListener: (event: string, handler: () => void) => {
-				handlers[event] = handler;
-			},
-			open: () => {},
-			setRequestHeader: () => {},
-			abort: () => handlers.abort?.(),
-			send: () => handlers.load?.()
-		};
+	/** The upload route answers each attempt in order, then accepts the rest. */
+	function scriptRoute(...answers: Array<Answer | Promise<Answer>>) {
+		const opened = vi.fn();
 		vi.stubGlobal('XMLHttpRequest', function XMLHttpRequestStub() {
+			const handlers: Record<string, () => void> = {};
+			const xhr = {
+				status: 0,
+				responseText: '',
+				upload: { addEventListener: () => {} },
+				addEventListener: (event: string, handler: () => void) => {
+					handlers[event] = handler;
+				},
+				open: opened,
+				setRequestHeader: () => {},
+				abort: () => handlers.abort?.(),
+				send: () => {
+					void Promise.resolve(answers.shift() ?? accepted).then(({ status, body }) => {
+						xhr.status = status;
+						xhr.responseText = JSON.stringify(body);
+						handlers.load?.();
+					});
+				}
+			};
 			return xhr;
 		});
+		return opened;
 	}
 
 	const textFile = () => new File(['hello'], 'notes.txt', { type: 'text/plain' });
@@ -185,7 +187,8 @@ describe('ChatUIContext upload failures', () => {
 	});
 
 	it('keeps a failed upload visible instead of removing it', async () => {
-		const ctx = new ChatUIContext(mockCore, failingClient(), uploadConfig);
+		scriptRoute(refused);
+		const ctx = new ChatUIContext(mockCore, mockClient, uploadConfig);
 
 		await ctx.uploadFile(textFile(), 'notes.txt');
 
@@ -194,7 +197,8 @@ describe('ChatUIContext upload failures', () => {
 	});
 
 	it('blocks sending while an upload has failed', async () => {
-		const ctx = new ChatUIContext(mockCore, failingClient(), uploadConfig);
+		scriptRoute(refused);
+		const ctx = new ChatUIContext(mockCore, mockClient, uploadConfig);
 		ctx.setInputValue('here is the file');
 
 		await ctx.uploadFile(textFile(), 'notes.txt');
@@ -204,7 +208,8 @@ describe('ChatUIContext upload failures', () => {
 	});
 
 	it('allows sending again once the failed attachment is discarded', async () => {
-		const ctx = new ChatUIContext(mockCore, failingClient(), uploadConfig);
+		scriptRoute(refused);
+		const ctx = new ChatUIContext(mockCore, mockClient, uploadConfig);
 		ctx.setInputValue('here is the file');
 		await ctx.uploadFile(textFile(), 'notes.txt');
 
@@ -214,18 +219,8 @@ describe('ChatUIContext upload failures', () => {
 	});
 
 	it('retries with the same payload and succeeds', async () => {
-		stubTransport();
-		const client = succeedingClient();
-		// Fail once, then let the same client succeed on the retry.
-		let firstCall = true;
-		client.mutation = vi.fn(async () => {
-			if (firstCall) {
-				firstCall = false;
-				throw new Error('Rate limit exceeded');
-			}
-			return { uploadUrl: 'https://storage.test', uploadToken: 't' };
-		}) as never;
-		const ctx = new ChatUIContext(mockCore, client, uploadConfig);
+		scriptRoute(refused, accepted);
+		const ctx = new ChatUIContext(mockCore, mockClient, uploadConfig);
 		await ctx.uploadFile(textFile(), 'notes.txt');
 
 		ctx.retryUpload(0);
@@ -240,33 +235,19 @@ describe('ChatUIContext upload failures', () => {
 	it('lets a second retry supersede a slow first one', async () => {
 		// Double-clicking retry must not leave the earlier attempt able to stamp
 		// its own outcome over the newer one.
-		stubTransport();
-		const client = succeedingClient();
-		let attempt = 0;
-		let releaseFirst: (() => void) | undefined;
-		client.mutation = vi.fn(async () => {
-			attempt++;
-			if (attempt === 1) throw new Error('Rate limit exceeded');
-			if (attempt === 2) {
-				// Hold the second attempt open until the third has settled.
-				await new Promise<void>((resolve) => {
-					releaseFirst = resolve;
-				});
-				throw new Error('Rate limit exceeded');
-			}
-			return { uploadUrl: 'https://storage.test', uploadToken: 't' };
-		}) as never;
-		const ctx = new ChatUIContext(mockCore, client, uploadConfig);
+		const held = Promise.withResolvers<Answer>();
+		const opened = scriptRoute(refused, held.promise, accepted);
+		const ctx = new ChatUIContext(mockCore, mockClient, uploadConfig);
 		await ctx.uploadFile(textFile(), 'notes.txt');
 
 		ctx.retryUpload(0); // stalls
-		await vi.waitFor(() => expect(attempt).toBe(2));
+		await vi.waitFor(() => expect(opened).toHaveBeenCalledTimes(2));
 		ctx.retryUpload(0); // supersedes
 		await vi.waitFor(() => expect(soleUploadState(ctx)?.status).toBe('success'));
 
 		// Let the superseded attempt finish failing. Its outcome must be dropped,
 		// not written over the success that already landed.
-		releaseFirst?.();
+		held.resolve(refused);
 		await new Promise((resolve) => setTimeout(resolve, 20));
 
 		expect(soleUploadState(ctx)?.status).toBe('success');
@@ -277,9 +258,8 @@ describe('ChatUIContext upload failures', () => {
 		// Preprocessing is awaited and cannot be canceled, so the composer may be
 		// empty by the time it resolves. Uploading anyway would store a file
 		// nothing references.
-		stubTransport();
-		const client = succeedingClient();
-		const ctx = new ChatUIContext(mockCore, client, uploadConfig);
+		const opened = scriptRoute();
+		const ctx = new ChatUIContext(mockCore, mockClient, uploadConfig);
 
 		let removeDuringPreprocess: (() => void) | undefined;
 		const preprocessing = new Promise<void>((resolve) => {
@@ -298,7 +278,7 @@ describe('ChatUIContext upload failures', () => {
 		await upload;
 
 		expect(ctx.attachments).toHaveLength(0);
-		expect(client.mutation).not.toHaveBeenCalled();
+		expect(opened).not.toHaveBeenCalled();
 	});
 
 	it('takes attachments out of the composer when navigating between threads', () => {
@@ -306,7 +286,7 @@ describe('ChatUIContext upload failures', () => {
 		// draft, so an attachment left in place would be sent in the wrong thread —
 		// and a failed one would block sending there.
 		const core = createChatSession('thread-a');
-		const ctx = new ChatUIContext(core, succeedingClient(), uploadConfig);
+		const ctx = new ChatUIContext(core, mockClient, uploadConfig);
 		ctx.setDisplayMessages([]);
 		ctx.addAttachments([fileAttachment(undefined)]);
 
@@ -320,7 +300,7 @@ describe('ChatUIContext upload failures', () => {
 		// null -> id is this conversation being created, not a move to another
 		// one: a file attached while creation was in flight belongs here.
 		const core = createChatSession(null);
-		const ctx = new ChatUIContext(core, succeedingClient(), uploadConfig);
+		const ctx = new ChatUIContext(core, mockClient, uploadConfig);
 		ctx.setDisplayMessages([]);
 		ctx.addAttachments([fileAttachment(undefined)]);
 
@@ -334,7 +314,7 @@ describe('ChatUIContext upload failures', () => {
 		// Preprocessing cannot be canceled, so it can reject long after the chip
 		// was discarded. Reporting that failure would be noise about a file the
 		// user already dismissed.
-		const ctx = new ChatUIContext(mockCore, succeedingClient(), uploadConfig);
+		const ctx = new ChatUIContext(mockCore, mockClient, uploadConfig);
 
 		let failPreprocess: (() => void) | undefined;
 		const preprocessing = new Promise<void>((resolve) => {
@@ -357,7 +337,7 @@ describe('ChatUIContext upload failures', () => {
 	});
 
 	it('reports a preprocessing failure for an attachment still in the composer', async () => {
-		const ctx = new ChatUIContext(mockCore, succeedingClient(), uploadConfig);
+		const ctx = new ChatUIContext(mockCore, mockClient, uploadConfig);
 
 		await ctx.uploadFile(textFile(), 'notes.txt', {
 			preprocess: async () => {
@@ -370,7 +350,7 @@ describe('ChatUIContext upload failures', () => {
 	});
 
 	it('does nothing when retrying an attachment with no retained payload', () => {
-		const ctx = new ChatUIContext(mockCore, succeedingClient(), uploadConfig);
+		const ctx = new ChatUIContext(mockCore, mockClient, uploadConfig);
 		ctx.addAttachments([fileAttachment(undefined)]);
 
 		expect(() => ctx.retryUpload(0)).not.toThrow();
@@ -385,12 +365,9 @@ describe('ChatUIContext upload failures', () => {
 		};
 
 		try {
-			// A client that never settles keeps the upload in flight for removal.
-			const client = {
-				mutation: vi.fn(() => new Promise(() => {})),
-				action: vi.fn()
-			} as unknown as ConvexClient;
-			const ctx = new ChatUIContext(mockCore, client, uploadConfig);
+			// A route that never answers keeps the upload in flight for removal.
+			scriptRoute(new Promise<Answer>(() => {}));
+			const ctx = new ChatUIContext(mockCore, mockClient, uploadConfig);
 			void ctx.uploadFile(textFile(), 'notes.txt');
 			await vi.waitFor(() => expect(ctx.attachments).toHaveLength(1));
 

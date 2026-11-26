@@ -6,9 +6,9 @@ import { describe, expect, it } from 'vitest';
  * Avatars must not use the files-control component's /files/download route: it sends
  * `Cache-Control: no-store` and `Content-Disposition: attachment` and streams the body
  * through the httpAction, so every avatar render downloads the file again. The producer,
- * `updateProfileImage` in storage.ts, builds an inline URL; the consumer, http.ts, must
- * register a GET route at that path. `profileImageUpload.test.ts` covers the URL the
- * mutation returns. convex-test keeps component storage out of reach of the test, so the
+ * `finalizeProfileImage` in storage.ts, builds an inline URL; the consumer, http.ts, must
+ * register a GET route at that path. `uploadRoute.test.ts` covers the URL the upload
+ * route returns. convex-test keeps component storage out of reach of the test, so the
  * redirect itself cannot run here.
  */
 

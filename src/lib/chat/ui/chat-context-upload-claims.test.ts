@@ -1,4 +1,3 @@
-import { api } from '#lib/convex/_generated/api.js';
 /**
  * The context, not the component, reports a transfer in progress.
  *
@@ -24,8 +23,7 @@ const { ChatUIContext } = await import('./chat-context.svelte.ts');
 const { ActiveUploads } = await import('#lib/hooks/active-uploads.svelte.ts');
 
 const uploadConfig = {
-	generateUploadUrl: api.support.files.generateUploadUrl,
-	saveUploadedFile: api.support.files.saveUploadedFile
+	purpose: 'support'
 } satisfies NonNullable<ConstructorParameters<typeof ChatUIContext>[2]>;
 
 function context(uploads: InstanceType<typeof ActiveUploads> | null = null) {

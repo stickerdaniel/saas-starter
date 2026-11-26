@@ -32,7 +32,6 @@ import {
 	VisitorMessageListArgsSchema,
 	WarmThreadArgsSchema
 } from './schemas';
-import { UploadRegistrationArgsSchema } from '../files/schemas';
 
 const cases: ReadonlyArray<{
 	name: string;
@@ -83,33 +82,6 @@ const cases: ReadonlyArray<{
 		accepted: [
 			{ id: 'k1', active: true },
 			{ id: 'k2', active: false }
-		]
-	},
-	{
-		name: 'UploadRegistrationArgs',
-		schema: UploadRegistrationArgsSchema,
-		accepted: [
-			{ storageId: 's1', uploadToken: '', mimeType: '' },
-			{
-				storageId: 's1',
-				uploadToken: 't',
-				mimeType: 'image/png',
-				filename: undefined,
-				locale: undefined,
-				accessKey: undefined,
-				width: undefined,
-				height: undefined
-			},
-			{
-				storageId: 's1',
-				uploadToken: 't',
-				mimeType: 'image/png',
-				filename: 'a.png',
-				locale: 'de',
-				accessKey: 'support',
-				width: 0,
-				height: 1.5
-			}
 		]
 	},
 	{
