@@ -1479,6 +1479,8 @@
 			"revoke_label": "Zugriff für {app} widerrufen",
 			"access": "Zugriff",
 			"connected": "Verbunden",
+			"last_used": "Zuletzt genutzt",
+			"never": "Nie",
 			"level_view": "Nur ansehen",
 			"level_change": "Ansehen und ändern",
 			"level_none": "Kein Zugriff",
@@ -1489,7 +1491,10 @@
 			"revoke_description": "{app} verliert sofort den Zugriff auf dein Konto. Um die App wieder zu nutzen, verbinde sie erneut in {app}.",
 			"revoke_cancel": "Abbrechen",
 			"revoke_confirm": "Zugriff widerrufen",
-			"revoke_failed": "Der Zugriff konnte nicht widerrufen werden. Versuche es erneut."
+			"revoke_failed": "Der Zugriff konnte nicht widerrufen werden. Versuche es erneut.",
+			"connect_title": "App verbinden",
+			"connect_description": "Füge diese URL als Connector in Claude, ChatGPT oder einer anderen MCP-App hinzu.",
+			"copy": "Kopieren"
 		}
 	}
 }

@@ -164,6 +164,7 @@ export type ApiTypeGoldens = [
 	Expect<Equal<Golden<typeof internal.oauth.cleanup.deleteExpiredTokens>, ['mutation', 'internal', {}, null]>>,
 	Expect<Equal<Golden<typeof internal.oauth.cleanup.deleteStaleClients>, ['mutation', 'internal', { readonly cursor?: string | undefined; }, null]>>,
 	Expect<Equal<Golden<typeof internal.oauth.cleanup.eraseUserGrants>, ['mutation', 'internal', { readonly userId: string; }, null]>>,
+	Expect<Equal<Golden<typeof api.oauth.connections.endpoint>, ['query', 'public', {}, { readonly url: string; }]>>,
 	Expect<Equal<Golden<typeof internal.oauth.connections.epoch>, ['query', 'internal', { readonly userId: string; }, number]>>,
 	Expect<Equal<Golden<typeof api.oauth.connections.list>, ['query', 'public', { readonly paginationOpts: { readonly cursor: string | null; readonly numItems: number; readonly id?: number | undefined; readonly endCursor?: string | null | undefined; readonly maximumRowsRead?: number | undefined; readonly maximumBytesRead?: number | undefined; }; }, { readonly page: { readonly consentId: string; readonly clientId: string; readonly clientName: string | null; readonly scopes: readonly string[]; readonly connectedAt: number | null; readonly lastUsedAt: number | null; }[]; readonly isDone: boolean; readonly continueCursor: string; }]>>,
 	Expect<Equal<Golden<typeof internal.oauth.connections.recordUse>, ['mutation', 'internal', { readonly userId: string; readonly clientId: string; readonly grant: string; readonly at: number; }, null]>>,

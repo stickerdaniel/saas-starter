@@ -1479,6 +1479,8 @@
 			"revoke_label": "Revocar el acceso de {app}",
 			"access": "Acceso",
 			"connected": "Conectada",
+			"last_used": "Último uso",
+			"never": "Nunca",
 			"level_view": "Solo ver",
 			"level_change": "Ver y cambiar",
 			"level_none": "Sin acceso",
@@ -1489,7 +1491,10 @@
 			"revoke_description": "{app} pierde el acceso a tu cuenta de inmediato. Para volver a usarla, conéctala de nuevo en {app}.",
 			"revoke_cancel": "Cancelar",
 			"revoke_confirm": "Revocar acceso",
-			"revoke_failed": "No se pudo revocar el acceso. Inténtalo de nuevo."
+			"revoke_failed": "No se pudo revocar el acceso. Inténtalo de nuevo.",
+			"connect_title": "Conectar una app",
+			"connect_description": "Añade esta URL como conector en Claude, ChatGPT u otra app MCP.",
+			"copy": "Copiar"
 		}
 	}
 }

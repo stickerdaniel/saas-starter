@@ -33,6 +33,12 @@ export default GroupSpec.make()
 		}).middleware(RequireUser)
 	)
 	.addFunction(
+		FunctionSpec.publicQuery({
+			name: 'endpoint',
+			returns: () => Schema.Struct({ url: Schema.String })
+		}).middleware(RequireUser)
+	)
+	.addFunction(
 		FunctionSpec.internalMutation({
 			name: 'recordUse',
 			args: () => ({

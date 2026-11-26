@@ -369,6 +369,11 @@
 		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
 		"user": "Error [capability] billing is misconfigured"
 	},
+	"oauth/connections:endpoint": {
+		"anonymous": "ConvexError \"Unauthenticated\"",
+		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
+		"user": "ok"
+	},
 	"oauth/connections:list": {
 		"anonymous": "ConvexError \"Unauthenticated\"",
 		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",

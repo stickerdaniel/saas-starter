@@ -13,7 +13,7 @@ import RequireUserImpl from '../middleware/RequireUser.impl';
 import { CurrentUser } from '../middleware/RequireUser.spec';
 import connections from './connections.spec';
 import { currentEpoch, raiseEpoch } from './grants';
-import { USE_RECORD_INTERVAL } from './resource';
+import { mcpResourceUrl, USE_RECORD_INTERVAL } from './resource';
 
 const ConsentRow = Schema.Struct({
 	_id: Schema.String,
@@ -96,6 +96,11 @@ export default GroupImpl.make(databaseSchema, connections).pipe(
 					isDone: result.isDone,
 					continueCursor: result.continueCursor
 				};
+			})
+		),
+		FunctionImpl.make(databaseSchema, connections, 'endpoint', () =>
+			Effect.gen(function* () {
+				return yield* Effect.sync(() => ({ url: mcpResourceUrl() }));
 			})
 		),
 		FunctionImpl.make(databaseSchema, connections, 'revoke', ({ consentId }) =>

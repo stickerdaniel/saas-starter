@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "4ca7853c9e7c5d11",
+	"digest": "447d3a21c8109759",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -228,6 +228,7 @@
 			"eraseUserGrants": ["internal", "mutation", "Convex", "Confect"]
 		},
 		"oauth/connections": {
+			"endpoint": ["public", "query", "Convex", "Confect"],
 			"epoch": ["internal", "query", "Convex", "Confect"],
 			"list": ["public", "query", "Convex", "Confect"],
 			"recordUse": ["internal", "mutation", "Convex", "Confect"],

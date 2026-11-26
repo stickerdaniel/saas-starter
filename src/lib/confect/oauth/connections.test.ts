@@ -2,7 +2,7 @@
 /// <reference types="vite/client" />
 import { convexTest } from 'convex-test';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { components, internal } from '../../convex/_generated/api';
+import { api, components, internal } from '../../convex/_generated/api';
 import schema from '../../convex/schema';
 import authSchema from '../../convex-components/betterAuth/schema';
 import { convexModules, preloadModules } from '../convexTest.modules';
@@ -115,5 +115,49 @@ describe('eraseUserGrants', () => {
 			epochs: (await ctx.db.query('oauthGrantEpochs').take(10)).length
 		}));
 		expect(left).toEqual({ uses: ['someone-else'], epochs: 0 });
+	});
+});
+
+describe('endpoint', () => {
+	afterEach(() => {
+		vi.unstubAllEnvs();
+	});
+
+	it('returns the resource of the protected resource metadata', async () => {
+		vi.stubEnv('CONVEX_SITE_URL', 'https://deployment.example.test');
+		vi.stubEnv('MCP_PUBLIC_ORIGIN', 'https://mcp.example.test');
+		const { t } = harness();
+		const now = Date.now();
+		const user = (await t.mutation(components.betterAuth.adapter.create, {
+			input: {
+				model: 'user',
+				data: {
+					name: 'Ada',
+					email: 'ada@example.test',
+					emailVerified: true,
+					createdAt: now,
+					updatedAt: now
+				}
+			}
+		})) as { _id: string };
+		const session = (await t.mutation(components.betterAuth.adapter.create, {
+			input: {
+				model: 'session',
+				data: {
+					userId: user._id,
+					token: crypto.randomUUID(),
+					expiresAt: now + 60_000,
+					createdAt: now,
+					updatedAt: now
+				}
+			}
+		})) as { _id: string };
+		const caller = t.withIdentity({ subject: user._id, sessionId: session._id });
+
+		const metadata = await t.fetch('/.well-known/oauth-protected-resource/mcp');
+		const { resource } = (await metadata.json()) as { resource: string };
+		const { url } = await caller.query(api.oauth.connections.endpoint, {});
+		expect(url).toBe('https://mcp.example.test/mcp');
+		expect(url).toBe(resource);
 	});
 });

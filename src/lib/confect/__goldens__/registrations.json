@@ -331,6 +331,7 @@
 			"eraseUserGrants": ["internal", "mutation", "3b83ee450a3cde21", "bcde375ebd4cbacf"]
 		},
 		"oauth/connections": {
+			"endpoint": ["public", "query", "5151b7eb8536aa97", "54a27eed635f2569"],
 			"epoch": ["internal", "query", "3b83ee450a3cde21", "cddf8275afa15408"],
 			"list": ["public", "query", "aba4a69d6728db62", "2361221e2a29e65d"],
 			"recordUse": ["internal", "mutation", "6811c68d9fccbccc", "bcde375ebd4cbacf"],
