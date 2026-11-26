@@ -102,6 +102,7 @@
 	});
 
 	let textPreview: Promise<typeof AttachmentTextPreview> | undefined;
+	let openings = $state(0);
 
 	/**
 	 * The text preview carries the highlighter grammars and the KaTeX stylesheet,
@@ -109,8 +110,10 @@
 	 * A deploy can delete its chunk under an open page. app.html answers Vite's
 	 * preloadError with a reload, so the rejection is rethrown untouched to the
 	 * await block, which shows the error state; the next open imports again.
+	 * A closing dialog keeps its content mounted, so the await block passes the
+	 * opening count and asks again when the dialog reopens before it unmounts.
 	 */
-	function loadTextPreview() {
+	function loadTextPreview(_opening: number) {
 		textPreview ??= importTextPreview();
 		return textPreview;
 	}
@@ -278,6 +281,7 @@
 		if (!openUrl) return;
 
 		selectedAttachment = attachment;
+		openings += 1;
 
 		isDialogOpen = true;
 	}
@@ -368,7 +372,7 @@
 			{#if openUrl && !isImage}
 				{@const mimeType = getMimeType(selectedAttachment)}
 				{#if isTextPreviewable(mimeType, getFilename(selectedAttachment))}
-					{#await loadTextPreview()}
+					{#await loadTextPreview(openings)}
 						<AttachmentPreviewStatus status="loading" />
 					{:then TextPreview}
 						<TextPreview

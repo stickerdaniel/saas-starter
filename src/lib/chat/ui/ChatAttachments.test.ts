@@ -198,32 +198,45 @@ describe('ChatAttachments', () => {
 			process.off('unhandledRejection', recordRejection);
 		});
 
-		/** Holds the preview's import pending until the test settles the returned gate. */
+		/**
+		 * Holds the preview's import pending until the test settles the returned gate.
+		 * `started` resolves once the component has asked for the module.
+		 */
 		function gatePreviewImport() {
+			const started = Promise.withResolvers<void>();
 			const gate = Promise.withResolvers<void>();
 			vi.doMock('./AttachmentTextPreview.svelte', async () => {
+				started.resolve();
 				await gate.promise;
 				return import('./test-fixtures/AttachmentTextPreviewStub.svelte');
 			});
-			return gate;
+			return { started: started.promise, resolve: gate.resolve, reject: gate.reject };
 		}
 
-		async function settle() {
-			for (let i = 0; i < 3; i++) {
-				flushSync();
-				await tick();
-				await new Promise((resolve) => setTimeout(resolve, 0));
-			}
+		type PreviewGate = ReturnType<typeof gatePreviewImport>;
+
+		async function importSettled() {
+			await vi.dynamicImportSettled();
 			flushSync();
 		}
+
+		afterEach(importSettled);
 
 		const loading = () => document.querySelector('[data-testid="attachment-preview-loading"]');
 		const error = () => document.querySelector('[data-testid="attachment-preview-error"]');
 		const preview = () => document.querySelector('[data-testid="attachment-text-preview"]');
 		const dialog = () => document.querySelector('[role="dialog"]');
+		const chip = () => document.querySelector<HTMLElement>('[data-testid="attachment-chip"]')!;
+		const closeButton = () => dialog()!.querySelector<HTMLElement>('[data-slot="dialog-close"]')!;
 
-		async function openNotes() {
-			const chips = await renderAttachments({
+		async function open(gate: PreviewGate) {
+			chip().click();
+			await gate.started;
+			flushSync();
+		}
+
+		async function openNotes(gate: PreviewGate) {
+			await renderAttachments({
 				attachments: [
 					{
 						type: 'remote-file',
@@ -234,32 +247,41 @@ describe('ChatAttachments', () => {
 				],
 				readonly: true
 			});
-			chips[0]!.click();
-			await settle();
+			await open(gate);
+		}
+
+		async function failToLoad(gate: PreviewGate) {
+			gate.reject(new TypeError('Failed to fetch dynamically imported module'));
+			await importSettled();
+			await vi.waitFor(() => expect(error()).not.toBeNull());
+		}
+
+		async function closeAndUnmount() {
+			closeButton().click();
+			await vi.waitFor(() => expect(dialog()).toBeNull());
 		}
 
 		it('shows the loading state until the preview has loaded', async () => {
 			const gate = gatePreviewImport();
 
-			await openNotes();
+			await openNotes(gate);
 			expect(loading()).not.toBeNull();
 			expect(preview()).toBeNull();
 
 			gate.resolve();
-			await settle();
-			expect(preview()?.textContent).toBe('notes.md');
+			await importSettled();
+			await vi.waitFor(() => expect(preview()?.textContent).toBe('notes.md'));
 			expect(loading()).toBeNull();
 		});
 
 		it('shows no preview once the dialog closed before it loaded', async () => {
 			const gate = gatePreviewImport();
-			await openNotes();
+			await openNotes(gate);
 			expect(loading()).not.toBeNull();
 
-			dialog()!.querySelector<HTMLElement>('[data-slot="dialog-close"]')!.click();
-			await settle();
+			await closeAndUnmount();
 			gate.resolve();
-			await settle();
+			await importSettled();
 
 			expect(dialog()).toBeNull();
 			expect(preview()).toBeNull();
@@ -267,10 +289,9 @@ describe('ChatAttachments', () => {
 
 		it('shows the error state when the preview fails to load', async () => {
 			const gate = gatePreviewImport();
-			await openNotes();
+			await openNotes(gate);
 
-			gate.reject(new TypeError('Failed to fetch dynamically imported module'));
-			await settle();
+			await failToLoad(gate);
 
 			expect(error()?.textContent?.trim()).toBe(en.chat.attachment.preview_error);
 			expect(loading()).toBeNull();
@@ -280,18 +301,37 @@ describe('ChatAttachments', () => {
 
 		it('loads the preview again on the next open after a failed load', async () => {
 			const failed = gatePreviewImport();
-			await openNotes();
-			failed.reject(new TypeError('Failed to fetch dynamically imported module'));
-			await settle();
-			expect(error()).not.toBeNull();
-			dialog()!.querySelector<HTMLElement>('[data-slot="dialog-close"]')!.click();
-			await settle();
+			await openNotes(failed);
+			await failToLoad(failed);
+			await closeAndUnmount();
 
-			gatePreviewImport().resolve();
-			document.querySelector<HTMLElement>('[data-testid="attachment-chip"]')!.click();
-			await settle();
+			const retry = gatePreviewImport();
+			await open(retry);
+			retry.resolve();
+			await importSettled();
 
-			expect(preview()?.textContent).toBe('notes.md');
+			await vi.waitFor(() => expect(preview()?.textContent).toBe('notes.md'));
+			expect(error()).toBeNull();
+		});
+
+		it('loads the preview again when the dialog reopens while its content is still mounted', async () => {
+			const failed = gatePreviewImport();
+			await openNotes(failed);
+			await failToLoad(failed);
+			const content = dialog();
+
+			closeButton().click();
+			flushSync();
+			const retry = gatePreviewImport();
+			await open(retry);
+			expect(dialog()).toBe(content);
+			expect(loading()).not.toBeNull();
+
+			retry.resolve();
+			await importSettled();
+
+			await vi.waitFor(() => expect(preview()?.textContent).toBe('notes.md'));
+			expect(dialog()).toBe(content);
 			expect(error()).toBeNull();
 		});
 	});
