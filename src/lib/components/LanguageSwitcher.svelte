@@ -88,15 +88,22 @@
 	let openedWithKeyboard = $state(false);
 
 	function load(): Promise<void> {
-		loading ??= import('./ui/language-switcher/language-switcher.svelte').then(async (module) => {
+		loading ??= importMenu();
+		return loading;
+	}
+
+	async function importMenu(): Promise<void> {
+		try {
+			const module = await import('./ui/language-switcher/language-switcher.svelte');
 			const focused = button !== null && document.activeElement === button;
 			Menu = module.default;
 			if (!focused) return;
 			// The trigger replaces the focused button, which takes focus with it.
 			await tick();
 			trigger?.focus();
-		});
-		return loading;
+		} catch {
+			loading = undefined;
+		}
 	}
 
 	onMount(() => {
@@ -125,7 +132,7 @@
 	function activate(keyboard: boolean) {
 		openedWithKeyboard ||= keyboard;
 		void load().then(() => {
-			open = true;
+			if (Menu) open = true;
 		});
 	}
 

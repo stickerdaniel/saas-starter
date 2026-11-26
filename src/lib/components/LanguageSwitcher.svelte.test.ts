@@ -110,6 +110,39 @@ describe('LanguageSwitcher', () => {
 		expect(chunk.requests).toBe(1);
 	});
 
+	it('loads the menu again after a failed load', async () => {
+		let failures = 0;
+		vi.doUnmock('./ui/language-switcher/language-switcher.svelte');
+		vi.doMock('./ui/language-switcher/language-switcher.svelte', () => {
+			failures += 1;
+			throw new Error('Failed to fetch dynamically imported module');
+		});
+		trigger().dispatchEvent(
+			new MouseEvent('click', { bubbles: true, cancelable: true, detail: 0 })
+		);
+		await vi.waitFor(() => expect(failures).toBe(1));
+		await settle();
+		expect(menu()).toBeNull();
+
+		const chunk = holdMenuChunk();
+		trigger().dispatchEvent(new PointerEvent('pointerenter'));
+		await vi.waitFor(() => expect(chunk.requested).toBe(true));
+		chunk.release();
+		await vi.waitFor(() =>
+			expect(document.querySelector('[data-dropdown-menu-trigger]')).not.toBeNull()
+		);
+		await settle();
+		expect(menu()).toBeNull();
+
+		trigger().dispatchEvent(
+			new MouseEvent('click', { bubbles: true, cancelable: true, detail: 0 })
+		);
+		await vi.waitFor(() => expect(menu()).not.toBeNull());
+		await settle();
+		expect(document.querySelectorAll('[role="menu"]')).toHaveLength(1);
+		expect(trigger().getAttribute('aria-expanded')).toBe('true');
+	});
+
 	it('drops the idle load when it unmounts first', async () => {
 		expect(idle.size).toBe(1);
 
