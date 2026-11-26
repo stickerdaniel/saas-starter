@@ -28,3 +28,6 @@ export const runRequestEffect = <A, E>(
 	event: RequestEvent,
 	effect: Effect.Effect<A, E, ServerRequest>
 ): Promise<A> => runServerEffect(Effect.provideService(effect, ServerRequest, event));
+
+export const fromPromise = <A>(run: () => PromiseLike<A>): Effect.Effect<A, unknown> =>
+	Effect.tryPromise({ try: run, catch: (error) => error });

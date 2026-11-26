@@ -1,4 +1,6 @@
 import { ConvexError } from 'convex/values';
+import * as Cause from 'effect/Cause';
+import * as Effect from 'effect/Effect';
 import { dev } from '$app/env';
 import { loadedSentry } from '#lib/monitoring/sentry.js';
 import { logSafeDiagnostic, type SafeDiagnosticFields } from '#lib/monitoring/safe-diagnostic.js';
@@ -56,3 +58,13 @@ export function reportRecoveredFailure(
 		// Reporting is best effort. The console line above already names the failure.
 	}
 }
+
+export const recoverWith =
+	<B>(label: string, fallback: B) =>
+	<A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A | B, never, R> =>
+		Effect.catchCause(effect, (cause) =>
+			Effect.sync(() => {
+				reportRecoveredFailure(label, Cause.squash(cause));
+				return fallback;
+			})
+		);
