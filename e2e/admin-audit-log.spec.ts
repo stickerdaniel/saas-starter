@@ -31,7 +31,7 @@ test('resolves and consumes multi-page audit cursors on the real backend', async
 	// Cleanup deletes exactly the seeded rows, never other rows of the fixture id. The
 	// rows carry the owned token, so teardown finds them after a killed worker too.
 	const fixtureToken = ownFixture({ kind: 'auditLog', fixtureId });
-	let seeded: Array<Id<'adminAuditLogs'>> = [];
+	let seeded: ReadonlyArray<Id<'adminAuditLogs'>> = [];
 	const clear = async () => {
 		if (seeded.length) await client.mutation(api.tests.deleteAuditLogRows, { secret, ids: seeded });
 		seeded = [];
