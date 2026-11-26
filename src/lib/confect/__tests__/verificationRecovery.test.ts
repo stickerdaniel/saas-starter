@@ -5,6 +5,7 @@
 import { betterAuth } from 'better-auth';
 import { memoryAdapter } from 'better-auth/adapters/memory';
 import { describe, expect, it, vi } from 'vitest';
+import { createAuthOptions } from '../authServer';
 
 /**
  * The rejected-OAuth-link message tells the user to sign in with their password
@@ -59,7 +60,6 @@ type VerificationMail = { verificationUrl: string; expiryMinutes: number };
  * mail send captured rather than dispatched.
  */
 async function withCapturedVerificationMail() {
-	const { createAuthOptions } = await import('../authServer');
 	const sent: VerificationMail[] = [];
 	const options = createAuthOptions({
 		runMutation: async (_mutation: unknown, args: Partial<VerificationMail>) => {
