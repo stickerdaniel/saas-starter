@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, components } from '../../convex/_generated/api';
 import schema from '../../convex/schema';
 import authSchema from '../../convex-components/betterAuth/schema';
-import { MAX_MESSAGE_LENGTH } from '../constants';
+import { MAX_MESSAGE_FILES, MAX_MESSAGE_LENGTH } from '../constants';
 import { convexModules, preloadModules } from '../convexTest.modules';
 import { FILE_ERROR_CODES } from '../files/errors';
 import { SUPPORT_ERROR_CODES } from './errors';
@@ -56,6 +56,26 @@ const agentMessages = async (t: Harness, threadId: string) =>
 
 const visitorMessages = async (t: Harness, threadId: string) =>
 	(await agentMessages(t, threadId)).filter(({ message }) => message?.role === 'user');
+
+const fileParts = async (t: Harness, threadId: string) =>
+	(await visitorMessages(t, threadId))
+		.flatMap(({ message }) =>
+			Array.isArray(message?.content) ? message.content.map((part) => part.type) : []
+		)
+		.filter((type) => type === 'file').length;
+
+async function storeFile(t: Harness) {
+	const storageId = await t.run((ctx) =>
+		ctx.storage.store(new Blob(['notes'], { type: 'text/plain' }))
+	);
+	const { fileId } = await t.mutation(components.agent.files.addFile, {
+		storageId,
+		hash: 'notes',
+		filename: 'notes.txt',
+		mediaType: 'text/plain'
+	});
+	return fileId;
+}
 
 async function ownedThread(t: Harness) {
 	const { threadId } = await t.mutation(api.support.threads.getOrCreateWarmThread, {
@@ -132,6 +152,55 @@ describe('support message access', () => {
 			});
 		}
 		expect(await agentMessages(t, threadId)).toEqual([]);
+	});
+
+	it('refuses more file ids than the cap before checking access or the rate limit', async () => {
+		const t = harness();
+		const threadId = await ownedThread(t);
+		const fileId = await storeFile(t);
+		for (let sent = 0; sent < ANONYMOUS_MESSAGES_PER_MINUTE; sent++) {
+			await t.mutation(api.support.messages.sendMessage, {
+				threadId,
+				anonymousUserId: OWNER,
+				prompt: 'Hello'
+			});
+		}
+
+		for (const args of [
+			{ threadId: 'thread_missing' },
+			{ threadId },
+			{ threadId, anonymousUserId: STRANGER },
+			{ threadId, anonymousUserId: OWNER }
+		]) {
+			const call = t.mutation(api.support.messages.sendMessage, {
+				...args,
+				prompt: 'Files',
+				fileIds: Array(MAX_MESSAGE_FILES + 1).fill(fileId)
+			});
+			expect(await refusal(call)).toEqual({
+				code: SUPPORT_ERROR_CODES.tooManyFiles,
+				maxFiles: MAX_MESSAGE_FILES
+			});
+		}
+		expect(await visitorMessages(t, threadId)).toHaveLength(ANONYMOUS_MESSAGES_PER_MINUTE);
+		expect(await fileParts(t, threadId)).toBe(0);
+	});
+
+	it('accepts a send with exactly the cap of file ids', async () => {
+		const t = harness();
+		const threadId = await ownedThread(t);
+		const fileId = await storeFile(t);
+
+		await expect(
+			t.mutation(api.support.messages.sendMessage, {
+				threadId,
+				anonymousUserId: OWNER,
+				prompt: 'Files',
+				fileIds: Array(MAX_MESSAGE_FILES).fill(fileId)
+			})
+		).resolves.toMatchObject({ messageId: expect.any(String) });
+		expect(await visitorMessages(t, threadId)).toHaveLength(1);
+		expect(await fileParts(t, threadId)).toBe(MAX_MESSAGE_FILES);
 	});
 
 	it('refuses an anonymous owner past the per-minute limit with a retry time', async () => {

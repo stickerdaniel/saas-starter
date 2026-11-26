@@ -9,7 +9,7 @@ import type { MutationCtx as ConvexMutationCtx } from '../../../convex/_generate
 import refs from '../../_generated/refs';
 import databaseSchema from '../../_generated/schema';
 import { MutationCtx, Scheduler } from '../../_generated/services';
-import { MAX_MESSAGE_LENGTH } from '../../constants';
+import { MAX_MESSAGE_FILES, MAX_MESSAGE_LENGTH } from '../../constants';
 import { AdminSupportRefusal } from '../../errorCodecs';
 import RequireAdminImpl from '../../middleware/RequireAdmin.impl';
 import { CurrentUser } from '../../middleware/RequireUser.spec';
@@ -117,6 +117,12 @@ const replyAsAdmin = ({ threadId, prompt, fileIds }: typeof AdminReplyArgsSchema
 			return yield* refuse({
 				code: ADMIN_SUPPORT_ERROR_CODES.messageTooLong,
 				maxLength: MAX_MESSAGE_LENGTH
+			});
+		}
+		if (fileIds && fileIds.length > MAX_MESSAGE_FILES) {
+			return yield* refuse({
+				code: ADMIN_SUPPORT_ERROR_CODES.tooManyFiles,
+				maxFiles: MAX_MESSAGE_FILES
 			});
 		}
 		const supportThread = yield* requireSupportThread(threadId);

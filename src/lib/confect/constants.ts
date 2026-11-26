@@ -10,6 +10,9 @@ export const PROFILE_IMAGE_ALLOWED_TYPES = allowedMimeTypes(UPLOAD_PROFILES.prof
 // Mirrors the client-side MAX_MESSAGE_LENGTH in src/lib/chat/core/types.ts.
 export const MAX_MESSAGE_LENGTH = 2000;
 
+// Maximum file ids in a single chat message, the cap the composer also reads.
+export const MAX_MESSAGE_FILES = UPLOAD_PROFILES.chatAttachment.maxFiles;
+
 // Sentinels stored under providerMetadata.system.notice on an AI chat notice
 // that ends a turn: the usage gate denied it, or the generation failed. The UI
 // maps each to localized copy instead of rendering the English fallback

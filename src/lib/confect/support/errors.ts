@@ -7,6 +7,7 @@ export const SUPPORT_ERROR_CODES = {
 	messageNotFound: 'SUPPORT_MESSAGE_NOT_FOUND',
 	messageEmpty: 'SUPPORT_MESSAGE_EMPTY',
 	messageTooLong: 'SUPPORT_MESSAGE_TOO_LONG',
+	tooManyFiles: 'SUPPORT_TOO_MANY_FILES',
 	notificationEmailInvalid: 'SUPPORT_NOTIFICATION_EMAIL_INVALID',
 	anonymousUserInvalid: 'SUPPORT_ANONYMOUS_USER_INVALID'
 } as const;

@@ -7,7 +7,7 @@ import { api, components, internal } from '../../../convex/_generated/api';
 import schema from '../../../convex/schema';
 import authSchema from '../../../convex-components/betterAuth/schema';
 import { convexModules, preloadModules } from '../../convexTest.modules';
-import { MAX_MESSAGE_LENGTH } from '../../constants';
+import { MAX_MESSAGE_FILES, MAX_MESSAGE_LENGTH } from '../../constants';
 import { ADMIN_ERROR_CODES, createAdminError } from '../errors';
 import { ADMIN_SUPPORT_ERROR_CODES } from './errors';
 
@@ -185,6 +185,45 @@ describe('admin support mutation refusals', () => {
 		);
 		expect(emptyNote).toEqual({ code: ADMIN_SUPPORT_ERROR_CODES.emptyNote });
 		expect(await snapshot(t)).toEqual(before);
+	});
+
+	it('refuses more file ids than the cap before the thread check and any file lookup or write', async () => {
+		const t = harness();
+		await seedThread(t);
+		const admin = await signIn(t, 'admin', 'admin@example.com');
+		const before = await snapshot(t);
+
+		const refusals = await Promise.all(
+			['thread_1', 'thread_missing'].map((threadId) =>
+				refusal(
+					admin.caller.mutation(mutations.sendAdminReply, {
+						threadId,
+						prompt: 'Files',
+						fileIds: Array(MAX_MESSAGE_FILES + 1).fill('file_1')
+					})
+				)
+			)
+		);
+
+		expect(refusals).toEqual(
+			Array(2).fill({ code: ADMIN_SUPPORT_ERROR_CODES.tooManyFiles, maxFiles: MAX_MESSAGE_FILES })
+		);
+		expect(await snapshot(t)).toEqual(before);
+	});
+
+	it('lets a reply with exactly the cap of file ids reach the thread check', async () => {
+		const t = harness();
+		const admin = await signIn(t, 'admin', 'admin@example.com');
+
+		await expect(
+			refusal(
+				admin.caller.mutation(mutations.sendAdminReply, {
+					threadId: 'thread_missing',
+					prompt: 'Files',
+					fileIds: Array(MAX_MESSAGE_FILES).fill('file_1')
+				})
+			)
+		).resolves.toEqual({ code: ADMIN_SUPPORT_ERROR_CODES.threadNotFound });
 	});
 
 	it('refuses an assignee who is not an admin without writing', async () => {
