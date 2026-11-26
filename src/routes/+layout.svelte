@@ -41,7 +41,6 @@
 	import type { LayoutProps } from './$types';
 	import RouteProgress from '#lib/components/RouteProgress.svelte';
 	import { Toaster } from '#lib/components/ui/sonner/index.js';
-	import * as Tooltip from '#lib/components/ui/tooltip/index.js';
 	import { watch } from 'runed';
 	import { devNotice } from '#lib/dev/notice.js';
 	import { preloads } from 'fontless/runtime';
@@ -256,27 +255,25 @@
 		<Toaster />
 		<RouteProgress />
 
-		<Tooltip.Provider>
-			<TolgeeProvider {tolgee}>
-				<a
-					href="#main-content"
-					class="sr-only z-70 focus-visible:not-sr-only focus-visible:fixed focus-visible:top-4 focus-visible:left-4 focus-visible:rounded-md focus-visible:bg-background focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:font-medium focus-visible:text-foreground focus-visible:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-				>
-					<T keyName="a11y.skip_to_content" />
-				</a>
-				<!-- Above the marketing header, which is fixed at z-40; the focused skip link
-				     above sits higher still. -->
-				<div class="sticky top-0 z-60" {@attach measureTopNotices}>
-					<ClockSkewBanner />
-					<InvestigationBar />
-				</div>
-				<UploadGuardNotice />
-				<AnalyticsRoot />
-				<GlobalSearchShell />
-				<CheckoutProvider>
-					{@render children()}
-				</CheckoutProvider>
-			</TolgeeProvider>
-		</Tooltip.Provider>
+		<TolgeeProvider {tolgee}>
+			<a
+				href="#main-content"
+				class="sr-only z-70 focus-visible:not-sr-only focus-visible:fixed focus-visible:top-4 focus-visible:left-4 focus-visible:rounded-md focus-visible:bg-background focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:font-medium focus-visible:text-foreground focus-visible:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+			>
+				<T keyName="a11y.skip_to_content" />
+			</a>
+			<!-- Above the marketing header, which is fixed at z-40; the focused skip link
+			     above sits higher still. -->
+			<div class="sticky top-0 z-60" {@attach measureTopNotices}>
+				<ClockSkewBanner />
+				<InvestigationBar />
+			</div>
+			<UploadGuardNotice />
+			<AnalyticsRoot />
+			<GlobalSearchShell />
+			<CheckoutProvider>
+				{@render children()}
+			</CheckoutProvider>
+		</TolgeeProvider>
 	</AppAutumnProvider>
 </AppAuthProvider>

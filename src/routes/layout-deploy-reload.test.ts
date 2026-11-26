@@ -62,9 +62,6 @@ vi.mock('@tolgee/svelte', async (importOriginal) => {
 vi.mock('#lib/components/ui/sonner/index.js', async () => ({
 	Toaster: (await state.passthrough()).default
 }));
-vi.mock('#lib/components/ui/tooltip/index.js', async () => ({
-	Provider: (await state.passthrough()).default
-}));
 vi.mock('#lib/components/app/app-auth-provider.svelte', () => state.passthrough());
 vi.mock('#lib/components/app/app-autumn-provider.svelte', () => state.passthrough());
 vi.mock('#lib/components/analytics/analytics-root.svelte', () => state.passthrough());
