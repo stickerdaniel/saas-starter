@@ -91,10 +91,36 @@ describe('require-guarded-server-convex-client', () => {
 	});
 
 	it.each([
+		[
+			'yield* Effect.gen',
+			'Effect.gen(function* () { return yield* Effect.gen(function* () { return createServerConvexHttpClient({}); }); }).pipe(recoverWith("x", null))'
+		],
+		[
+			'yield* Effect.gen(...).pipe(...)',
+			'Effect.gen(function* () { return yield* Effect.gen(function* () { return createServerConvexHttpClient({}); }).pipe(Effect.orDie); }).pipe(recoverWith("x", null))'
+		]
+	])('allows construction in a %s nested in a recovered Effect.gen', (_, effect) => {
+		const reports = lint(`export const load = (event) => runRequestEffect(event, ${effect});`);
+		expect(reports).toHaveLength(0);
+	});
+
+	it.each([
 		['without a recovery', 'Effect.gen(function* () { return createServerConvexHttpClient({}); })'],
 		[
 			'with another pipe step',
 			'Effect.gen(function* () { return createServerConvexHttpClient({}); }).pipe(Effect.orDie)'
+		],
+		[
+			'in an eager Effect.gen options argument',
+			'Effect.gen({ self: createServerConvexHttpClient({}) }, function* () { return this; }).pipe(recoverWith("x", null))'
+		],
+		[
+			'in a nested Effect.gen returned and run after the recovery',
+			'Effect.gen(function* () { return Effect.gen(function* () { return createServerConvexHttpClient({}); }); }).pipe(recoverWith("x", Effect.succeed(null)), Effect.flatten)'
+		],
+		[
+			'in a callback returned and called after the recovery',
+			'Effect.gen(function* () { return () => createServerConvexHttpClient({}); }).pipe(recoverWith("x", () => null), Effect.map((create) => create()))'
 		],
 		[
 			'before the recovered Effect.gen',

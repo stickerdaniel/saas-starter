@@ -73,34 +73,82 @@ export default {
 			);
 		}
 
-		function walk(node, insideTry) {
-			if (!node || typeof node !== 'object' || typeof node.type !== 'string') return;
+		function isFunction(node) {
+			return (
+				node.type === 'FunctionExpression' ||
+				node.type === 'ArrowFunctionExpression' ||
+				node.type === 'FunctionDeclaration'
+			);
+		}
 
-			if (isClientConstruction(node) && !insideTry) {
+		function generatorBody(genCall) {
+			const body = genCall.arguments.at(-1);
+			return body?.type === 'FunctionExpression' && body.generator ? body : undefined;
+		}
+
+		function yieldedEffectGen(node) {
+			if (node.type !== 'YieldExpression' || !node.delegate || !node.argument) return undefined;
+			if (isEffectGen(node.argument)) return node.argument;
+			const { callee } = node.argument;
+			return callee?.type === 'MemberExpression' &&
+				callee.property?.name === 'pipe' &&
+				isEffectGen(callee.object)
+				? callee.object
+				: undefined;
+		}
+
+		function children(node) {
+			return Object.keys(node)
+				.filter((key) => key !== 'parent' && key !== 'tokens' && key !== 'comments')
+				.flatMap((key) =>
+					(Array.isArray(node[key]) ? node[key] : [node[key]]).map((child) => [key, child])
+				)
+				.filter(
+					([, child]) => child && typeof child === 'object' && typeof child.type === 'string'
+				);
+		}
+
+		function walkEffectGen(genCall, guard, bodyGuard) {
+			const body = generatorBody(genCall);
+			for (const [, child] of children(genCall)) if (child !== body) walk(child, guard);
+			if (body) for (const [, child] of children(body)) walk(child, bodyGuard);
+		}
+
+		function walk(node, guard) {
+			if (isClientConstruction(node) && !guard.tryBlock && !guard.effect) {
 				context.report({ node, messageId: 'unguardedConstruction' });
 			}
 
-			for (const key of Object.keys(node)) {
-				if (key === 'parent' || key === 'tokens' || key === 'comments') continue;
-				const value = node[key];
-				const children = Array.isArray(value) ? value : [value];
-				for (const child of children) {
-					if (!child || typeof child !== 'object' || typeof child.type !== 'string') continue;
-					// Only a try's protected `block` guards construction; descending
-					// into `handler` (catch) or `finalizer` (finally) does not. Once
-					// inside a guarded block, everything below stays guarded.
-					const childGuarded =
-						insideTry ||
-						(node.type === 'TryStatement' && key === 'block') ||
-						(key === 'callee' && isRecoveredEffectGen(node));
-					walk(child, childGuarded);
+			if (isRecoveredEffectGen(node)) {
+				for (const [, child] of children(node)) if (child !== node.callee) walk(child, guard);
+				walkEffectGen(node.callee.object, guard, { ...guard, effect: true });
+				return;
+			}
+
+			const yielded = yieldedEffectGen(node);
+			if (yielded) {
+				if (yielded !== node.argument) {
+					for (const [, child] of children(node.argument)) {
+						if (child !== node.argument.callee) walk(child, guard);
+					}
 				}
+				walkEffectGen(yielded, guard, guard);
+				return;
+			}
+
+			const inner = isFunction(node) ? { ...guard, effect: false } : guard;
+			for (const [key, child] of children(node)) {
+				// Only a try's protected `block` guards construction; descending
+				// into `handler` (catch) or `finalizer` (finally) does not. Once
+				// inside a guarded block, everything below stays guarded.
+				const tryBlock = inner.tryBlock || (node.type === 'TryStatement' && key === 'block');
+				walk(child, { ...inner, tryBlock });
 			}
 		}
 
 		return {
 			Program(node) {
-				walk(node, false);
+				walk(node, { tryBlock: false, effect: false });
 			}
 		};
 	}
