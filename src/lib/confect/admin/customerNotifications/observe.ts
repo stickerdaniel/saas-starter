@@ -121,7 +121,7 @@ export const handleAutumnWebhook = <R>(
 		}
 		const { customerId: userId } = read;
 
-		const billing = yield* Effect.promise(() => readCustomerBilling(userId));
+		const billing = yield* readCustomerBilling(userId);
 		if (billing.kind === 'not_found') return respond(200);
 		if (billing.kind !== 'ok') {
 			yield* logged(billing.kind === 'failed' ? 'error' : 'warn', { code: billing.code, userId });

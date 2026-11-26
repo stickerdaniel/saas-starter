@@ -446,8 +446,8 @@ describe('idempotent admission', () => {
 
 	it('admits nothing after a billing read that timed out', { timeout: 2000 }, async () => {
 		const logs = captureLogs();
-		const realTimeout = AbortSignal.timeout.bind(AbortSignal);
-		vi.spyOn(AbortSignal, 'timeout').mockImplementation(() => realTimeout(30));
+		vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+		vi.setSystemTime(NOW);
 		const { store, deliver, rows } = setup();
 		vi.stubGlobal(
 			'fetch',
@@ -459,7 +459,9 @@ describe('idempotent admission', () => {
 			)
 		);
 
-		const response = await deliver(delivery(billingUpdated(CUSTOMER)));
+		const pending = deliver(delivery(billingUpdated(CUSTOMER)));
+		await vi.advanceTimersByTimeAsync(8000);
+		const response = await pending;
 
 		expect(response.status).toBe(503);
 		expect(logs.text()).toContain('autumn_timeout');

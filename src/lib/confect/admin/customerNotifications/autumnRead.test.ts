@@ -1,4 +1,5 @@
 import { inspect } from 'node:util';
+import * as Effect from 'effect/Effect';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readCustomerBilling, type CustomerBillingRead } from './autumnRead';
 
@@ -12,10 +13,17 @@ import { readCustomerBilling, type CustomerBillingRead } from './autumnRead';
 const SECRET = 'am_sk_test_read';
 /** Provider text that must never leave the read. */
 const SENTINEL = 'PROVIDER-SENTINEL-7f3a';
-const ABORT_AFTER_MS = 30;
+const BUDGET_MS = 8000;
+const TIMED_OUT: CustomerBillingRead = { kind: 'retry', code: 'autumn_timeout' };
 
-const realTimeout = AbortSignal.timeout.bind(AbortSignal);
-let requestedTimeouts: number[] = [];
+const read = (customerId: string) => Effect.runPromise(readCustomerBilling(customerId));
+
+/** The read's result once the whole budget has passed on the fake clock. */
+async function readAfterBudget(customerId = 'user_1') {
+	const pending = read(customerId);
+	await vi.advanceTimersByTimeAsync(BUDGET_MS);
+	return pending;
+}
 
 /** Every console line the code under test wrote, one entry per call. */
 function captureLogs() {
@@ -54,32 +62,70 @@ function stallingBody(signal: AbortSignal | null | undefined): Response {
 }
 
 beforeEach(() => {
+	vi.useFakeTimers();
 	vi.stubEnv('AUTUMN_SECRET_KEY', SECRET);
-	requestedTimeouts = [];
-	vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms: number) => {
-		requestedTimeouts.push(ms);
-		return realTimeout(ABORT_AFTER_MS);
-	});
 });
 
 afterEach(() => {
+	vi.useRealTimers();
 	vi.unstubAllEnvs();
 	vi.unstubAllGlobals();
 	vi.restoreAllMocks();
 });
 
 describe('readCustomerBilling', () => {
-	it('asks Autumn API 1.2 for the customer with invoices, under one 8 s signal', async () => {
+	it('asks Autumn API 1.2 for the customer with invoices', async () => {
 		const fetchMock = stubFetch(async () => Response.json({ products: [], invoices: [] }));
 
-		const result = await readCustomerBilling('user/1 ä');
+		const result = await read('user/1 ä');
 
 		expect(result).toEqual({ kind: 'ok', data: { products: [], invoices: [] } });
 		const [url, init] = fetchMock.mock.calls[0]!;
 		expect(url).toBe('https://api.useautumn.com/v1/customers/user%2F1%20%C3%A4?expand=invoices');
 		expect(new Headers(init.headers).get('authorization')).toBe(`Bearer ${SECRET}`);
 		expect(new Headers(init.headers).get('x-api-version')).toBe('1.2');
-		expect(requestedTimeouts).toEqual([8000]);
+	});
+
+	it('gives headers and body one 8 s budget together', async () => {
+		stubFetch(
+			(_, init) =>
+				new Promise((resolve) => setTimeout(() => resolve(stallingBody(init.signal)), 5000))
+		);
+		let settled: CustomerBillingRead | undefined;
+		void read('user_1').then((result) => (settled = result));
+
+		await vi.advanceTimersByTimeAsync(BUDGET_MS - 1);
+		expect(settled).toBeUndefined();
+		await vi.advanceTimersByTimeAsync(1);
+		expect(settled).toEqual(TIMED_OUT);
+	});
+
+	it('aborts the request of a refused response before returning', async () => {
+		const fetchMock = stubFetch(async () => new Response(new ReadableStream(), { status: 503 }));
+
+		expect(await read('user_1')).toEqual({ kind: 'retry', code: 'autumn_unavailable' });
+		expect(fetchMock.mock.calls[0]![1].signal?.aborted).toBe(true);
+	});
+
+	it('aborts the request once when refused headers arrive after the deadline', async () => {
+		let repeatedAborts = 0;
+		class CountingAbortController extends AbortController {
+			override abort(reason?: unknown) {
+				if (this.signal.aborted) repeatedAborts += 1;
+				super.abort(reason);
+			}
+		}
+		vi.stubGlobal('AbortController', CountingAbortController);
+		stubFetch(
+			() =>
+				new Promise((resolve) =>
+					setTimeout(() => resolve(new Response(null, { status: 401 })), BUDGET_MS + 1000)
+				)
+		);
+
+		expect(await readAfterBudget()).toEqual(TIMED_OUT);
+		await vi.advanceTimersByTimeAsync(1000);
+		expect(repeatedAborts).toBe(0);
 	});
 
 	it.each<[string, number, CustomerBillingRead]>([
@@ -96,7 +142,7 @@ describe('readCustomerBilling', () => {
 	])('classifies a %s (%i)', async (_, status, expected) => {
 		stubFetch(async () => Response.json({ message: SENTINEL }, { status }));
 
-		expect(await readCustomerBilling('user_1')).toEqual(expected);
+		expect(await read('user_1')).toEqual(expected);
 	});
 
 	it.each([
@@ -107,47 +153,44 @@ describe('readCustomerBilling', () => {
 	])('retries a 2xx with a %s body', async (_, body) => {
 		stubFetch(async () => new Response(body, { status: 200 }));
 
-		expect(await readCustomerBilling('user_1')).toEqual({
+		expect(await read('user_1')).toEqual({
 			kind: 'retry',
 			code: 'autumn_bad_response'
 		});
 	});
 
 	it('retries a request that rejects', async () => {
-		stubFetch(async () => {
+		const fetchMock = stubFetch(async () => {
 			throw new TypeError(`fetch failed: ${SENTINEL}`);
 		});
 
-		expect(await readCustomerBilling('user_1')).toEqual({
+		expect(await read('user_1')).toEqual({
 			kind: 'retry',
 			code: 'autumn_network'
 		});
+		expect(fetchMock).toHaveBeenCalledOnce();
 	});
 
-	// Without the signal the stub never settles, and this test times out.
 	it('times out a request whose headers never arrive', { timeout: 2000 }, async () => {
-		stubFetch((_, init) => untilAborted(init.signal));
+		const fetchMock = stubFetch((_, init) => untilAborted(init.signal));
 
-		expect(await readCustomerBilling('user_1')).toEqual({
-			kind: 'retry',
-			code: 'autumn_timeout'
-		});
+		expect(await readAfterBudget()).toEqual(TIMED_OUT);
+		expect(fetchMock).toHaveBeenCalledOnce();
+		expect(fetchMock.mock.calls[0]?.[1].signal?.aborted).toBe(true);
 	});
 
 	it('times out a body that stalls after the headers', { timeout: 2000 }, async () => {
-		stubFetch(async (_, init) => stallingBody(init.signal));
+		const fetchMock = stubFetch(async (_, init) => stallingBody(init.signal));
 
-		expect(await readCustomerBilling('user_1')).toEqual({
-			kind: 'retry',
-			code: 'autumn_timeout'
-		});
+		expect(await readAfterBudget()).toEqual(TIMED_OUT);
+		expect(fetchMock).toHaveBeenCalledOnce();
 	});
 
 	it('reports missing billing configuration without calling Autumn', async () => {
 		vi.stubEnv('AUTUMN_SECRET_KEY', '');
 		const fetchMock = stubFetch(async () => Response.json({}));
 
-		expect(await readCustomerBilling('user_1')).toEqual({
+		expect(await read('user_1')).toEqual({
 			kind: 'failed',
 			code: 'billing_unconfigured'
 		});
@@ -173,7 +216,7 @@ describe('readCustomerBilling', () => {
 		const results: unknown[] = [];
 		for (const respond of responses) {
 			stubFetch(respond);
-			results.push(await readCustomerBilling('user_1'));
+			results.push(await readAfterBudget());
 		}
 
 		expect(results).toHaveLength(responses.length);
