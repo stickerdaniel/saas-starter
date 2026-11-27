@@ -78,6 +78,7 @@ function render(text: string) {
 
 const trigger = () => document.querySelector<HTMLElement>(`[data-testid="${TEST_ID}"]`)!;
 const tooltip = () => document.querySelector<HTMLElement>('[data-slot="tooltip-content"]');
+const popover = () => document.querySelector<HTMLElement>('[data-slot="popover-content"]');
 
 async function settle() {
 	flushSync();
@@ -106,7 +107,9 @@ async function tap() {
 		);
 	}
 	trigger().focus();
-	trigger().click();
+	trigger().dispatchEvent(
+		new PointerEvent('click', { pointerType: 'touch', bubbles: true, cancelable: true })
+	);
 	await settle();
 }
 
@@ -156,215 +159,170 @@ describe('TruncatedText', () => {
 		expect(tooltip()).toBeNull();
 	});
 
+	async function outsideTap() {
+		vi.useFakeTimers();
+		for (const type of ['pointerdown', 'pointerup', 'click']) {
+			document.body.dispatchEvent(
+				new PointerEvent(type, { pointerType: 'touch', bubbles: true, clientX: 100, clientY: 100 })
+			);
+			// Outside touch dismissal arms its click listener after pointerdown.
+			await vi.runOnlyPendingTimersAsync();
+		}
+		vi.useRealTimers();
+		await settle();
+	}
+
+	async function press(key: string) {
+		trigger().dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+		await settle();
+	}
+
 	describe.each(['cold', 'keyboard-first'])('%s touch', (history) => {
-		it.each(['Escape', 'blur', 'outside', 'resize'])(
-			'keeps complete repeated taps open until %s dismisses the text',
-			async (dismiss) => {
-				render(LONG);
-				if (history === 'keyboard-first') {
-					trigger().focus();
-					await settle();
-					expect(tooltip()?.textContent?.trim()).toBe(LONG);
-				}
-
-				for (let tapCount = 0; tapCount < 2; tapCount++) {
-					await tap();
-					expect(trigger().getAttribute('data-state')).toBe('instant-open');
-					expect(tooltip()?.getAttribute('data-state')).toBe('instant-open');
-					expect(tooltip()?.textContent?.trim()).toBe(LONG);
-					expect(document.activeElement).toBe(trigger());
-				}
-
-				if (dismiss === 'Escape') {
-					trigger().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-				} else if (dismiss === 'blur') {
-					trigger().blur();
-				} else if (dismiss === 'outside') {
-					vi.useFakeTimers();
-					for (const type of ['pointerdown', 'pointerup', 'click']) {
-						document.body.dispatchEvent(
-							new PointerEvent(type, {
-								pointerType: 'touch',
-								bubbles: true,
-								clientX: 100,
-								clientY: 100
-							})
-						);
-						// Outside touch dismissal arms its click listener after pointerdown.
-						await vi.runOnlyPendingTimersAsync();
-					}
-					vi.useRealTimers();
-				} else {
-					await relayout({ box: 1000 });
-					expect(trigger().hasAttribute('tabindex')).toBe(false);
-				}
+		async function renderTouched() {
+			render(LONG);
+			if (history === 'keyboard-first') {
+				trigger().focus();
 				await settle();
-				expect(trigger().getAttribute('data-state')).toBe('closed');
-				expect(tooltip()).toBeNull();
+				expect(tooltip()?.textContent?.trim()).toBe(LONG);
 			}
-		);
+			await tap();
+			expect(popover()?.textContent?.trim()).toBe(LONG);
+			expect(tooltip()).toBeNull();
+			expect(document.activeElement).toBe(trigger());
+		}
+
+		it('opens the full text with a tap and closes it with a second tap', async () => {
+			await renderTouched();
+
+			await tap();
+			expect(popover()).toBeNull();
+			expect(tooltip()).toBeNull();
+
+			await tap();
+			expect(popover()?.textContent?.trim()).toBe(LONG);
+		});
+
+		it.each(['Escape', 'outside'])('closes the full text on %s', async (dismiss) => {
+			await renderTouched();
+
+			if (dismiss === 'Escape') await press('Escape');
+			else await outsideTap();
+
+			expect(popover()).toBeNull();
+			expect(tooltip()).toBeNull();
+			expect(document.activeElement).toBe(trigger());
+		});
+
+		it('closes the full text and stops responding once the text fits', async () => {
+			await renderTouched();
+
+			await relayout({ box: 1000 });
+			expect(popover()).toBeNull();
+			expect(trigger().hasAttribute('tabindex')).toBe(false);
+
+			await tap();
+			expect(popover()).toBeNull();
+			expect(tooltip()).toBeNull();
+		});
 	});
 
-	it('preserves mouse hover into the content and mouse leave after touch', async () => {
+	it('neither takes nor returns focus when the full text opens and closes', async () => {
+		render(LONG);
+		const elsewhere = document.createElement('button');
+		document.body.append(elsewhere);
+
+		await tap();
+		expect(popover()?.textContent?.trim()).toBe(LONG);
+		expect(document.activeElement).toBe(trigger());
+
+		elsewhere.focus();
+		await outsideTap();
+		expect(popover()).toBeNull();
+		expect(document.activeElement).toBe(elsewhere);
+	});
+
+	it('hands the full text to the mouse after a touch', async () => {
 		render(LONG);
 		await tap();
+		expect(popover()?.textContent?.trim()).toBe(LONG);
+
+		await hover();
+		expect(tooltip()?.textContent?.trim()).toBe(LONG);
+		expect(popover()).toBeNull();
+
+		trigger().dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
+		await settle();
+		expect(tooltip()).toBeNull();
+		expect(popover()).toBeNull();
+	});
+
+	it('keeps a mouse click on the hover tooltip', async () => {
+		render(LONG);
 		await hover();
 		trigger().dispatchEvent(
-			new PointerEvent('pointerleave', { pointerType: 'mouse', relatedTarget: tooltip() })
+			new PointerEvent('pointerdown', { pointerType: 'mouse', bubbles: true, cancelable: true })
 		);
+		trigger().click();
 		await settle();
-		expect(tooltip()?.textContent?.trim()).toBe(LONG);
-		expect(tooltip()?.getAttribute('data-state')).toBe('instant-open');
 
-		tooltip()!.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
-		await settle();
-		expect(tooltip()).toBeNull();
-
-		await hover();
 		expect(tooltip()?.textContent?.trim()).toBe(LONG);
-		trigger().dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
-		await settle();
-		expect(tooltip()).toBeNull();
+		expect(popover()).toBeNull();
 	});
 
-	it.each(['mouse-first', 'touch-first'])(
-		'keeps full text open when the mouse resumes inside the trigger after %s touch',
+	it.each(['before', 'after'])(
+		'shows only the tooltip to the keyboard and opens nothing on Enter or Space %s a touch',
 		async (history) => {
 			render(LONG);
-			if (history === 'mouse-first') await hover();
-			await tap();
-			// WebKit sends this compatibility click without a new mouse pointerenter.
-			trigger().dispatchEvent(new PointerEvent('click', { pointerType: 'mouse', bubbles: true }));
-			trigger().dispatchEvent(
-				new PointerEvent('pointermove', { pointerType: 'mouse', bubbles: true })
-			);
+			if (history === 'after') {
+				await tap();
+				await tap();
+				expect(popover()).toBeNull();
+				trigger().blur();
+			}
+			trigger().focus();
 			await settle();
 
-			const content = tooltip()!;
-			trigger().dispatchEvent(
-				new PointerEvent('pointerleave', { pointerType: 'mouse', relatedTarget: content })
-			);
-			content.dispatchEvent(
-				new PointerEvent('pointerenter', { pointerType: 'mouse', relatedTarget: trigger() })
-			);
-			await settle();
-
-			expect(trigger().getAttribute('data-state')).toBe('instant-open');
-			expect(tooltip()?.getAttribute('data-state')).toBe('instant-open');
-			expect(tooltip()?.textContent?.trim()).toBe(LONG);
-
-			content.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
-			await settle();
-			expect(tooltip()).toBeNull();
+			for (const key of ['Enter', ' ']) {
+				await press(key);
+				expect(tooltip()?.textContent?.trim()).toBe(LONG);
+				expect(popover()).toBeNull();
+				expect(document.activeElement).toBe(trigger());
+			}
+			for (const attribute of ['aria-haspopup', 'aria-expanded', 'aria-controls', 'role']) {
+				expect(trigger().hasAttribute(attribute)).toBe(false);
+			}
+			expect(trigger().textContent).toBe(LONG);
 		}
 	);
 
-	it.each(['mouse', 'pen'])(
-		'keeps held touch open when an already-present %s moves',
-		async (pointerType) => {
+	it.each(['a second tap', 'Escape'])(
+		'opens nothing on a click without a new touch after %s closed it',
+		async (closer) => {
 			render(LONG);
-			await hover(pointerType);
 			await tap();
-			trigger().dispatchEvent(
-				new PointerEvent('pointerdown', {
-					pointerType: 'touch',
-					pointerId: 2,
-					buttons: 1,
-					bubbles: true
-				})
-			);
-			await settle();
-			trigger().dispatchEvent(new PointerEvent('pointermove', { pointerType, bubbles: true }));
-			await settle();
+			expect(popover()?.textContent?.trim()).toBe(LONG);
+			if (closer === 'Escape') await press('Escape');
+			else await tap();
+			expect(popover()).toBeNull();
 
-			for (const type of ['pointerup', 'pointerleave']) {
-				trigger().dispatchEvent(
-					new PointerEvent(type, {
-						pointerType: 'touch',
-						pointerId: 2,
-						bubbles: type === 'pointerup'
-					})
-				);
-			}
 			trigger().click();
 			await settle();
-
-			expect(trigger().getAttribute('data-state')).toBe('instant-open');
-			expect(tooltip()?.getAttribute('data-state')).toBe('instant-open');
-			expect(tooltip()?.textContent?.trim()).toBe(LONG);
+			expect(popover()).toBeNull();
 		}
 	);
 
-	it.each(['mouse-first', 'touch-first'])(
-		'preserves a direct mouse exit into the content after %s touch',
-		async (history) => {
-			render(LONG);
-			if (history === 'mouse-first') await hover();
-			await tap();
-			const content = tooltip()!;
-			// No in-trigger mouse enter, move or down precedes this exit.
-			trigger().dispatchEvent(
-				new PointerEvent('pointerleave', { pointerType: 'mouse', relatedTarget: content })
-			);
-			content.dispatchEvent(new PointerEvent('pointerenter', { pointerType: 'mouse' }));
-			await settle();
-
-			expect(trigger().getAttribute('data-state')).toBe('instant-open');
-			expect(tooltip()?.getAttribute('data-state')).toBe('instant-open');
-			expect(tooltip()?.textContent?.trim()).toBe(LONG);
-
-			content.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
-			await settle();
-			expect(tooltip()).toBeNull();
-		}
-	);
-
-	it('closes on a direct mouse exit outside after touch', async () => {
+	it.each([
+		['a synthetic click', () => new PointerEvent('click', { bubbles: true })],
+		['a click without a pointer type', () => new MouseEvent('click', { bubbles: true })]
+	])('opens nothing on %s after a touch press', async (_name, click) => {
 		render(LONG);
-		await hover();
-		await tap();
-		trigger().dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
-		await settle();
-		expect(trigger().getAttribute('data-state')).toBe('closed');
-		expect(tooltip()).toBeNull();
-	});
-
-	it.each(['pointerup', 'pointercancel', 'lostpointercapture', 'pointerleave'])(
-		'restores mouse hover after touch ends through %s',
-		async (ending) => {
-			render(LONG);
-			await tap();
-			trigger().dispatchEvent(
-				new PointerEvent('pointerdown', {
-					pointerType: 'touch',
-					pointerId: 7,
-					buttons: 1,
-					bubbles: true
-				})
-			);
-			await settle();
-			trigger().dispatchEvent(
-				new PointerEvent(ending, {
-					pointerType: 'touch',
-					pointerId: 7,
-					buttons: 0,
-					bubbles: ending !== 'pointerleave'
-				})
-			);
-			await settle();
-			const content = tooltip()!;
-			trigger().dispatchEvent(
-				new PointerEvent('pointerleave', { pointerType: 'mouse', relatedTarget: content })
-			);
-			await settle();
-			expect(tooltip()?.getAttribute('data-state')).toBe('instant-open');
-			expect(tooltip()?.textContent?.trim()).toBe(LONG);
-
-			content.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
-			await settle();
-			expect(tooltip()).toBeNull();
+		for (const type of ['pointerdown', 'pointerup']) {
+			trigger().dispatchEvent(new PointerEvent(type, { pointerType: 'touch', bubbles: true }));
 		}
-	);
+		trigger().dispatchEvent(click());
+		await settle();
+		expect(popover()).toBeNull();
+	});
 
 	it('follows text changes', async () => {
 		const props = render(LONG);
