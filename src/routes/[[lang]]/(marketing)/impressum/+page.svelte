@@ -3,7 +3,7 @@
 	import ObfuscatedEmail from '#lib/components/obfuscated-email.svelte';
 	import SEOHead from '#lib/components/SEOHead.svelte';
 	import { LEGAL_CONFIG } from '#lib/config/legal.js';
-	import { impressumMarkdown as source } from '#lib/content/impressum.js';
+	import { impressumDocument as source } from '#lib/content/impressum.js';
 	import { getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();

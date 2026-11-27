@@ -621,6 +621,13 @@
 		},
 		{
 			"type": "git",
+			"name": "entities",
+			"url": "https://github.com/fb55/entities",
+			"branch": "main",
+			"specialNotes": "HTML entity decoder used at build time by scripts/legal-document.ts. Inspect src/decode.ts for decodeHTMLStrict, which decodes only references terminated by a semicolon."
+		},
+		{
+			"type": "git",
 			"name": "clack",
 			"url": "https://github.com/bombshell-dev/clack",
 			"branch": "main"

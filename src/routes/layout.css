@@ -212,6 +212,9 @@
 	/* Micro labels: avatar initials, unread counts, and small badges. No line-height
 	   companion, so the element keeps the one it inherits. */
 	--text-2xs: 0.625rem;
+	/* Inline code in legal pages, relative to the surrounding text. No line-height
+	   companion, so the code keeps the line height of its paragraph. */
+	--text-code: 0.9em;
 	/* Line height of the full chat composers. */
 	--leading-composer: 1.3;
 

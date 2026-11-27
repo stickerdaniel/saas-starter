@@ -19,6 +19,7 @@ interface ClosureSize {
 export interface RouteMeasure extends ClosureSize {
 	id: string;
 	initialEffectModules: string[];
+	markdownParserModules: string[];
 }
 
 export interface LazyChunk {
@@ -53,6 +54,12 @@ export const SUPPORT_WIDGET: LazyChunk = {
 
 const NODE_FACADE = /client-optimized\/nodes\/(\d+)\.js$/;
 const EFFECT_MODULE = /(?:^|\/)node_modules\/(?:effect|@effect\/[^/]+)\//;
+const MARKDOWN_PARSER_MODULE = /(?:^|\/)node_modules\/(?:marked|svelte-streamdown)\//;
+const BUILD_TIME_MARKDOWN_ROUTES = new Set(
+	['about', 'contact', 'impressum', 'privacy', 'terms'].map(
+		(page) => `/[[lang]]/(marketing)/${page}`
+	)
+);
 
 const isMarketingRoute = (id: string) => id.split('/').includes('(marketing)');
 
@@ -127,11 +134,18 @@ export function measureRoutes(
 			lazyEdges,
 			lazySkip
 		);
-		const initialEffectModules = [...initial]
-			.flatMap((file) => chunk(file).modules)
-			.filter((module) => EFFECT_MODULE.test(module))
-			.sort();
-		return { id, initial: sum(initial), lazy: sum(lazy), initialEffectModules };
+		const modules = (files: Set<string>, pattern: RegExp) =>
+			[...files]
+				.flatMap((file) => chunk(file).modules)
+				.filter((module) => pattern.test(module))
+				.sort();
+		return {
+			id,
+			initial: sum(initial),
+			lazy: sum(lazy),
+			initialEffectModules: modules(initial, EFFECT_MODULE),
+			markdownParserModules: modules(new Set([...initial, ...lazy]), MARKDOWN_PARSER_MODULE)
+		};
 	});
 	const unmeasured = lazyChunks.filter(
 		(spec) => !lazyChunkMeasures.some(({ name }) => name === spec.name)
@@ -150,37 +164,45 @@ export function checkBudget(
 	budget: BundleBudget
 ) {
 	const compareSizes = sameConfiguration(unsetPublicEnv, budget.unsetPublicEnv);
-	const routeFailures = measures.flatMap(({ id, initial, lazy, initialEffectModules }) => {
-		const found: string[] = [];
-		const marketing = isMarketingRoute(id);
-		if (marketing && initialEffectModules.length > 0) {
-			const listed = initialEffectModules.slice(0, 5).join(', ');
-			found.push(
-				`${id}: the initial closure of a (marketing) route holds ${initialEffectModules.length} Effect modules (${listed}). Keep Effect out of marketing pages and every layout above them; load it lazily.`
-			);
-		}
-		const entry = budget.routes[id];
-		if (!entry) {
-			found.push(
-				`${id}: no entry in ${BUDGET_FILE}. Add one with the sizes of a build with unset public variables [${budget.unsetPublicEnv.join(', ')}].`
-			);
-			return found;
-		}
-		if (!compareSizes) return found;
-		const allowance = marketing ? budget.allowance.marketing : budget.allowance.app;
-		for (const [closure, measured] of [
-			['initial', initial],
-			['lazy', lazy]
-		] as const) {
-			const limit = entry[closure] + allowance;
-			if (measured > limit) {
+	const routeFailures = measures.flatMap(
+		({ id, initial, lazy, initialEffectModules, markdownParserModules }) => {
+			const found: string[] = [];
+			const marketing = isMarketingRoute(id);
+			if (marketing && initialEffectModules.length > 0) {
+				const listed = initialEffectModules.slice(0, 5).join(', ');
 				found.push(
-					`${id}: ${closure} JS is ${measured} B gzip, over its budget of ${limit} B (${entry[closure]} B baseline + ${allowance} B allowance).`
+					`${id}: the initial closure of a (marketing) route holds ${initialEffectModules.length} Effect modules (${listed}). Keep Effect out of marketing pages and every layout above them; load it lazily.`
 				);
 			}
+			if (BUILD_TIME_MARKDOWN_ROUTES.has(id) && markdownParserModules.length > 0) {
+				const listed = markdownParserModules.slice(0, 5).join(', ');
+				found.push(
+					`${id}: the page reaches ${markdownParserModules.length} Markdown parser modules (${listed}). Import its Markdown with ?legal-document, which parses it at build time, instead of rendering it in the browser.`
+				);
+			}
+			const entry = budget.routes[id];
+			if (!entry) {
+				found.push(
+					`${id}: no entry in ${BUDGET_FILE}. Add one with the sizes of a build with unset public variables [${budget.unsetPublicEnv.join(', ')}].`
+				);
+				return found;
+			}
+			if (!compareSizes) return found;
+			const allowance = marketing ? budget.allowance.marketing : budget.allowance.app;
+			for (const [closure, measured] of [
+				['initial', initial],
+				['lazy', lazy]
+			] as const) {
+				const limit = entry[closure] + allowance;
+				if (measured > limit) {
+					found.push(
+						`${id}: ${closure} JS is ${measured} B gzip, over its budget of ${limit} B (${entry[closure]} B baseline + ${allowance} B allowance).`
+					);
+				}
+			}
+			return found;
 		}
-		return found;
-	});
+	);
 	const lazyChunkFailures = lazyChunks.flatMap(({ name, lazy }) => {
 		const entry = budget.lazyChunks[name];
 		if (!entry) return [`${name}: no lazy chunk entry in ${BUDGET_FILE}.`];

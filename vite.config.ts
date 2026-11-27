@@ -30,6 +30,7 @@ import {
 	marketingFonts
 } from './scripts/marketing-fonts';
 import { kitGeneratedHmr } from './scripts/kit-generated-hmr';
+import { legalDocument } from './scripts/legal-document';
 import { INLINE_STYLE_THRESHOLD } from './scripts/inline-styles';
 import { sharedTestSettings, toolingTestSettings } from './scripts/vitest-settings.ts';
 import { HeavySuiteSequencer } from './scripts/vitest-sequencer.ts';
@@ -437,6 +438,7 @@ export default defineConfig(async ({ command, mode }) => {
 		}),
 		licenses.plugin,
 		marketingFonts(),
+		legalDocument(),
 		// Startup rewrites of Kit's generated files must not reload the SSR runner mid-request.
 		kitGeneratedHmr(kitOutDir),
 		devtoolsJson(),

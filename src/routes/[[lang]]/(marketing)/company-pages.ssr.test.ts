@@ -67,13 +67,18 @@ const IDENTITIES: Array<{ label: string; legal: LegalIdentity; firstName: string
  * Renders a page with `legal` as `LEGAL_CONFIG`. The content modules read the config once
  * at import, so each render loads a fresh module graph.
  */
-async function serverRender(route: 'about' | 'contact', legal: LegalIdentity): Promise<Element> {
+async function serverRender(
+	route: 'about' | 'contact',
+	legal: LegalIdentity,
+	lang = 'en'
+): Promise<Element> {
 	vi.resetModules();
 	vi.doMock('#lib/config/legal.js', async (importOriginal) => ({
 		...(await importOriginal<typeof LegalConfig>()),
 		LEGAL_CONFIG: legal
 	}));
-	page.url = new URL(`https://example.com/en/${route}`);
+	page.params.lang = lang;
+	page.url = new URL(`https://example.com/${lang}/${route}`);
 	const { render } = await import('svelte/server');
 	const { default: Provider } = await import('#lib/chat/ui/test-fixtures/ChatTestProvider.svelte');
 	const { default: Page } =
@@ -115,15 +120,15 @@ describe.each(IDENTITIES)(
 	'server-rendered company pages with the $label identity',
 	({ legal, firstName }) => {
 		it('names the product and its operator on the About page', async () => {
-			const text = visibleText(await serverRender('about', legal));
-			const { aboutMarkdown } = await import('#lib/content/about.js');
+			const content = await serverRender('about', legal);
+			const text = visibleText(content);
+			const literals = [...content.querySelectorAll('.legal-literal')].map(
+				(literal) => literal.textContent
+			);
 
 			expect(text.length).toBeGreaterThanOrEqual(500);
 			// Forks rewrite this copy; only the identity it carries is fixed.
-			expect(aboutMarkdown.literals).toEqual({
-				BRAND_NAME: legal.brandName,
-				OPERATOR_FIRST_NAME: firstName
-			});
+			expect(new Set(literals)).toEqual(new Set([legal.brandName, firstName]));
 			for (const name of [legal.brandName, firstName]) {
 				expect(text).toContain(collapse(name));
 			}
@@ -138,5 +143,14 @@ describe.each(IDENTITIES)(
 			expect(linkTarget(content, 'Open the support chat')).toBe('/en/?support=open');
 			expect(linkTarget(content, 'Impressum')).toBe('/en/impressum');
 		});
+	}
+);
+
+it.each(['de', 'es', 'fr'])(
+	'links the %s Contact page to the Impressum in its locale',
+	async (lang) => {
+		const content = await serverRender('contact', FORK, lang);
+
+		expect(linkTarget(content, 'Impressum')).toBe(`/${lang}/impressum`);
 	}
 );

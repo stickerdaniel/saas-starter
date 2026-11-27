@@ -1,7 +1,7 @@
 <script lang="ts">
 	import LegalMarkdown from '#lib/components/legal-markdown.svelte';
 	import SEOHead from '#lib/components/SEOHead.svelte';
-	import { aboutMarkdown as source } from '#lib/content/about.js';
+	import { aboutDocument as source } from '#lib/content/about.js';
 	import { getTranslate } from '@tolgee/svelte';
 
 	const { t } = getTranslate();

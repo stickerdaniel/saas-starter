@@ -3,7 +3,8 @@
 import { createRequire } from 'node:module';
 import { render } from 'svelte/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createLegalMarkdown, type LegalMarkdownContent } from '#lib/content/legal-template.js';
+import { createLegalDocument } from '#lib/content/legal-template.js';
+import { parseLegalMarkdown } from '../../../scripts/legal-document';
 import LegalMarkdown from './legal-markdown.svelte';
 
 const page = vi.hoisted(() => ({
@@ -17,20 +18,29 @@ const { JSDOM } = createRequire(import.meta.url)('jsdom') as {
 	JSDOM: new (html?: string) => { window: { document: Document } };
 };
 
-function renderDocument(content: LegalMarkdownContent): Document {
+function renderDocument(markdown: string, values: Readonly<Record<string, string>> = {}): Document {
+	const content = createLegalDocument('sample', parseLegalMarkdown('terms', markdown), values);
 	const { body } = render(LegalMarkdown, { props: { content } });
 	return new JSDOM(body).window.document;
+}
+
+function links(document: Document) {
+	return [...document.querySelectorAll('a')].map((link) => ({
+		text: link.textContent,
+		href: link.getAttribute('href'),
+		title: link.getAttribute('title'),
+		target: link.getAttribute('target'),
+		rel: link.getAttribute('rel')
+	}));
 }
 
 describe('LegalMarkdown', () => {
 	afterEach(() => {
 		page.params.lang = 'en';
-		page.url = new URL('https://example.com/en/terms');
 	});
 
-	it('renders parsed links against the current localized page', () => {
-		page.params.lang = 'de';
-		page.url = new URL('https://example.com/de/terms');
+	it.each(['de', 'es', 'fr'])('renders relative links for the %s page', (lang) => {
+		page.params.lang = lang;
 		const markdown = [
 			'[Inline](privacy "Read \\"the policy\\"") [Reference][policy] [Root](/privacy) [Home](/)',
 			'[Anchor](#rights) [External](https://example.org/docs) [Script](javascript:alert(1))',
@@ -44,19 +54,12 @@ describe('LegalMarkdown', () => {
 			'',
 			'[policy]: terms'
 		].join('\n');
-		const document = renderDocument({ markdown, literals: {} });
-		const links = [...document.querySelectorAll('a')].map((link) => ({
-			text: link.textContent,
-			href: link.getAttribute('href'),
-			title: link.getAttribute('title'),
-			target: link.getAttribute('target'),
-			rel: link.getAttribute('rel')
-		}));
+		const document = renderDocument(markdown);
 		const internal = { title: null, target: null, rel: null };
 
-		expect(links).toEqual([
-			{ ...internal, text: 'Inline', href: '/de/privacy', title: 'Read "the policy"' },
-			{ ...internal, text: 'Reference', href: '/de/terms' },
+		expect(links(document)).toEqual([
+			{ ...internal, text: 'Inline', href: `/${lang}/privacy`, title: 'Read "the policy"' },
+			{ ...internal, text: 'Reference', href: `/${lang}/terms` },
 			{ ...internal, text: 'Root', href: '/privacy' },
 			{ ...internal, text: 'Home', href: '/' },
 			{ ...internal, text: 'Anchor', href: '#rights' },
@@ -68,12 +71,47 @@ describe('LegalMarkdown', () => {
 				rel: 'noopener noreferrer'
 			}
 		]);
-		expect(document.body.textContent).toContain('Backslash');
-		expect(document.body.textContent).toContain('Script');
-		expect(document.body.textContent).toContain('Protocol');
+		for (const label of ['Backslash', 'Script', 'Protocol']) {
+			expect(document.body.textContent).toContain(label);
+		}
 		expect(document.querySelector('[href^="javascript:" i], [src^="javascript:" i]')).toBeNull();
 		expect(document.body.textContent).toContain('[Inline code](privacy)');
 		expect(document.body.textContent).toContain('[Fenced code](privacy)');
+	});
+
+	it('renders markup in values, titles and code as text', () => {
+		page.params.lang = 'de';
+		const document = renderDocument(
+			[
+				'[Privacy](privacy "\\"><img src=x onerror=alert(1)>") {{VALUE}}',
+				'',
+				'`<script>alert(2)</script>` ![a"><script>alert(3)</script>](/logo.png)',
+				'',
+				'```html',
+				'<img src=x onerror=alert(4)>',
+				'```'
+			].join('\n'),
+			{ VALUE: '<script>alert(5)</script><a href="javascript:alert(6)">x</a>' }
+		);
+
+		expect(links(document)).toEqual([
+			{
+				text: 'Privacy',
+				href: '/de/privacy',
+				title: '"><img src=x onerror=alert(1)>',
+				target: null,
+				rel: null
+			}
+		]);
+		expect(document.querySelector('.legal-literal')?.textContent).toBe(
+			'<script>alert(5)</script><a href="javascript:alert(6)">x</a>'
+		);
+		expect([...document.querySelectorAll('code')].map((code) => code.textContent)).toEqual([
+			'<script>alert(2)</script>',
+			'<img src=x onerror=alert(4)>'
+		]);
+		expect(document.querySelector('img')?.getAttribute('alt')).toBe('a"><script>alert(3)</script>');
+		expect(document.querySelector('script, [onerror]')).toBeNull();
 	});
 
 	it('renders configured values as exact literal text', () => {
@@ -99,12 +137,10 @@ describe('LegalMarkdown', () => {
 			'<script>alert(2)</script>',
 			'```'
 		].join('\r\n');
-		const content = createLegalMarkdown(
-			'sample',
+		const document = renderDocument(
 			'# Authored heading\n\nAuthored *emphasis* and [Privacy](privacy).\n\nOperator:\n\n{{OPERATOR}}\n\nBrand: {{BRAND}}\n\nAddress:\n\n{{ADDRESS}}',
 			{ OPERATOR: operator, BRAND: brand, ADDRESS: address }
 		);
-		const document = renderDocument(content);
 		const literals = [...document.querySelectorAll<HTMLElement>('.legal-literal')];
 
 		expect(literals.map((element) => element.textContent)).toEqual([
@@ -115,26 +151,19 @@ describe('LegalMarkdown', () => {
 		for (const literal of literals) {
 			expect(literal.children).toHaveLength(0);
 		}
-
 		expect(document.querySelectorAll('h1')).toHaveLength(1);
 		expect(document.querySelector('h1')?.textContent).toBe('Authored heading');
 		expect(document.querySelectorAll('em')).toHaveLength(1);
 		expect(document.querySelector('em')?.textContent).toBe('emphasis');
-		expect(document.querySelectorAll('a')).toHaveLength(1);
-		expect(document.querySelector('a')?.getAttribute('href')).toBe('/en/privacy');
-		expect(document.querySelector('a')?.hasAttribute('data-streamdown-link')).toBe(true);
+		expect(links(document).map((link) => link.href)).toEqual(['/en/privacy']);
 		expect(
-			document.querySelector(
-				'blockquote, ul, ol, pre, code, img, script, strong, del, [data-streamdown-math]'
-			)
+			document.querySelector('blockquote, ul, ol, pre, code, img, script, strong, del')
 		).toBeNull();
 	});
 
 	it('renders table-cell values as literal text', () => {
 		const value = '**Bold** <script>alert(1)</script> [Link](https://evil.example)';
-		const document = renderDocument(
-			createLegalMarkdown('sample', '| Header |\n| --- |\n| {{VALUE}} |', { VALUE: value })
-		);
+		const document = renderDocument('| Header |\n| --- |\n| {{VALUE}} |', { VALUE: value });
 		const literal = document.querySelector<HTMLElement>('td .legal-literal');
 
 		expect(document.querySelector('th')?.textContent).toBe('Header');
@@ -144,13 +173,29 @@ describe('LegalMarkdown', () => {
 		expect(document.querySelector('strong, script, a')).toBeNull();
 	});
 
-	it('keeps same-named literals isolated between documents', () => {
-		const first = renderDocument(createLegalMarkdown('first', '{{NAME}}', { NAME: 'First value' }));
-		const second = renderDocument(
-			createLegalMarkdown('second', '{{NAME}}', { NAME: 'Second value' })
+	it('renders ordered list starts, cell alignment and image sources', () => {
+		const document = renderDocument(
+			[
+				'3. Third',
+				'4. Fourth',
+				'',
+				'| Left | Center | Right |',
+				'| :--- | :---: | ---: |',
+				'| a | b | c |',
+				'',
+				'![A & B &#169;](/logo.png)'
+			].join('\n')
 		);
 
-		expect(first.querySelector('.legal-literal')?.textContent).toBe('First value');
-		expect(second.querySelector('.legal-literal')?.textContent).toBe('Second value');
+		expect(document.querySelector('ol')?.getAttribute('start')).toBe('3');
+		expect([...document.querySelectorAll('ol > li')].map((item) => item.textContent)).toEqual([
+			'Third',
+			'Fourth'
+		]);
+		expect(
+			[...document.querySelectorAll('th, td')].map((cell) => cell.getAttribute('align'))
+		).toEqual(['left', 'center', 'right', 'left', 'center', 'right']);
+		expect(document.querySelector('img')?.getAttribute('src')).toBe('/logo.png');
+		expect(document.querySelector('img')?.getAttribute('alt')).toBe('A & B ©');
 	});
 });
