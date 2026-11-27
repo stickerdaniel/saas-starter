@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { JourneyStep } from '../admin/journey/source';
 import { formatDuration } from '../admin/journey/format';
 import { t } from '../i18n/translations';
-import { buildJourneyTimeline, type RailTheme } from './journeyTimeline';
+import type { RailTheme } from '../../emails/journey-theme';
+import { buildJourneyTimeline } from './journeyTimeline';
 
 // One distinct colour per role, so each assertion names the role it reads.
 const THEME: RailTheme = {

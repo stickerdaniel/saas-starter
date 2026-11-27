@@ -1,4 +1,19 @@
-import type { RailRole, RailTheme } from '../../emails/journeyTimeline';
+export type RailTone = 'neutral' | 'paid' | 'problem' | 'canceled';
+
+/** One colour the rail paints, with the class that overrides it in dark mode. */
+export type RailRole = { color: string; darkClass?: string };
+
+/**
+ * The roles the rail consumes. Per tone a dot and a title colour; a null title
+ * inherits the body text colour. `line` is the rail, `muted` details and
+ * times, `gap` the "3 h later" labels.
+ */
+export type RailTheme = {
+	tones: Record<RailTone, { dot: RailRole; title: RailRole | null }>;
+	line: RailRole;
+	muted: RailRole;
+	gap: RailRole;
+};
 
 /**
  * The template's journey rail colours: zinc lines and dots, blue for the

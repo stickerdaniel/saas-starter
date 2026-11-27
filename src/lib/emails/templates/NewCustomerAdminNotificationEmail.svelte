@@ -2,7 +2,7 @@
 	import { Html, Body, Preview, Container } from '@better-svelte-email/components';
 	import { Badge, Button, Card } from '#lib/emails/components/ui/index.js';
 	import { EmailHead, EmailHeader, EmailFooter } from '#lib/emails/components/layout/index.js';
-	import { JOURNEY_DARK_UTILITIES } from '#lib/confect/admin/journey/theme.js';
+	import { JOURNEY_DARK_UTILITIES } from '#lib/emails/journey-theme.js';
 
 	// All user-facing copy is passed in as props so the caller can resolve
 	// translated strings (see src/lib/confect/emails/templates.ts). English

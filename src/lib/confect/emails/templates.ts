@@ -12,10 +12,11 @@ import type {
 	NewCustomerAdminNotificationEmailData,
 	CancellationAdminNotificationEmailData,
 	SupportRateLimitAlertEmailData,
+	CustomerJourney,
 	RenderedEmail
 } from '../../emails/templates/types';
-import type { ComposedJourney } from '../admin/customerNotifications/compose';
-import { buildJourneyTimeline, type RailRole } from './journeyTimeline';
+import type { RailRole } from '../../emails/journey-theme';
+import { buildJourneyTimeline } from './journeyTimeline';
 import {
 	VERIFICATION_HTML,
 	VERIFICATION_TEXT,
@@ -317,7 +318,7 @@ const TILE_VALUE_STYLE = 'margin:0;font-size:18px;line-height:1.25;font-weight:6
  * unknown tile shows a muted dash, since the coverage notes under the rail
  * give the reason; the plain text keeps the reason.
  */
-function renderTiles({ tiles, theme }: ComposedJourney): { html: string; text: string } {
+function renderTiles({ tiles, theme }: CustomerJourney): { html: string; text: string } {
 	if (tiles.length === 0) return { html: '', text: '' };
 	const width = `${(100 / tiles.length).toFixed(4)}%`;
 	const cells = tiles.map((tile, index) => {
@@ -372,7 +373,7 @@ function renderCustomerEmail(
 	data: {
 		customerEmail: string;
 		previewText: string;
-		journey: ComposedJourney | null;
+		journey: CustomerJourney | null;
 		timeZone: string;
 		adminDashboardLink: string;
 	},

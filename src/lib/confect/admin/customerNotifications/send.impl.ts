@@ -19,13 +19,14 @@ import {
 } from '../../emails/templates';
 import type {
 	CancellationAdminNotificationEmailData,
+	CustomerJourney,
 	NewCustomerAdminNotificationEmailData
 } from '../../../emails/templates/types';
 import { collectJourney, presentJourney, type PresentedJourney } from '../journey/collect';
 import { resolveTimeZone, type JourneyFormat } from '../journey/format';
 import { JOURNEY_SOURCES } from '../journey/registry';
 import type { NotificationType } from '../notificationPreferences/queries';
-import { composeCancellation, composeNewCustomer, type ComposedJourney } from './compose';
+import { composeCancellation, composeNewCustomer } from './compose';
 import send from './send.spec';
 
 /**
@@ -86,7 +87,7 @@ type RecipientInput = {
  * Rendering the data with `journey: null` gives the version without the
  * journey.
  */
-type EpisodeEmail<Data extends { journey: ComposedJourney | null }> = {
+type EpisodeEmail<Data extends { journey: CustomerJourney | null }> = {
 	kind: Notification['kind'];
 	audience: NotificationType;
 	template: EmailTemplate;
@@ -164,7 +165,7 @@ function withinPayload({ html, text }: RenderedEmail): boolean {
  * The email for one recipient, or null when even the version without the
  * journey is too large to hand to the component.
  */
-function renderWithinPayload<Data extends { journey: ComposedJourney | null }>(
+function renderWithinPayload<Data extends { journey: CustomerJourney | null }>(
 	episode: EpisodeEmail<Data>,
 	data: Data,
 	locale: string,
@@ -190,7 +191,7 @@ const log = (level: 'warn' | 'error', code: string, notificationId: Id<'customer
 	(level === 'warn' ? Effect.logWarning : Effect.logError)({ code, notificationId });
 
 /** Send `episode`'s email for one ledger row; a row of another kind or already finished is left alone. */
-const sendEpisode = <Data extends { journey: ComposedJourney | null }>(
+const sendEpisode = <Data extends { journey: CustomerJourney | null }>(
 	notificationId: Id<'customerNotifications'>,
 	episode: EpisodeEmail<Data>
 ) =>

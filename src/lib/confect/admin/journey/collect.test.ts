@@ -1,7 +1,8 @@
 import { getFunctionName, makeFunctionReference, type FunctionReference } from 'convex/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SUPPORTED_LOCALES, t, type SupportedLocale } from '../../i18n/translations';
-import { buildJourneyTimeline, type RailTheme } from '../../emails/journeyTimeline';
+import type { RailTheme } from '../../../emails/journey-theme';
+import { buildJourneyTimeline } from '../../emails/journeyTimeline';
 import { collectJourney, coverageNotes, orderSteps, pickTiles, presentJourney } from './collect';
 import { createClock, formatCount } from './format';
 import {

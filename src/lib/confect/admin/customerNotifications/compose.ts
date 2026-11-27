@@ -1,9 +1,9 @@
 import { t, type SupportedLocale } from '../../i18n/translations';
-import type { RailTheme } from '../../emails/journeyTimeline';
 import { coverageNotes, orderSteps, pickTiles, type PresentedJourney } from '../journey/collect';
 import { createClock, formatDuration, type JourneyFormat } from '../journey/format';
 import type { JourneyMetric, JourneyRequest, JourneyStep } from '../journey/source';
-import { JOURNEY_RAIL_THEME, JOURNEY_TILE_THEME, type TileTheme } from '../journey/theme';
+import { JOURNEY_RAIL_THEME, JOURNEY_TILE_THEME } from '../../../emails/journey-theme';
+import type { CustomerJourney } from '../../../emails/templates/types';
 import type { FrozenBilling, Payment } from './billing';
 
 /**
@@ -14,25 +14,17 @@ import type { FrozenBilling, Payment } from './billing';
  * preview. The template renders what it returns.
  */
 
-/** The tiles, the ordered rail and its notes, and the colours they render in. */
-export type ComposedJourney = {
-	tiles: JourneyMetric[];
-	steps: JourneyStep[];
-	notes: string[];
-	theme: { rail: RailTheme; tiles: TileTheme };
-};
-
 export type ComposedNewCustomer = {
 	amount: string;
 	previewText: string;
-	journey: ComposedJourney;
+	journey: CustomerJourney;
 };
 
 export type ComposedCancellation = {
 	/** From the payment to the cancellation. */
 	duration: string;
 	previewText: string;
-	journey: ComposedJourney;
+	journey: CustomerJourney;
 };
 
 type ComposeArgs = {
@@ -137,13 +129,13 @@ function composeJourney(
 	lead: JourneyMetric,
 	steps: readonly JourneyStep[],
 	{ presented, format }: Pick<ComposeArgs, 'presented' | 'format'>
-): ComposedJourney {
+) {
 	return {
 		tiles: pickTiles([lead], presented),
 		steps: orderSteps(steps),
 		notes: coverageNotes(presented, format),
 		theme: { rail: JOURNEY_RAIL_THEME, tiles: JOURNEY_TILE_THEME }
-	};
+	} satisfies CustomerJourney;
 }
 
 const sourceSteps = (presented: PresentedJourney) =>
