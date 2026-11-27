@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DOCS_PAGE_ROUTE_ID, DOCS_ROUTE_IDS } from '#lib/docs/urls.js';
 import { applyCacheControl } from './cache-control';
 
 /**
@@ -74,6 +75,36 @@ describe('applyCacheControl', () => {
 			applyCacheControl(makeEvent({ path: '/en', token }), response);
 			expect(response.headers.get('vary')).toBe(expected);
 		});
+	});
+
+	it('merges Accept into the Vary of a docs page', () => {
+		const response = htmlResponse({ Vary: 'Accept-Encoding' });
+		applyCacheControl(makeEvent({ path: '/en/docs', routeId: DOCS_PAGE_ROUTE_ID }), response);
+		expect(response.headers.get('vary')).toBe('Accept-Encoding, Accept');
+		expect(response.headers.get('cache-control')).toBe('public, no-cache');
+	});
+
+	describe.each([
+		{ state: 'signed out', token: null },
+		{ state: 'signed in', token: 'jwt' }
+	])('a docs 404 $state', ({ token }) => {
+		it.each(DOCS_ROUTE_IDS)('on %s is never stored and varies on Accept', (routeId) => {
+			const response = htmlResponse({ Vary: 'Accept-Encoding' }, 404);
+			applyCacheControl(makeEvent({ path: '/en/docs/missing', token, routeId }), response);
+			expect(response.headers.get('cache-control')).toBe('no-store');
+			expect(response.headers.get('vary')).toBe('Accept-Encoding, Accept');
+		});
+	});
+
+	it('keeps the headers of a marketing 404', () => {
+		const routeId = '/[[lang]]/[...path]';
+		const signedOut = htmlResponse({}, 404);
+		applyCacheControl(makeEvent({ path: '/en/missing', routeId }), signedOut);
+		expect([...signedOut.headers]).toEqual([['content-type', 'text/html; charset=utf-8']]);
+		const signedIn = htmlResponse({}, 404);
+		applyCacheControl(makeEvent({ path: '/en/missing', token: 'jwt', routeId }), signedIn);
+		expect(signedIn.headers.get('cache-control')).toBe('private, no-cache');
+		expect(signedIn.headers.has('vary')).toBe(false);
 	});
 
 	it('keeps unauthenticated auth-group HTML publicly revalidatable', () => {

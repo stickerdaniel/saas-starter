@@ -21,7 +21,7 @@ diff --git a/dist/Streamdown.svelte b/dist/Streamdown.svelte
 index 94a1a95be167e4484bc81b3c36b92617f0fd0ea0..370b650cd1f6a085dedb3e9f7dee7243eafaf0ec 100644
 --- a/dist/Streamdown.svelte
 +++ b/dist/Streamdown.svelte
-@@ -278,8 +278,10 @@
+@@ -294,8 +294,10 @@
  		}
  
  		/* Lives here, not in Mermaid.svelte: the table overlay needs it on pages
@@ -34,6 +34,19 @@ index 94a1a95be167e4484bc81b3c36b92617f0fd0ea0..370b650cd1f6a085dedb3e9f7dee7243
  			position: fixed;
  			top: 16px;
  			left: 16px;
+diff --git a/dist/marked/marked-alert.js b/dist/marked/marked-alert.js
+index 60b45d184d4450c0d8bf15ff7c833092286945a7..89e511ba63447387e7973817a325e3111d3608ed 100644
+--- a/dist/marked/marked-alert.js
++++ b/dist/marked/marked-alert.js
+@@ -19,7 +19,7 @@
+     tokenizer(src) {
+         const cap = defaultTokenizer.rules.block.blockquote.exec(src);
+         if (cap) {
+-            const blockquoteToken = defaultTokenizer.blockquote(src);
++            const blockquoteToken = new Lexer({ gfm: true }).options.tokenizer.blockquote(src);
+             blockquoteToken && processAlertToken(blockquoteToken, this.lexer.options.tokenizer);
+             return blockquoteToken;
+         }
 diff --git a/dist/utils/expand.svelte.js b/dist/utils/expand.svelte.js
 index fe57293cd52cd65b4deafd9e4f5e81b9592f4fbd..391cd196633db63c49fc9b1041c2100785360a1b 100644
 --- a/dist/utils/expand.svelte.js

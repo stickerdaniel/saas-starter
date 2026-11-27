@@ -1,4 +1,5 @@
 import { appendVary } from '#lib/http/vary.js';
+import { DOCS_PAGE_ROUTE_ID, DOCS_ROUTE_IDS } from '#lib/docs/urls.js';
 import { matchPublicMarketingRoute } from '#lib/marketing/public-routes.js';
 
 /**
@@ -11,16 +12,26 @@ export function applyCacheControl(
 	event: { url: URL; locals: { token?: string | null }; route: { id: string | null } },
 	response: Response
 ): void {
-	const isMarketingDocument =
-		response.status === 200 && matchPublicMarketingRoute(event.url.pathname) !== null;
-	if (isMarketingDocument) {
+	if (response.status === 404 && DOCS_ROUTE_IDS.includes(event.route.id ?? '')) {
+		// A docs URL answers HTML or Markdown by Accept, and the URL of a page that
+		// does not exist yet may exist after the next deploy. Neither representation
+		// of the miss may be stored.
+		appendVary(response.headers, 'Accept');
+		response.headers.set('Cache-Control', 'no-store');
+		return;
+	}
+	const isNegotiatedDocument =
+		response.status === 200 &&
+		(matchPublicMarketingRoute(event.url.pathname) !== null ||
+			event.route.id === DOCS_PAGE_ROUTE_ID);
+	if (isNegotiatedDocument) {
 		// These URLs also serve markdown via Accept header, whatever the token
 		// state. CF edge ignores Vary, so this is safe only because every route
 		// reaching this branch is non-prerendered and the markdown variant is
 		// private (kept out of shared caches).
 		appendVary(response.headers, 'Accept');
 	}
-	if (isMarketingDocument && !event.locals.token) {
+	if (isNegotiatedDocument && !event.locals.token) {
 		// Marketing HTML shells reference content-hashed JS chunks. A cached shell
 		// that survives a deploy points at chunks the new asset set no longer
 		// serves, preventing hydration and arming the client-side recovery

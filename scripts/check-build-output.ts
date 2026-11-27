@@ -2,9 +2,12 @@
  * Post-build checks on SvelteKit's prerendered output, for every adapter.
  *
  * Every supported adapter serves prerendered files before SvelteKit hooks run, so a
- * prerendered marketing page silently loses what the hooks add to it: the Markdown
+ * prerendered marketing or docs page silently loses what the hooks add to it: the Markdown
  * variant for `Accept: text/markdown`, the failed-verification message, and the
  * revalidating cache policy. Those routes must stay server-rendered.
+ *
+ * The docs fixture app builds with a fixture catalog whose pages carry
+ * `DOCS_FIXTURE_MARKER`. An ordinary build that holds the marker shipped the fixture.
  *
  * Prerendering without `paths.origin` renders absolute URLs against SvelteKit's
  * placeholder origin, which would ship to visitors and crawlers as broken links.
@@ -15,9 +18,20 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { parseArgs } from 'node:util';
 import { SUPPORTED_LANGUAGE_CODES } from '../src/lib/i18n/language-codes.generated.js';
 import { PUBLIC_MARKETING_ROUTES } from '../src/lib/marketing/public-routes';
 import { INLINE_STYLE_THRESHOLD } from './inline-styles';
+
+export const DOCS_FIXTURE_MARKER = 'saas-starter-docs-fixture-6f1d3a';
+
+function filesBelow(root: string): string[] {
+	if (!fs.existsSync(root)) return [];
+	return fs
+		.readdirSync(root, { recursive: true, withFileTypes: true })
+		.filter((entry) => entry.isFile())
+		.map((entry) => path.join(entry.parentPath, entry.name));
+}
 
 export function findPrerenderOriginPlaceholders(outDir: string): string[] {
 	if (!fs.existsSync(outDir)) return [];
@@ -52,6 +66,23 @@ export function findPrerenderedNegotiatedMarketingPages(outDir: string): string[
 	return matches;
 }
 
+export function findPrerenderedDocsFiles(prerenderedDir: string): string[] {
+	const docsPath = new RegExp(
+		`^(?:pages|dependencies)/(?:(?:${SUPPORTED_LANGUAGE_CODES.join('|')})/)?docs(?:\\.html|\\.md|/)`
+	);
+	return filesBelow(prerenderedDir).filter((file) =>
+		docsPath.test(path.relative(prerenderedDir, file).split(path.sep).join('/'))
+	);
+}
+
+export function findDocsFixtureMarker(outputDir: string): string[] {
+	return filesBelow(outputDir).filter(
+		(file) =>
+			/\.(?:[cm]?js|json|map|html|md|txt|xml)$/.test(file) &&
+			fs.readFileSync(file, 'utf-8').includes(DOCS_FIXTURE_MARKER)
+	);
+}
+
 /**
  * Bundled client stylesheets SvelteKit links instead of inlining, with their length.
  * Only stylesheets in Vite's client manifest qualify; CSS copied from `static/` is
@@ -83,18 +114,33 @@ export function findLinkedStylesheets(
 }
 
 if (import.meta.main) {
-	const negotiatedPrerenderFiles = findPrerenderedNegotiatedMarketingPages(
-		path.resolve('.svelte-kit/output/prerendered/pages')
-	);
+	const { values } = parseArgs({
+		options: {
+			'output-root': { type: 'string', default: '.svelte-kit/output' },
+			'docs-fixture': { type: 'boolean', default: false }
+		}
+	});
+	const outputDir = path.resolve(values['output-root']);
+	const negotiatedPrerenderFiles = [
+		...findPrerenderedNegotiatedMarketingPages(path.join(outputDir, 'prerendered/pages')),
+		...findPrerenderedDocsFiles(path.join(outputDir, 'prerendered'))
+	];
 	if (negotiatedPrerenderFiles.length > 0) {
 		console.error(
-			`[check-build-output] Negotiated marketing routes were prerendered and would bypass SvelteKit hooks on supported adapters:\n${negotiatedPrerenderFiles.join('\n')}`
+			`[check-build-output] Negotiated marketing or docs routes were prerendered and would bypass SvelteKit hooks on supported adapters:\n${negotiatedPrerenderFiles.join('\n')}`
 		);
 		process.exit(1);
 	}
-	const placeholderFiles = findPrerenderOriginPlaceholders(
-		path.resolve('.svelte-kit/output/prerendered')
-	);
+	if (!values['docs-fixture']) {
+		const fixtureFiles = findDocsFixtureMarker(outputDir);
+		if (fixtureFiles.length > 0) {
+			console.error(
+				`[check-build-output] The build holds the docs fixture catalog. Build it only through scripts/docs-fixture.ts, which swaps the catalog module in a build of its own:\n${fixtureFiles.join('\n')}`
+			);
+			process.exit(1);
+		}
+	}
+	const placeholderFiles = findPrerenderOriginPlaceholders(path.join(outputDir, 'prerendered'));
 	if (placeholderFiles.length > 0) {
 		console.error(
 			`[check-build-output] Prerendered output contains the SvelteKit placeholder origin:\n${placeholderFiles.join('\n')}`
@@ -102,7 +148,7 @@ if (import.meta.main) {
 		process.exit(1);
 	}
 	for (const { file, length } of findLinkedStylesheets(
-		path.resolve('.svelte-kit/output/client'),
+		path.join(outputDir, 'client'),
 		INLINE_STYLE_THRESHOLD
 	)) {
 		console.warn(

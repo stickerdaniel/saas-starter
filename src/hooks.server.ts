@@ -16,6 +16,8 @@ import {
 	createPublicMarkdownNotFoundResponse,
 	isMarkdownRequest
 } from '#lib/markdown/marketing.js';
+import { docsMarkdownResponse } from '#lib/docs/markdown.server.js';
+import { DOCS_PAGE_ROUTE_ID, matchDocsPagePath } from '#lib/docs/urls.js';
 import { devNotice } from '#lib/dev/notice.js';
 import { resolveSiteOrigin } from '#lib/config/site-origin.js';
 import { applyCacheControl } from '#lib/server/cache-control.js';
@@ -150,6 +152,16 @@ const handleMarketingMarkdown: Handle = async function handleMarketingMarkdown({
 	});
 };
 
+const handleDocsMarkdown: Handle = async function handleDocsMarkdown({ event, resolve }) {
+	if (!['GET', 'HEAD'].includes(event.request.method) || !isMarkdownRequest(event.request)) {
+		return resolve(event);
+	}
+	const match = matchDocsPagePath(event.url.pathname);
+	const response =
+		match && docsMarkdownResponse(match.lang, match.slug, resolveSiteOrigin(event.url.origin));
+	return response || resolve(event);
+};
+
 interface PublicMarkdownNotFoundInput {
 	method: string;
 	request: Request;
@@ -164,7 +176,7 @@ export function shouldRenderPublicMarkdownNotFound(input: PublicMarkdownNotFound
 		['GET', 'HEAD'].includes(input.method) &&
 		isMarkdownRequest(input.request) &&
 		input.status === 404 &&
-		input.routeId === '/[[lang]]/[...path]' &&
+		(input.routeId === '/[[lang]]/[...path]' || input.routeId === DOCS_PAGE_ROUTE_ID) &&
 		isSupportedLanguage(input.lang) &&
 		!isProtectedRoute(input.pathname) &&
 		!isAdminRoute(input.pathname)
@@ -466,6 +478,7 @@ export const handle = sequence(
 	handleAuth,
 	handleSidebarState,
 	handleMarketingMarkdown,
+	handleDocsMarkdown,
 	handleLanguage,
 	handlePublicMarkdownNotFound,
 	handleHtmlLang,

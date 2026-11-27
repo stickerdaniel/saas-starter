@@ -7,7 +7,8 @@ import { SUPPORTED_LANGUAGES } from '#lib/i18n/languages.js';
  *
  * `routes.test.ts` fails when a `+page.svelte` is added or removed without updating
  * this list. A route with a `[param]` segment is reported with the placeholder, not
- * the value; if a param holds personal data, that is the behaviour you want.
+ * the value; if a param holds personal data, that is the behaviour you want. A final
+ * `[...rest]` segment stands for zero or more segments.
  */
 export const ANALYTICS_ROUTES = [
 	'/',
@@ -24,6 +25,7 @@ export const ANALYTICS_ROUTES = [
 	'/pricing',
 	'/privacy',
 	'/terms',
+	'/docs/[...slug]',
 	'/admin',
 	'/admin/audit-log',
 	'/admin/dashboard',
@@ -45,8 +47,10 @@ const TEMPLATES = ANALYTICS_ROUTES.map((route) => route.split('/').filter(Boolea
 
 function matchTemplate(segments: string[]): string[] | undefined {
 	for (const template of TEMPLATES) {
-		if (template.length !== segments.length) continue;
-		const matches = template.every(
+		const rest = template.at(-1)?.startsWith('[...') ?? false;
+		const fixed = rest ? template.slice(0, -1) : template;
+		if (rest ? segments.length < fixed.length : segments.length !== fixed.length) continue;
+		const matches = fixed.every(
 			(part, index) => part === segments[index] || /^\[[^\]]+\]$/.test(part)
 		);
 		if (matches) return template;

@@ -4,6 +4,7 @@ import rule from './no-frozen-auth-page-data.js';
 
 const MARKETING_FILE = '/repo/src/lib/components/marketing/marketing-header.svelte';
 const MARKETING_ROUTE_FILE = '/repo/src/routes/[[lang]]/(marketing)/+page.svelte';
+const DOCS_ROUTE_FILE = '/repo/src/routes/[[lang]]/(docs)/docs/[...slug]/+page.svelte';
 const SUPPORT_FILE = '/repo/src/lib/components/customer-support/customer-support.svelte';
 const BLOCKS_FILE = '/repo/src/blocks/pricing/pricing-three.svelte';
 const APP_FILE = '/repo/src/routes/[[lang]]/app/+page.svelte';
@@ -54,6 +55,12 @@ describe('no-frozen-auth-page-data', () => {
 		);
 		expect(reports).toHaveLength(1);
 		expect((reports[0].data as { field: string }).field).toBe('autumnState');
+	});
+
+	it('flags page.data.viewer in a docs route file', () => {
+		const reports = lint('<script>const v = page.data.viewer;</script>', DOCS_ROUTE_FILE);
+		expect(reports).toHaveLength(1);
+		expect((reports[0].data as { field: string }).field).toBe('viewer');
 	});
 
 	it('flags page.data.autumnState in a src/blocks marketing block', () => {

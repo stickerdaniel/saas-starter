@@ -9,6 +9,7 @@ on:
       - 'scripts/module-graph-plugin.ts'
       - 'bundle-budget.json'
       - 'src/**'
+      - 'docs/**'
       - 'static/**'
       - 'package.json'
       - 'packages/eslint-plugin/package.json'

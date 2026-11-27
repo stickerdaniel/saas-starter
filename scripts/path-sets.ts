@@ -18,7 +18,10 @@ const suiteFiles = new Set([
 	'.github/workflows/windows-process-lifecycle.yml',
 	'packages/eslint-plugin/src/rules/effect-rule-harness.ts',
 	'playwright.config.ts',
+	'scripts/check-docs-fixture.ts',
 	'scripts/check-reduced-export.ts',
+	'scripts/docs-fixture.ts',
+	'scripts/docs-fixture.vite.config.ts',
 	'scripts/e2e-ci.ts',
 	'scripts/test-executable.ts',
 	'src/lib/analytics/testing/sdk-harness.ts',
@@ -42,6 +45,7 @@ export const pathSets = {
 				suiteFile.test(path) ||
 				suiteDirectory.test(path)),
 		removedScripts: [
+			'check:docs-fixture',
 			'check:reduced-export',
 			'test:bun',
 			'test:e2e',

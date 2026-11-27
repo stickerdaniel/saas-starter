@@ -38,6 +38,13 @@ describe('reportedPath', () => {
 		expect(reportedPath('/app/ai-chat')).toBe('/app/ai-chat');
 	});
 
+	it('reports a rest route by its template for any number of further segments', () => {
+		expect(reportedPath('/en/docs')).toBe('/en/docs/[...slug]');
+		expect(reportedPath('/de/docs/reference/code')).toBe('/de/docs/[...slug]');
+		expect(reportedPath('/en/docs/anything')).toBe('/en/docs/[...slug]');
+		expect(reportedPath('/en/docsx')).toBe(NOT_FOUND_PATH);
+	});
+
 	it('reports everything else as the 404 path', () => {
 		for (const path of [
 			'/en/jane-doe',

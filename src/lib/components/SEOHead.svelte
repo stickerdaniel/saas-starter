@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, getLanguage } from '#lib/i18n/languages.js';
+	import {
+		SUPPORTED_LANGUAGES,
+		DEFAULT_LANGUAGE,
+		getLanguage,
+		type LanguageCode
+	} from '#lib/i18n/languages.js';
 	import { LEGAL_CONFIG, getLegalEmailAddress } from '#lib/config/legal.js';
 	import { resolveSiteOrigin } from '#lib/config/site-origin.js';
 	import { SITE_CONFIG, getRepositoryUrl } from '#lib/config/site.js';
@@ -32,6 +37,8 @@
 		noindex?: boolean;
 		/** Emit the WebSite and Organization JSON-LD graph on the localized homepage. */
 		siteStructuredData?: boolean;
+		/** Languages this page exists in, the default one included, for hreflang and Open Graph locales */
+		languages?: readonly LanguageCode[];
 	}
 
 	let {
@@ -44,12 +51,16 @@
 		imageHeight,
 		imageAlt,
 		noindex = false,
-		siteStructuredData = false
+		siteStructuredData = false,
+		languages = SUPPORTED_LANGUAGES.map((language) => language.code)
 	}: Props = $props();
 
 	// Get current language and path
 	let currentLang = $derived(page.params.lang || DEFAULT_LANGUAGE);
 	let currentPath = $derived(page.url.pathname);
+	let localeLang = $derived(
+		languages.find((language) => language === currentLang) ?? DEFAULT_LANGUAGE
+	);
 	let origin = $derived(resolveSiteOrigin(page.url.origin));
 
 	// Generate path without language prefix for alternate links
@@ -141,11 +152,11 @@
 
 	{#if !noindex}
 		<!-- Hreflang tags for each language -->
-		{#each SUPPORTED_LANGUAGES as language (language.code)}
+		{#each languages as language (language)}
 			<link
 				rel="alternate"
-				hreflang={language.code}
-				href="{origin}/{language.code}{pathWithoutLang === '/' ? '' : pathWithoutLang}"
+				hreflang={language}
+				href="{origin}/{language}{pathWithoutLang === '/' ? '' : pathWithoutLang}"
 			/>
 		{/each}
 
@@ -158,10 +169,10 @@
 	{/if}
 
 	<!-- Language metadata -->
-	<meta property="og:locale" content={getLanguage(currentLang).ogLocale} />
+	<meta property="og:locale" content={getLanguage(localeLang).ogLocale} />
 	{#if !noindex}
-		{#each SUPPORTED_LANGUAGES.filter((l) => l.code !== currentLang) as language (language.code)}
-			<meta property="og:locale:alternate" content={language.ogLocale} />
+		{#each languages.filter((language) => language !== localeLang) as language (language)}
+			<meta property="og:locale:alternate" content={getLanguage(language).ogLocale} />
 		{/each}
 	{/if}
 
