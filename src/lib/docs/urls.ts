@@ -12,6 +12,9 @@ export const DOCS_ROUTE_IDS: readonly string[] = [
 	'/[[lang]]/(docs)/docs/[...slug].md' satisfies RouteId
 ];
 
+/** The search index of the published docs, the same for every chrome language. */
+export const DOCS_SEARCH_INDEX_PATH = '/api/docs/search.json';
+
 export function docsPath(lang: string, slug: string, format: DocsFormat = 'html'): string {
 	const path = slug ? `/${lang}/docs/${slug}` : `/${lang}/docs`;
 	return format === 'markdown' ? `${path}.md` : path;

@@ -13,15 +13,48 @@ export interface DocsHeading {
 	children: DocsHeading[];
 }
 
-/** The text a reader sees: inline Markdown syntax removed, images and raw HTML dropped. */
-export function plainText(tokens: readonly TextToken[] | undefined): string {
+/**
+ * The text a reader sees: inline Markdown syntax removed and raw HTML dropped. Images drop out
+ * of anchors and the search index. An accessible name keeps an image's alt text, a line break
+ * as a space, and raw HTML as the literal text the renderer shows.
+ */
+export function plainText(
+	tokens: readonly TextToken[] | undefined,
+	{ accessible = false }: { accessible?: boolean } = {}
+): string {
 	return (tokens ?? [])
 		.map((token) => {
-			if (token.type === 'image' || token.type === 'html') return '';
-			if (token.tokens) return plainText(token.tokens);
+			if (token.type === 'html' || token.type === 'image')
+				return accessible ? (token.text ?? '') : '';
+			if (token.type === 'br') return accessible ? ' ' : '';
+			if (token.tokens) return plainText(token.tokens, { accessible });
 			return token.text ?? '';
 		})
 		.join('');
+}
+
+/** The name assistive technology reads for inline tokens, with runs of whitespace as one space. */
+export function accessibleName(tokens: readonly TextToken[] | undefined): string {
+	return plainText(tokens, { accessible: true }).replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * A heading's text for its id, the table of contents and the search index: its visible text, or
+ * its accessible name when it shows no text, as a heading that holds an image alone.
+ */
+export function headingText(tokens: readonly TextToken[] | undefined): string {
+	const text = plainText(tokens);
+	return text.trim() ? text : accessibleName(tokens);
+}
+
+/**
+ * Whether inline tokens render a link or an image. A heading does not wrap either in its
+ * permalink: a link inside a link is invalid, and an image is a block inside an inline link.
+ */
+export function holdsLinkOrImage(tokens: readonly TextToken[] | undefined): boolean {
+	return (tokens ?? []).some(
+		(token) => token.type === 'link' || token.type === 'image' || holdsLinkOrImage(token.tokens)
+	);
 }
 
 /** GitHub's anchor for a heading text. */
@@ -56,7 +89,7 @@ export class HeadingIds {
 	of(token: Tokens.Heading): string {
 		const assigned = this.#assigned.get(token);
 		if (assigned !== undefined) return assigned;
-		const id = this.next(plainText(token.tokens));
+		const id = this.next(headingText(token.tokens));
 		this.#assigned.set(token, id);
 		return id;
 	}
@@ -69,7 +102,7 @@ export function headingTree(title: string, headings: readonly Tokens.Heading[]):
 	for (const token of headings) {
 		const heading: DocsHeading = {
 			id: ids.of(token),
-			text: plainText(token.tokens),
+			text: headingText(token.tokens),
 			depth: token.depth,
 			children: []
 		};

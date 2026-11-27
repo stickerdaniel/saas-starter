@@ -77,6 +77,58 @@ describe('UseClipboard', () => {
 		});
 	});
 
+	describe('a text that still loads', () => {
+		class Item {
+			parts: Record<string, Promise<Blob>>;
+			constructor(parts: Record<string, Promise<Blob>>) {
+				this.parts = parts;
+			}
+		}
+		const write = vi.fn<(items: Item[]) => Promise<void>>();
+
+		beforeEach(() => {
+			write.mockReset().mockImplementation(async ([item]) => {
+				await item!.parts['text/plain'];
+			});
+			vi.stubGlobal('isSecureContext', true);
+			vi.stubGlobal('ClipboardItem', Item);
+			vi.stubGlobal('navigator', { ...navigator, clipboard: { write } });
+		});
+
+		it('starts the write before the text arrives', async () => {
+			const text = deferred<string>();
+			const clipboard = new UseClipboard({ delay: DELAY });
+
+			const copied = clipboard.copy(text.promise);
+			expect(write).toHaveBeenCalledTimes(1);
+
+			text.resolve('# Page');
+			await expect(copied).resolves.toBe('success');
+			const [item] = write.mock.calls[0]![0];
+			await expect((await item!.parts['text/plain']!).text()).resolves.toBe('# Page');
+		});
+
+		it('fails when the text does not arrive', async () => {
+			vi.spyOn(console, 'error').mockImplementation(() => {});
+			const text = deferred<string>();
+			const clipboard = new UseClipboard({ delay: DELAY });
+
+			const copied = clipboard.copy(text.promise);
+			text.reject(new Error('HTTP 404'));
+			await expect(copied).resolves.toBe('failure');
+			expect(clipboard.copied).toBe(false);
+		});
+
+		it('writes the arrived text where the clipboard has no write', async () => {
+			const writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined);
+			vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText } });
+			const clipboard = new UseClipboard({ delay: DELAY });
+
+			await expect(clipboard.copy(Promise.resolve('# Page'))).resolves.toBe('success');
+			expect(writeText).toHaveBeenCalledWith('# Page');
+		});
+	});
+
 	describe('execCommand fallback', () => {
 		const execCommand = vi.fn<(command: string) => boolean>();
 

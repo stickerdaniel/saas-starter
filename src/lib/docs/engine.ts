@@ -1,7 +1,16 @@
 import { parseBlocks } from 'svelte-streamdown';
 import type { Tokens } from 'marked';
 import { DEFAULT_LANGUAGE } from '#lib/i18n/languages.js';
-import { headingTree, plainText, type DocsHeading } from './headings';
+import type { PageCode } from './code-lines';
+import {
+	HeadingIds,
+	headingSlug,
+	headingText,
+	headingTree,
+	plainText,
+	type DocsHeading
+} from './headings';
+import { pageCode } from './highlight.server';
 import {
 	childTokens,
 	hasInlineDestination,
@@ -13,6 +22,8 @@ import {
 	type ResolvedHref,
 	type Token
 } from './links';
+import { isPublished } from './publication';
+import type { DocsSearchPage, DocsSearchSection } from './search';
 import { docsPath, type DocsFormat } from './urls';
 import type { DocsCatalog, DocsPageEntry, DocsSource, RepositorySlug } from './types';
 
@@ -32,14 +43,26 @@ export interface PublishedDocs {
 	sourceFiles: readonly string[];
 }
 
+export interface DocsNavEntry {
+	slug: string;
+	section: string;
+	title: string;
+}
+
 export interface DocsPageView {
 	slug: string;
 	section: string;
 	title: string;
 	description: string;
-	/** The page's Markdown without its H1, with links resolved for this language. */
+	/** The paragraph right below the H1, which the page header shows, or ''. */
+	lead: string;
+	/** The page's Markdown without its H1 and lead, with links resolved for this language. */
 	body: string;
 	headings: DocsHeading[];
+	/** The highlighted lines of the page's fences. */
+	code: PageCode;
+	previous: DocsNavEntry | null;
+	next: DocsNavEntry | null;
 }
 
 export interface DocsDiscoveryEntry {
@@ -51,10 +74,6 @@ export interface DocsDiscoveryEntry {
 
 const SLUG = /^[a-z0-9]+(?:[-_][a-z0-9]+)*(?:\/[a-z0-9]+(?:[-_][a-z0-9]+)*)*$/;
 const VALIDATION_ORIGIN = 'https://docs.invalid';
-
-export function isPublished(catalog: DocsCatalog, siteSlug: RepositorySlug): boolean {
-	return catalog.pages.length > 0 && catalog.site === siteSlug;
-}
 
 function walk(tokens: readonly Token[]): Token[] {
 	return tokens.flatMap((token) => [token, ...walk(childTokens(token))]);
@@ -114,10 +133,18 @@ function parsePage(entry: DocsPageEntry, source: DocsSource): ParsedPage {
 	if (walk(tokens).filter((token) => isHeading(token) && token.depth === 1).length !== 1) {
 		fail('it must hold exactly one H1');
 	}
+	const unnamed = walk(tokens)
+		.filter(isHeading)
+		.find((heading) => headingSlug(headingText(heading.tokens)) === '');
+	if (unnamed) {
+		fail(
+			`a heading needs a letter or a digit for its anchor, in its text or in the alt text of its image, and it holds ${JSON.stringify(unnamed.raw.trim())}`
+		);
+	}
 	const start = markdown.indexOf(h1.raw);
-	const body = markdown.slice(start + h1.raw.length).replace(/^\n+/, '');
+	const body = markdown.slice(start + h1.raw.length).replace(/^(?:[ \t]*\n)+/, '');
 	const bodyTokens = lexPage(body);
-	const title = plainText(h1.tokens);
+	const title = headingText(h1.tokens);
 	const paragraph = bodyTokens.find((token) => token.type === 'paragraph') as
 		Tokens.Paragraph | undefined;
 	return {
@@ -245,18 +272,88 @@ export function publishDocs(
 	return { pages, targets, sourceFiles: [...new Set(sourceFiles)].toSorted() };
 }
 
+/** Every page in catalog order, for the sidebar, the mobile menu and previous and next. */
+export function docsNavigation(docs: PublishedDocs): DocsNavEntry[] {
+	return [...docs.pages.values()].map((page) => ({
+		slug: page.entry.slug,
+		section: page.entry.section,
+		title: page.title
+	}));
+}
+
+/**
+ * The paragraph a body opens with, as written, when it renders the same on its own: a reference
+ * link whose definition lies further down keeps the paragraph in the body.
+ */
+function leadParagraph(body: string): string {
+	const [first] = lexPage(body);
+	if (first?.type !== 'paragraph' || !first.raw) return '';
+	const inPage = walk([first]).filter((token) => ['link', 'image'].includes(token.type));
+	const alone = destinations(first.raw).filter((token) => token.type !== 'def');
+	const same =
+		inPage.length === alone.length &&
+		inPage.every((token, index) => token.href === alone[index]?.href);
+	return same ? first.raw : '';
+}
+
 export function docsPageView(docs: PublishedDocs, slug: string, lang: string): DocsPageView | null {
 	const page = docs.pages.get(slug);
 	if (!page) return null;
 	const context = { page: page.entry.source, lang, format: 'html', origin: '' } as const;
+	const navigation = docsNavigation(docs);
+	const index = navigation.findIndex((entry) => entry.slug === slug);
+	const lead = leadParagraph(page.body);
+	const body = page.body.slice(lead.length);
 	return {
 		slug,
 		section: page.entry.section,
 		title: page.title,
 		description: page.description,
-		body: resolvedMarkdown(page.body, docs.targets, context),
-		headings: page.headings
+		lead: resolvedMarkdown(lead, docs.targets, context),
+		body: resolvedMarkdown(body, docs.targets, context),
+		headings: page.headings,
+		code: pageCode(body),
+		previous: navigation[index - 1] ?? null,
+		next: navigation[index + 1] ?? null
 	};
+}
+
+/** The words a reader sees in a block, code fences left out. */
+function blockText(token: Token): string {
+	if (token.type === 'code') return '';
+	if (['paragraph', 'heading', 'text'].includes(token.type)) {
+		return token.tokens ? plainText(token.tokens as Token[]) : String(token.text ?? '');
+	}
+	if (token.type === 'codespan') return String(token.text ?? '');
+	return childTokens(token).map(blockText).filter(Boolean).join(' ');
+}
+
+/**
+ * Each page's title and its text split at its headings, with the heading ids the page and its
+ * table of contents use.
+ */
+export function docsSearchIndex(docs: PublishedDocs): DocsSearchPage[] {
+	return [...docs.pages.values()].map((page) => {
+		const tokens = lexPage(page.body);
+		const ids = new HeadingIds(page.title);
+		for (const heading of walk(tokens).filter(isHeading)) ids.of(heading);
+		const sections: DocsSearchSection[] = [{ id: null, heading: page.title, text: '' }];
+		const visit = (token: Token): void => {
+			if (isHeading(token)) {
+				sections.push({ id: ids.of(token), heading: headingText(token.tokens), text: '' });
+				return;
+			}
+			if (walk(childTokens(token)).some(isHeading)) {
+				childTokens(token).forEach(visit);
+				return;
+			}
+			const text = blockText(token).replace(/\s+/g, ' ').trim();
+			const section = sections.at(-1)!;
+			if (text) section.text = section.text ? `${section.text} ${text}` : text;
+		};
+		tokens.forEach(visit);
+		return { slug: page.entry.slug, title: page.title, sections };
+	});
 }
 
 /** The page's Markdown twin: the authored file with its H1 and every link resolved to an absolute URL. */

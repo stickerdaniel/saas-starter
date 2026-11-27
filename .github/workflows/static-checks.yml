@@ -225,6 +225,9 @@ jobs:
       # The fixture app needs the generated content and declarations of a full install.
       - if: hashFiles('scripts/check-docs-fixture.ts') != ''
         run: bun install --frozen-lockfile
+      # The published fixture is also driven in headless Chromium.
+      - if: hashFiles('scripts/check-docs-fixture.ts') != ''
+        run: bunx playwright install chromium --only-shell
       # Builds the app once per fixture catalog for adapter-node and checks its responses.
       - if: hashFiles('scripts/check-docs-fixture.ts') != ''
         run: bun run check:docs-fixture

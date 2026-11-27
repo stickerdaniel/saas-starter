@@ -320,6 +320,17 @@
 			"sourceUrl": "https://raw.githubusercontent.com/KaTeX/KaTeX/v0.16.47/src/stretchy.ts",
 			"revision": "0.16.47",
 			"noticeFiles": ["third-party-notices/katex-svg-glyphs-0.16.47.txt"]
+		},
+		{
+			"id": "shadcn-svelte-docs",
+			"name": "shadcn-svelte documentation site design",
+			"components": ["client", "server-worker"],
+			"license": "MIT",
+			"sourceUrl": "https://github.com/huntabyte/shadcn-svelte/tree/23daf0e26e65e247e49a18b9757b19c4f95437e0/docs",
+			"revision": "23daf0e26e65e247e49a18b9757b19c4f95437e0",
+			"noticeFiles": [
+				"third-party-notices/shadcn-svelte-docs-23daf0e26e65e247e49a18b9757b19c4f95437e0.txt"
+			]
 		}
 	]
 }

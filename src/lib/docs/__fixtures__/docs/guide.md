@@ -32,6 +32,73 @@ The second example gets a suffixed anchor.
 
 Text below a heading with inline syntax.
 
+## Headings in blocks
+
+> ### A heading in a quote
+>
+> The quoted section holds a heading.
+>
+> #### A heading after a paragraph
+>
+> Its paragraph follows.
+
+- ### A heading in a list item
+
+  The listed section holds a heading.
+
+##### A fifth-level heading
+
+The deepest section of the guide.
+
+## Blocks in blocks
+
+> A quoted paragraph.
+>
+> ## A second level in a quote
+>
+> - A list in a quote
+>
+> A paragraph after the list.
+>
+> ### A third level in a quote
+>
+> :Term: A description with [a link](#alerts).
+>
+> ##### A fifth level in a quote
+>
+> A paragraph after the fifth level.
+>
+> ###### A sixth level in a quote
+>
+> ---
+>
+> ## A heading after a rule
+
+- A list item
+  - A nested item
+    - A third level
+- An item with a quote
+
+  > A quote in an item
+
+- An item with a table
+
+  | Tool | Version |
+  | ---- | ------- |
+  | Bun  | 1.4     |
+
+Water is H~2~O, the area is r^2^, ~~this word~~ is struck, and a note^[1](#alerts)^ links up.
+
+- [x] A done task
+- [ ] An open task
+
+### A heading with [a link](#alerts)
+
+A list mixes a task with an ordinary item:
+
+- [x] A task beside an item
+- An item beside a task
+
 ## Alerts
 
 > [!NOTE]
@@ -48,6 +115,20 @@ Text below a heading with inline syntax.
 
 > [!CAUTION]
 > A caution.
+
+## Deploy the fixture
+
+### Cloudflare
+
+The Worker build serves every page.
+
+### Vercel
+
+The function build serves every page.
+
+### Node
+
+The server build serves every page.
 
 ## Links outside the docs
 
