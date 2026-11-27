@@ -160,6 +160,7 @@ type ResultOwner = {
  */
 export class ComposerAttachmentCoordinator {
 	private readonly store?: ChatAttachmentStore;
+	private readonly onEmptied: (key: ConversationKey) => void;
 
 	/** The attachments of each conversation, shown or set aside. */
 	private readonly lists = new SvelteMap<ConversationKey, Attachment[]>();
@@ -176,9 +177,13 @@ export class ComposerAttachmentCoordinator {
 	/** Transfers of stored files a conversation without a thread id took from the shared empty key. */
 	private readonly takenWithoutId = new SvelteSet<string>();
 
-	/** @param surface names the attachment store; without one, files live only in memory. */
-	constructor(surface?: string) {
+	/**
+	 * @param surface names the attachment store; without one, files live only in memory.
+	 * @param onEmptied hears about every key whose last attachment left, whatever removed it.
+	 */
+	constructor(surface?: string, onEmptied: (key: ConversationKey) => void = () => {}) {
 		this.store = surface ? new ChatAttachmentStore(surface) : undefined;
+		this.onEmptied = onEmptied;
 	}
 
 	/** Whether refused files of a conversation no view shows go to storage. */
@@ -229,7 +234,7 @@ export class ComposerAttachmentCoordinator {
 	clearAttachments(key: ConversationKey): void {
 		const cleared = this.listOf(key);
 		for (const attachment of cleared) this.drop(attachment);
-		this.lists.delete(key);
+		this.deleteList(key);
 		this.persist(key);
 		this.releaseAbandoned(cleared);
 	}
@@ -254,7 +259,7 @@ export class ComposerAttachmentCoordinator {
 			if (transfer) this.takenWithoutId.delete(transfer);
 			this.drop(attachment);
 		}
-		this.lists.delete(key);
+		this.deleteList(key);
 		this.write([['', this.strangersUnderEmptyKey(added)]]);
 		this.releaseAbandoned(discarded);
 	}
@@ -263,7 +268,7 @@ export class ComposerAttachmentCoordinator {
 	dispose(key: ConversationKey): void {
 		const disposed = this.listOf(key);
 		for (const attachment of disposed) this.drop(attachment);
-		this.lists.delete(key);
+		this.deleteList(key);
 		this.releaseAbandoned(disposed);
 	}
 
@@ -348,9 +353,13 @@ export class ComposerAttachmentCoordinator {
 			revokeAttachmentPreview(attachment);
 			return false;
 		});
-		this.setList(key, carried);
 		const stored = this.store.readThread(key);
-		if (stored.length > 0) this.adopt(key, stored);
+		if (stored.length === 0) {
+			this.setList(key, carried);
+			return;
+		}
+		this.lists.set(key, carried);
+		this.adopt(key, stored);
 	}
 
 	/**
@@ -361,7 +370,7 @@ export class ComposerAttachmentCoordinator {
 	assign(conversation: ChatConversation, threadId: string): void {
 		const moved = this.lists.get(conversation);
 		if (!moved) return;
-		this.lists.delete(conversation);
+		this.deleteList(conversation);
 		const local = this.listOf(threadId).filter((attachment) => {
 			if (!this.store || !isStoredAttachment(attachment)) return true;
 			revokeAttachmentPreview(attachment);
@@ -381,7 +390,7 @@ export class ComposerAttachmentCoordinator {
 		const keys = this.keys();
 		const dropped = [...this.lists.values()].flat();
 		for (const attachment of dropped) this.drop(attachment);
-		this.lists.clear();
+		for (const key of keys) this.deleteList(key);
 		this.persist(...keys);
 		this.releaseAbandoned(dropped);
 		this.keylessOwners = new WeakMap();
@@ -491,7 +500,11 @@ export class ComposerAttachmentCoordinator {
 
 	private setList(key: ConversationKey, list: Attachment[]): void {
 		if (list.length > 0) this.lists.set(key, list);
-		else this.lists.delete(key);
+		else this.deleteList(key);
+	}
+
+	private deleteList(key: ConversationKey): void {
+		if (this.lists.delete(key)) this.onEmptied(key);
 	}
 
 	/** Cancel the transfer of an attachment leaving the composer and free its preview. */

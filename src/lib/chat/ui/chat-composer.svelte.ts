@@ -134,7 +134,8 @@ export class ChatComposer implements PersistedChatHolder {
 	constructor(options: ChatComposerOptions = {}) {
 		this.drafts = options.surface ? new ChatDraftManager(options.surface) : undefined;
 		this.files = new ComposerAttachmentCoordinator(
-			options.storeFiles ? options.surface : undefined
+			options.storeFiles ? options.surface : undefined,
+			(key) => this.returning.delete(key)
 		);
 		this.saveWhileTyping = (options.saveDrafts ?? 'while-typing') === 'while-typing';
 	}
@@ -244,24 +245,17 @@ export class ChatComposer implements PersistedChatHolder {
 	}
 
 	removeAttachment(conversation: ChatConversation, index: number): void {
-		untrack(() => {
-			this.files.removeAttachment(keyOf(conversation), index);
-			this.pruneReturning();
-		});
+		untrack(() => this.files.removeAttachment(keyOf(conversation), index));
 	}
 
 	clearAttachments(conversation: ChatConversation): void {
-		untrack(() => {
-			this.files.clearAttachments(keyOf(conversation));
-			this.pruneReturning();
-		});
+		untrack(() => this.files.clearAttachments(keyOf(conversation)));
 	}
 
 	/** Drop the files of a conversation the surface left for good, stored ones included. */
 	discardAttachments(conversation: ChatConversation): void {
 		untrack(() => {
 			this.files.discard(keyOf(conversation));
-			this.pruneReturning();
 			if (conversation.threadId === null) this.forgetIdle(conversation);
 		});
 	}
@@ -460,15 +454,17 @@ export class ChatComposer implements PersistedChatHolder {
 		const shown = this.views.get(view);
 		if (!this.views.delete(view)) return;
 		if (shown) this.leave(shown, false);
-		for (const views of this.returning.values()) views.delete(view);
+		for (const [key, views] of this.returning) {
+			views.delete(view);
+			if (views.size === 0) this.returning.delete(key);
+		}
 		for (const key of this.files.keys()) {
 			if (this.isShown(key)) continue;
 			if (typeof key !== 'string' && this.refusedWithoutId.has(key)) continue;
-			if (this.returning.get(key)?.size) continue;
+			if (this.returning.has(key)) continue;
 			this.files.dispose(key);
 			if (typeof key !== 'string') this.forgetIdle(key);
 		}
-		this.pruneReturning();
 		this.syncRegistration();
 	}
 
@@ -478,14 +474,6 @@ export class ChatComposer implements PersistedChatHolder {
 		const views = this.returning.get(key);
 		if (views) views.add(view);
 		else this.returning.set(key, new SvelteSet([view]));
-		this.pruneReturning();
-	}
-
-	/** Forget the views waiting on a conversation that holds no files any more. */
-	private pruneReturning(): void {
-		for (const [key, views] of this.returning) {
-			if (views.size === 0 || !this.files.holds(key)) this.returning.delete(key);
-		}
 	}
 
 	/** Whether a view other than `except` shows the conversation under `key`. */

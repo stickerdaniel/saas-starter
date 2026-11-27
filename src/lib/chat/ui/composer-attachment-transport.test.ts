@@ -733,6 +733,61 @@ describe('results across the views of one composer', () => {
 		expect(transport.attempts.map((attempt) => attempt.signal.aborted)).toEqual([true, true]);
 	});
 
+	it.each([
+		{
+			emptied: 'sent its only file',
+			empty: async (
+				view: ReturnType<typeof composerOn>,
+				transport: ReturnType<typeof surfaceTransport>
+			) => {
+				const pending = view.ctx.uploadFile(textFile());
+				transport.attempts[0]!.succeed(result('sent'));
+				await pending;
+				view.replaceWith('thread-2');
+				view.replaceWith('thread-1');
+				sendFrom(view.ctx);
+				view.replaceWith('thread-2');
+			}
+		},
+		{
+			emptied: 'had its only file refused before upload',
+			empty: async (view: ReturnType<typeof composerOn>) => {
+				const refused = view.ctx.uploadFile(textFile('large.txt', 'x'.repeat(500)));
+				view.replaceWith('thread-2');
+				await refused;
+			}
+		}
+	])(
+		"cancels a later view's transfer when it closes on a thread another view $emptied",
+		async ({ empty }) => {
+			const transport = surfaceTransport();
+			const config: UploadConfig = {
+				upload: transport.upload,
+				release: transport.release,
+				profile: {
+					extensions: { '.txt': 'text/plain' },
+					maxBytes: 100,
+					maxBytesLabel: '100 B',
+					maxFiles: 6
+				}
+			};
+			const uploads = claims();
+			const shared = new ChatComposer();
+			const first = composerOn(config, 'thread-1', uploads.registry, shared);
+			await empty(first, transport);
+			expect(first.ctx.attachments).toEqual([]);
+
+			const later = composerOn(config, 'thread-1', uploads.registry, shared);
+			void later.ctx.uploadFile(textFile('later.txt'));
+			const attempt = transport.attempts.at(-1)!;
+			expect(uploads.owners.size).toBe(1);
+			later.ctx.dispose();
+
+			expect(attempt.signal.aborted).toBe(true);
+			expect(uploads.owners.size).toBe(0);
+		}
+	);
+
 	it('cancels the off-screen transfer of a view once that view closes', () => {
 		const transport = surfaceTransport();
 		const uploads = claims();
