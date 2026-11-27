@@ -26,7 +26,7 @@ Options:
   --yes                     Disable interactive prompts
   --trust-template          Trust the resolved template revision
   --skip-install            Run setup but leave dependencies uninstalled
-  --with-tests              Keep the template's test suite
+  --without-tests           Leave out the template's test suite
   --dry-run                 Validate locally without side effects
   -h, --help                Show help
   --version                 Show version
@@ -52,7 +52,7 @@ export interface CliOptions {
 	yes: boolean;
 	trustTemplate: boolean;
 	skipInstall: boolean;
-	withTests: boolean;
+	withoutTests: boolean;
 	dryRun: boolean;
 	help: boolean;
 	version: boolean;
@@ -95,7 +95,7 @@ export function parseCliOptions(args: string[]): CliOptions {
 				yes: { type: 'boolean' },
 				'trust-template': { type: 'boolean' },
 				'skip-install': { type: 'boolean' },
-				'with-tests': { type: 'boolean' },
+				'without-tests': { type: 'boolean' },
 				'dry-run': { type: 'boolean' },
 				help: { type: 'boolean', short: 'h' },
 				version: { type: 'boolean' }
@@ -139,7 +139,7 @@ export function parseCliOptions(args: string[]): CliOptions {
 		yes: values.yes === true,
 		trustTemplate: values['trust-template'] === true,
 		skipInstall: values['skip-install'] === true,
-		withTests: values['with-tests'] === true,
+		withoutTests: values['without-tests'] === true,
 		dryRun: values['dry-run'] === true,
 		help: values.help === true,
 		version: values.version === true

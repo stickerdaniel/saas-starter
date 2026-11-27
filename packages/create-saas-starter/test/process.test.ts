@@ -32,7 +32,7 @@ function options(overrides: Partial<ResolvedOptions> = {}): ResolvedOptions {
 		yes: true,
 		trustTemplate: true,
 		skipInstall: false,
-		withTests: false,
+		withoutTests: false,
 		dryRun: false,
 		...overrides
 	};
