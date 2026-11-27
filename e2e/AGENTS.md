@@ -16,6 +16,7 @@ Every step here is charged to the whole repository. On CI the suite runs four wo
 - Justify the deployment before writing the spec, in the PR body or a comment on the spec: `Cheaper layers rejected because: <the browser or deployed behavior they cannot reach>`. A spec that opens a page also says why a request-only check cannot reach it.
 - Run `bun run test:e2e` after every E2E change.
 - Tests run against isolated deterministic ports and an isolated local Convex backend. Do not point them at a developer's cloud deployment.
+- The local Convex backend counts wall time against its 1 s function limit, CPU wait included. The fixture mutations take 40 to 130 ms, so `Function execution timed out (maximum duration: 1s)` on a host whose load average is above its core count is host contention. Rerun on an idle host or in CI before reading it as a product failure.
 - Sign in as the worker's own accounts from the `workerAccounts` fixture (`e2e/utils/test.ts`) rather than introducing production bypasses.
 - A spec that reads data other specs write without an owner filter (an unfiltered list, a global count or a global ordering) belongs to `chromium-serial` in `playwright.config.ts`, which runs after every writing project.
 - Record every account, recipient, anonymous support ID and test-only fixture in `e2e/utils/owned-test-data.ts` before the write that creates it. Global teardown deletes exactly what that ledger lists, so never add a cleanup that sweeps by email suffix or user ID.
