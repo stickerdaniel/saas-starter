@@ -12,7 +12,7 @@ import databaseSchema from './_generated/schema';
 import { MutationCtx, QueryCtx } from './_generated/services';
 import { authComponent, createAuth } from './authServer';
 import { credentialAccounts, hasUsablePassword } from './credentialAccounts';
-import RequireUserImpl from './middleware/RequireUser.impl';
+import RequireUserImpl, { actingUser } from './middleware/RequireUser.impl';
 import { CurrentUser } from './middleware/RequireUser.spec';
 import { appRateLimiter } from './rateLimit';
 import users from './users.spec';
@@ -141,6 +141,11 @@ export default GroupImpl.make(databaseSchema, users).pipe(
 		FunctionImpl.make(databaseSchema, users, 'viewer', () =>
 			Effect.gen(function* () {
 				return yield* CurrentUser;
+			})
+		),
+		FunctionImpl.make(databaseSchema, users, 'viewerAs', ({ userId }) =>
+			Effect.gen(function* () {
+				return yield* QueryCtx.use(actingUser(userId));
 			})
 		)
 	]),

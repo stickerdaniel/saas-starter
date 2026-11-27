@@ -89,6 +89,7 @@ const CONFECT_PUBLIC_FUNCTIONS = {
 			'seedAiChatHistoryRows',
 			'seedAuditLogRows',
 			'seedSupportNotificationClaim',
+			'verifyAccessToken',
 			'verifyTestUserEmail'
 		].map((name) => [
 			`tests:${name}`,

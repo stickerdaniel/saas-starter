@@ -1,7 +1,7 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
 	"consumedNativeExports": [],
-	"digest": "ff9d19b8bd2a7889",
+	"digest": "447d3a21c8109759",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -215,18 +215,23 @@
 		"messages": {
 			"enforceAndTrackMessageUsage": ["internal", "action", "Convex", "Confect"],
 			"list": ["public", "query", "Convex", "Confect"],
+			"listAs": ["internal", "query", "Convex", "Confect"],
 			"markMessageSettled": ["internal", "mutation", "Convex", "Confect"],
 			"removeMessage": ["internal", "mutation", "Convex", "Confect"],
-			"send": ["public", "mutation", "Convex", "Confect"]
+			"send": ["public", "mutation", "Convex", "Confect"],
+			"sendAs": ["internal", "mutation", "Convex", "Confect"]
 		},
+		"oauth/access": { "verify": ["internal", "query", "Convex", "Confect"] },
 		"oauth/cleanup": {
 			"deleteExpiredTokens": ["internal", "mutation", "Convex", "Confect"],
 			"deleteStaleClients": ["internal", "mutation", "Convex", "Confect"],
 			"eraseUserGrants": ["internal", "mutation", "Convex", "Confect"]
 		},
 		"oauth/connections": {
+			"endpoint": ["public", "query", "Convex", "Confect"],
 			"epoch": ["internal", "query", "Convex", "Confect"],
 			"list": ["public", "query", "Convex", "Confect"],
+			"recordUse": ["internal", "mutation", "Convex", "Confect"],
 			"revoke": ["public", "mutation", "Convex", "Confect"]
 		},
 		"oauth/metadata": { "authorizationServer": ["internal", "query", "Convex", "Confect"] },
@@ -310,6 +315,7 @@
 			"seedAiChatHistoryRows": ["public", "mutation", "Convex", "Confect"],
 			"seedAuditLogRows": ["public", "mutation", "Convex", "Confect"],
 			"seedSupportNotificationClaim": ["public", "mutation", "Convex", "Confect"],
+			"verifyAccessToken": ["public", "query", "Convex", "Confect"],
 			"verifyTestUserEmail": ["public", "mutation", "Convex", "Confect"]
 		},
 		"users": {
@@ -317,7 +323,8 @@
 			"getPasskeyNudgeDismissal": ["public", "query", "Convex", "Confect"],
 			"hasPassword": ["public", "query", "Convex", "Confect"],
 			"setPassword": ["public", "mutation", "Convex", "Confect"],
-			"viewer": ["public", "query", "Convex", "Confect"]
+			"viewer": ["public", "query", "Convex", "Confect"],
+			"viewerAs": ["internal", "query", "Convex", "Confect"]
 		}
 	}
 }

@@ -1,7 +1,14 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
 import * as Schema from 'effect/Schema';
+import { UnauthenticatedCodec } from './errorCodecs';
 import RequireUser from './middleware/RequireUser.spec';
 import { BetterAuthUserId, BetterAuthUserSchema } from './schemas/betterAuth';
+
+const Viewer = Schema.Struct({
+	_id: BetterAuthUserId,
+	_creationTime: Schema.Number,
+	...BetterAuthUserSchema.fields
+});
 
 export default GroupSpec.make()
 	.addFunction(
@@ -41,11 +48,14 @@ export default GroupSpec.make()
 		FunctionSpec.publicQuery({
 			name: 'viewer',
 			args: () => ({}),
-			returns: () =>
-				Schema.Struct({
-					_id: BetterAuthUserId,
-					_creationTime: Schema.Number,
-					...BetterAuthUserSchema.fields
-				})
+			returns: () => Viewer
 		}).middleware(RequireUser)
+	)
+	.addFunction(
+		FunctionSpec.internalQuery({
+			name: 'viewerAs',
+			args: () => ({ userId: Schema.String }),
+			returns: () => Viewer,
+			error: () => UnauthenticatedCodec
+		})
 	);

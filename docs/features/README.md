@@ -17,6 +17,7 @@ What a product built on this template can do from its first deploy. Each page sa
 - **[Email](email.md).** Transactional email through Resend, a personal welcome email from you, and incident emails sent only to affected customers.
 - **[Internationalization](i18n.md).** Four languages with URL-based routing, translated from committed JSON files.
 - **[Analytics](analytics.md).** Opt-in PostHog analytics that loads only after consent and only on the hostnames you list.
+- **[Remote MCP](mcp.md).** Users connect Claude, ChatGPT or another MCP app to their account, choose view or change access, and revoke it in the settings.
 - **[Agents and SEO](agents-and-seo.md).** Markdown versions of the marketing pages, `/llms.txt`, social cards, and `hreflang` alternates.
 - **[Accessibility](accessibility.md).** Automated WCAG 2.1 AA checks on the main public pages in light and dark mode.
 

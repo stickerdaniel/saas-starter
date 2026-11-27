@@ -12,4 +12,5 @@ export default {
 ["hasPassword"]: RegisteredConvexFunction.register({ ...definitions["hasPassword"], handler: forward(definitions["hasPassword"].handler) }),
 ["setPassword"]: RegisteredConvexFunction.register({ ...definitions["setPassword"], handler: forward(definitions["setPassword"].handler) }),
 ["viewer"]: RegisteredConvexFunction.register({ ...definitions["viewer"], handler: forward(definitions["viewer"].handler) }),
+["viewerAs"]: RegisteredConvexFunction.register({ ...definitions["viewerAs"], handler: forward(definitions["viewerAs"].handler) }),
 } as RegisteredFunctions.RegisteredFunctionsForGroupSpec<typeof import("../../users.spec")["default"]>;

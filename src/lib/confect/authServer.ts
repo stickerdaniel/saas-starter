@@ -10,7 +10,7 @@ import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 import * as val from 'valibot';
 import { asOAuthError, assertConsentIsCurrent, assertRefreshHasGrant } from './oauth/grants';
-import { createOAuthProvider } from './oauth/provider';
+import { createOAuthProvider, mcpAccess } from './oauth/provider';
 import { appRateLimiter } from './rateLimit';
 import authSchema from '../convex-components/betterAuth/schema';
 import authConfig from './auth';
@@ -491,6 +491,7 @@ function isTestEmailRequest(body: unknown): boolean {
 // admin/mutations.impl.ts calls plugin endpoints such as auth.api.banUser in-process,
 // which a plain BetterAuthOptions erases.
 export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
+	const oauthProviderPlugin = createOAuthProvider(ctx);
 	return {
 		baseURL: requireEnv('SITE_URL', { feature: 'Better Auth base URL' }),
 		trustedOrigins: buildTrustedOrigins(),
@@ -630,7 +631,8 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
 				defaultRole: 'user',
 				adminRoles: ['admin']
 			}),
-			createOAuthProvider(ctx)
+			oauthProviderPlugin,
+			mcpAccess(oauthProviderPlugin)
 		]
 	} satisfies BetterAuthOptions;
 };

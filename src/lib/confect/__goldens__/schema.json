@@ -1,11 +1,11 @@
 {
 	"counts": {
-		"indexes": 53,
+		"indexes": 54,
 		"searchIndexes": 1,
 		"stagedDbIndexes": 0,
 		"stagedSearchIndexes": 0,
 		"stagedVectorIndexes": 0,
-		"tables": 29,
+		"tables": 30,
 		"vectorIndexes": 0
 	},
 	"schemaValidation": true,
@@ -115,6 +115,10 @@
 				"by_user": { "fields": ["userId"] },
 				"by_user_and_settled": { "fields": ["userId", "quotaSettledAt"] }
 			}
+		},
+		"oauthConnectionUses": {
+			"documentType": "1db218b24bb2c968",
+			"indexes": { "by_userId_and_clientId": { "fields": ["userId", "clientId"] } }
 		},
 		"oauthGrantEpochs": {
 			"documentType": "06d66df32ec0c8c0",

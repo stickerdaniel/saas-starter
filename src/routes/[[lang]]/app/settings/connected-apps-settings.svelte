@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { usePaginatedQuery, useConvexClient } from 'convex-svelte';
+	import { usePaginatedQuery, useConvexClient, useQuery } from 'convex-svelte';
 	import type { FunctionReturnType } from 'convex/server';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { toast } from 'svelte-sonner';
@@ -10,17 +10,22 @@
 	import * as Card from '#lib/components/ui/card/index.js';
 	import * as Empty from '#lib/components/ui/empty/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
+	import { CopyButton } from '#lib/components/ui/copy-button/index.js';
+	import { Input } from '#lib/components/ui/input/index.js';
 	import { DEFAULT_LANGUAGE } from '#lib/i18n/languages.js';
 
 	type Connection = FunctionReturnType<typeof api.oauth.connections.list>['page'][number];
 
 	const PAGE_SIZE = 20;
+	const DAY_MS = 86_400_000;
 
 	const { t } = getTranslate();
 	const client = useConvexClient();
 	const connections = usePaginatedQuery(api.oauth.connections.list, () => ({}), {
 		initialNumItems: PAGE_SIZE
 	});
+	const endpoint = useQuery(api.oauth.connections.endpoint, {});
+	const connectTitleId = $props.id();
 
 	let revoking = $state<Connection | null>(null);
 	let shown = $state<Connection | null>(null);
@@ -36,14 +41,27 @@
 				? 'mcp.connections.level_change'
 				: 'mcp.connections.level_view';
 
+	const locale = $derived(page.data.lang ?? DEFAULT_LANGUAGE);
+
 	const connectedOn = (connection: Connection) =>
 		connection.connectedAt === null
 			? $t('mcp.connections.unknown_date')
-			: new Date(connection.connectedAt).toLocaleDateString(page.data.lang ?? DEFAULT_LANGUAGE, {
+			: new Date(connection.connectedAt).toLocaleDateString(locale, {
 					year: 'numeric',
 					month: 'short',
 					day: 'numeric'
 				});
+
+	const calendarDay = (time: number) => {
+		const date = new Date(time);
+		return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+	};
+
+	const lastUsed = (connection: Connection) => {
+		if (connection.lastUsedAt === null) return $t('mcp.connections.never');
+		const days = (calendarDay(Date.now()) - calendarDay(connection.lastUsedAt)) / DAY_MS;
+		return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(-days, 'day');
+	};
 
 	function openRevoke(connection: Connection) {
 		shown = connection;
@@ -67,7 +85,7 @@
 {#snippet cell(label: string, value: string)}
 	<div class="flex items-baseline justify-between gap-3 sm:flex-col sm:gap-1">
 		<dt class="text-muted-foreground sm:text-xs">{label}</dt>
-		<dd class="font-medium">{value}</dd>
+		<dd class="font-medium first-letter:uppercase">{value}</dd>
 	</div>
 {/snippet}
 
@@ -104,6 +122,7 @@
 							class="grid gap-x-6 gap-y-2 border-t bg-muted/50 px-4 py-3 text-sm sm:grid-cols-3 sm:gap-y-1"
 						>
 							{@render cell($t('mcp.connections.access'), $t(levelKey(connection)))}
+							{@render cell($t('mcp.connections.last_used'), lastUsed(connection))}
 							{@render cell($t('mcp.connections.connected'), connectedOn(connection))}
 						</dl>
 					</li>
@@ -119,6 +138,31 @@
 				</Button>
 			{/if}
 		{/if}
+	</Card.Content>
+</Card.Root>
+
+<Card.Root>
+	<Card.Header>
+		<Card.Title id={connectTitleId}><T keyName="mcp.connections.connect_title" /></Card.Title>
+		<Card.Description><T keyName="mcp.connections.connect_description" /></Card.Description>
+	</Card.Header>
+	<Card.Content>
+		<div class="flex gap-2">
+			<div class="min-w-0 flex-1">
+				<Input
+					type="text"
+					readonly
+					value={endpoint.data?.url ?? ''}
+					aria-labelledby={connectTitleId}
+					onfocus={(event) => event.currentTarget.select()}
+				/>
+			</div>
+			<CopyButton text={endpoint.data?.url ?? ''} variant="outline" disabled={!endpoint.data}>
+				<span class="max-sm:hidden" aria-hidden="true">
+					<T keyName="mcp.connections.copy" />
+				</span>
+			</CopyButton>
+		</div>
 	</Card.Content>
 </Card.Root>
 

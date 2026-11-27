@@ -1,5 +1,6 @@
 import { FunctionSpec, GroupSpec } from '@confect/core';
 import * as Schema from 'effect/Schema';
+import { VerifiedAccess, VerifyArgs } from './oauth/access.spec';
 import {
 	AiChatThreadIds,
 	AuditLogIds,
@@ -195,6 +196,13 @@ export default GroupSpec.make()
 			name: 'seedSupportNotificationClaim',
 			args: () => SeedSupportNotificationClaimArgs.fields,
 			returns: () => SeedSupportNotificationClaimReturns
+		})
+	)
+	.addFunction(
+		FunctionSpec.publicQuery({
+			name: 'verifyAccessToken',
+			args: () => ({ secret: Schema.String, ...VerifyArgs.fields }),
+			returns: () => VerifiedAccess
 		})
 	)
 	.addFunction(
