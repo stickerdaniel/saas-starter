@@ -14,6 +14,7 @@ import SimpleChat from './SimpleChat.svelte';
 vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../node_modules/svelte/src/index-client.js')
 );
+vi.mock('svelte/reactivity', () => import('../ui/test-fixtures/client-reactivity.ts'));
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
 vi.mock('#lib/chat/ui/ChatMessages.svelte', async () => ({
 	default: (await import('../ui/test-fixtures/CapturedChatMessages.svelte')).default

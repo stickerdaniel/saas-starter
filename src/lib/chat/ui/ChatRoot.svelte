@@ -60,6 +60,13 @@
 	const uiContext = externalUIContext;
 	setChatUIContext(uiContext);
 
+	// Before the composer renders the conversation the session moved to.
+	$effect.pre(() => {
+		void core.conversation;
+		void core.threadId;
+		uiContext.activate();
+	});
+
 	// Query messages with streamArgs for streaming support
 	// API reference is stable for component lifetime; threadId is reactive in the closure.
 	// svelte-ignore state_referenced_locally

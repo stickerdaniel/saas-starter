@@ -20,6 +20,7 @@ import en from '../../../i18n/en.json';
 vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../node_modules/svelte/src/index-client.js')
 );
+vi.mock('svelte/reactivity', () => import('./test-fixtures/client-reactivity.ts'));
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
 vi.mock('$app/env/public', () => ({ PUBLIC_CONVEX_SITE_URL: 'https://site.test' }));
 vi.mock('#lib/auth-client.js', () => ({

@@ -17,11 +17,11 @@ import type {
 	UploadConfig
 } from './composer-attachment-coordinator.svelte.ts';
 import {
-	ComposerSendCoordinator,
+	ChatComposer,
 	type ComposerSendOutcome,
 	type ComposerSendResources,
 	type ComposerSendTarget
-} from './composer-send-coordinator.js';
+} from './chat-composer.svelte.ts';
 
 export type {
 	ActiveUploadsRegistry,
@@ -33,11 +33,11 @@ export type {
 export type ChatUIContextOptions = {
 	forgetSession?: () => void;
 	/**
-	 * Settles this surface's sends and outlives this context, so a refusal that
-	 * arrives after the composer unmounted still finds its way back. Without one,
-	 * the context settles its own sends and nothing outlives it.
+	 * Holds this surface's text and settles its sends, and outlives this context,
+	 * so a refusal that arrives after the view unmounted still finds its way back.
+	 * Without one, the context gets a composer of its own that stores nothing.
 	 */
-	sendOwner?: ComposerSendCoordinator;
+	sendOwner?: ChatComposer;
 };
 
 export type ChatAlignment = 'left' | 'right';
@@ -46,7 +46,6 @@ export type ChatSendSnapshot = {
 	sessionEpoch: number;
 	conversation: ChatConversation;
 	inputValue: string;
-	inputRevision: number;
 	attachments: ComposerAttachmentSendSnapshot;
 };
 
@@ -78,12 +77,10 @@ export class ChatUIContext implements ComposerSendTarget {
 
 	readonly messagesFade = new FadeOnLoad<DisplayMessage[]>();
 
-	inputValue = $state('');
-	private inputRevision = 0;
 	private disposed = false;
-	private readonly sendOwner: ComposerSendCoordinator;
+	private readonly sendOwner: ChatComposer;
 	private readonly detachFromSendOwner: () => void;
-	/** Moves whenever the send owner's pending sends do. */
+	/** Moves whenever the composer's pending sends do. */
 	private pendingSendsVersion = $state(0);
 
 	private readonly attachmentCoordinator: ComposerAttachmentCoordinator;
@@ -108,19 +105,24 @@ export class ChatUIContext implements ComposerSendTarget {
 		this.client = client;
 		this.uploadConfig = uploadConfig;
 		this.userAlignment = userAlignment;
-		this.sendOwner = options.sendOwner ?? new ComposerSendCoordinator();
+		this.sendOwner = options.sendOwner ?? new ChatComposer();
 		this.attachmentCoordinator = new ComposerAttachmentCoordinator({
 			getThreadId: () => core.threadId,
 			uploadConfig,
 			activeUploads,
 			onForgetPersistedState: () => {
 				options.forgetSession?.();
-				this.inputValue = '';
-				this.inputRevision++;
+				this.sendOwner.forgetPersistedState();
 			},
 			pendingSendAttachments: () => this.pendingSendAttachments
 		});
 		this.detachFromSendOwner = this.sendOwner.attachTarget(this);
+		this.activate();
+	}
+
+	/** Show the text of the conversation the session shows now. ChatRoot calls it when that changes. */
+	activate(): void {
+		this.sendOwner.activate(this);
 	}
 
 	/**
@@ -254,10 +256,14 @@ export class ChatUIContext implements ComposerSendTarget {
 		if (this.composerRefusal === handler) this.composerRefusal = undefined;
 	}
 
+	/** The text of the conversation this context shows, held by the composer. A disposed context shows none. */
+	get inputValue(): string {
+		return this.disposed ? '' : this.sendOwner.textOf(this.core.conversation);
+	}
+
 	setInputValue(value: string): void {
-		if (this.disposed || this.inputValue === value) return;
-		this.inputValue = value;
-		this.inputRevision++;
+		if (this.disposed) return;
+		this.sendOwner.edit(this.conversation, value);
 	}
 
 	clearInput(): void {
@@ -268,8 +274,7 @@ export class ChatUIContext implements ComposerSendTarget {
 		return {
 			sessionEpoch: getChatSessionEpoch(),
 			conversation: this.conversation,
-			inputValue: this.inputValue,
-			inputRevision: this.inputRevision,
+			inputValue: untrack(() => this.inputValue),
 			attachments: this.attachmentCoordinator.captureSendAttachments()
 		};
 	}
@@ -279,14 +284,8 @@ export class ChatUIContext implements ComposerSendTarget {
 	}
 
 	clearInputForSend(snapshot: ChatSendSnapshot): void {
-		if (
-			!isChatSessionCurrent(snapshot.sessionEpoch) ||
-			this.inputRevision !== snapshot.inputRevision ||
-			this.inputValue !== snapshot.inputValue
-		) {
-			return;
-		}
-		this.setInputValue('');
+		if (this.disposed) return;
+		this.sendOwner.clearSent(snapshot);
 	}
 
 	clearAttachmentsForSend(snapshot: ChatSendSnapshot): void {
@@ -300,20 +299,14 @@ export class ChatUIContext implements ComposerSendTarget {
 		);
 	}
 
-	/** Hand a cleared send to the surface's settlement owner; call the result with its outcome. */
+	/** Hand a cleared send to the surface's composer; call the result with its outcome. */
 	beginSend(snapshot: ChatSendSnapshot): (outcome: ComposerSendOutcome) => void {
 		const sendId = this.sendOwner.begin(this, snapshot);
 		return (outcome) => this.sendOwner.settle(sendId, outcome);
 	}
 
-	/** Show the stored draft of a thread, unless a pending send already carries it. */
-	loadDraft(threadId: string | null): void {
-		this.setInputValue(this.sendOwner.draftFor(threadId));
-	}
-
-	restoreFailedSend(text: string, attachments: Attachment[]): void {
+	restoreAttachments(attachments: Attachment[]): void {
 		if (this.disposed) return;
-		this.setInputValue(text);
 		this.attachmentCoordinator.restoreSendAttachments({ attachments });
 	}
 
@@ -327,7 +320,7 @@ export class ChatUIContext implements ComposerSendTarget {
 
 	/** Files this conversation's unsettled sends hold, which a refusal would put back here. */
 	private get pendingSendAttachments(): number {
-		// The owner keeps its sends in a plain map, so this read is what re-runs a
+		// The composer counts its sends untracked, so this read is what re-runs a
 		// dependent when a send settles.
 		void this.pendingSendsVersion;
 		return this.sendOwner.pendingAttachmentCount(this);

@@ -11,11 +11,7 @@
 	import { getTranslate } from '@tolgee/svelte';
 	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import ThreadChat from './thread-chat.svelte';
-	import { ChatDraftManager } from '#lib/chat/core/chat-draft-manager.svelte.ts';
-	import {
-		ComposerSendCoordinator,
-		acquireComposerSendCoordinator
-	} from '#lib/chat/ui/composer-send-coordinator.ts';
+	import { acquireChatComposer } from '#lib/chat/ui/chat-composer.svelte.ts';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { useBillingCheckout } from '#lib/components/billing/index.js';
 
@@ -52,11 +48,7 @@
 	// page stays open (signed out in another tab) hands over the next session's
 	// owner, and ThreadChat is rebuilt around it below.
 	let sendLease = $state.raw(
-		acquireComposerSendCoordinator(
-			'ai-chat',
-			() => new ComposerSendCoordinator({ drafts: new ChatDraftManager('ai-chat') }),
-			(next) => (sendLease = next)
-		)
+		acquireChatComposer('ai-chat', { renewed: (next) => (sendLease = next) })
 	);
 	onDestroy(() => sendLease.release());
 

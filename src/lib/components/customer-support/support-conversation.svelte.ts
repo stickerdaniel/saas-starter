@@ -13,7 +13,6 @@ import {
 	type StreamCachePort
 } from '#lib/chat/core/chat-session-port.svelte.ts';
 import { ChatCommandError } from '#lib/chat/core/chat-command-error.js';
-import { ChatDraftManager } from '#lib/chat/core/chat-draft-manager.svelte.ts';
 import { getChatSessionEpoch, isChatSessionCurrent } from '#lib/chat/core/chat-persisted-state.ts';
 import { KeyedAcquisition } from '#lib/chat/core/keyed-acquisition.js';
 import { SendOwnership, type SendClaim } from '#lib/chat/core/send-ownership.js';
@@ -117,7 +116,6 @@ export class SupportConversation implements ChatSessionPort {
 
 	private readonly threadStreamCache = new StreamCacheManager();
 	private streamCacheThreadId: string | null = null;
-	readonly drafts = new ChatDraftManager('support');
 	private client: ConvexClient | null = null;
 	private operationRevision = 0;
 	readonly #ownership = new SendOwnership({
@@ -175,14 +173,6 @@ export class SupportConversation implements ChatSessionPort {
 
 	getAnonymousUserId(): string | undefined {
 		return isAnonymousUser(this.userId) ? (this.userId ?? undefined) : undefined;
-	}
-
-	getDraft(threadId: string | null): string {
-		return this.drafts.getDraft(threadId);
-	}
-
-	setDraft(threadId: string | null, text: string): void {
-		this.drafts.setDraft(threadId, text);
 	}
 
 	setRateLimited(retryAfterMs: number): void {

@@ -2,14 +2,13 @@
 	import { onDestroy } from 'svelte';
 	import { useConvexClient, useQuery } from 'convex-svelte';
 	import { toast } from 'svelte-sonner';
-	import { watch } from 'runed';
 	import { api } from '#lib/convex/_generated/api.js';
 	import ChatRoot from '#lib/chat/ui/ChatRoot.svelte';
 	import ChatMessages from '#lib/chat/ui/ChatMessages.svelte';
 	import ChatInput from '#lib/chat/ui/ChatInput.svelte';
 	import { ChatUIContext, type UploadConfig } from '#lib/chat/ui/chat-context.svelte.ts';
 	import { ChatCore } from '#lib/chat/core/chat-core.svelte.ts';
-	import { ComposerSendCoordinator } from '#lib/chat/ui/composer-send-coordinator.ts';
+	import { ChatComposer } from '#lib/chat/ui/chat-composer.svelte.ts';
 	import { ChatAttachmentStore } from '#lib/chat/core/chat-attachment-store.svelte.ts';
 	import { createOptimisticUpdate, type ListMessagesArgs } from '#lib/chat/core/optimistic.js';
 	import { CHAT_PAGE_SIZE } from '#lib/chat/core/types.js';
@@ -60,8 +59,8 @@
 		/** The signed-in admin, who has no one to impersonate in their own ticket. */
 		viewerId?: string;
 		onBackClick?: () => void;
-		/** Settles sends past this keyed view; the page owns it with the draft store. */
-		sendOwner?: ComposerSendCoordinator;
+		/** Holds text and settles sends past this keyed view; the page owns it with the draft store. */
+		sendOwner?: ChatComposer;
 	} = $props();
 
 	const media = useMedia();
@@ -95,7 +94,7 @@
 	// there is no layout to ask.
 	// The owner is fixed for this keyed instance.
 	// svelte-ignore state_referenced_locally
-	const owner = sendOwner ?? new ComposerSendCoordinator();
+	const owner = sendOwner ?? new ChatComposer();
 	const chatUIContext = new ChatUIContext(chatCore, client, uploadConfig, 'left', activeUploads, {
 		forgetSession: () => chatCore.forgetChatSession(),
 		sendOwner: owner
@@ -103,24 +102,6 @@
 
 	// Revoke blob preview URLs of unsent attachments when this thread view unmounts
 	onDestroy(() => chatUIContext.dispose());
-
-	// Draft persistence — load saved draft on mount, save continuously
-	// Load saved draft on mount (threadId is constant per {#key} instance)
-	// svelte-ignore state_referenced_locally
-	chatUIContext.loadDraft(threadId);
-
-	// Continuous save — watch untracks the callback, avoiding a reactive loop
-	// with PersistedState's Proxy set trap. A composer emptied by a send keeps
-	// the stored copy, which that send still owns.
-	watch(
-		() => [chatUIContext.inputValue, threadId] as const,
-		([value, id]) => {
-			const drafts = owner.drafts;
-			if (!drafts) return;
-			if (!value.trim() && owner.holdsDraft(id)) return;
-			drafts.setDraft(id, value);
-		}
-	);
 
 	// Query thread details to show header info
 	const threadQuery = useQuery(api.admin.support.queries.getThreadForAdmin, () => ({

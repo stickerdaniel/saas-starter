@@ -7,12 +7,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushSync, mount, tick, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
 import { ConvexClient } from 'convex/browser';
+import { getFunctionName } from 'convex/server';
 import AIThreadChat from '../../../routes/[[lang]]/app/ai-chat/thread-chat.svelte';
 import FeedbackWidget from '../../components/customer-support/feedback-widget.svelte';
 import { SupportContext } from '../../components/customer-support/support-context.svelte.ts';
 import { ChatDraftManager } from '../core/chat-draft-manager.svelte.ts';
 import { ChatUIContext } from './chat-context.svelte.ts';
-import { ComposerSendCoordinator } from './composer-send-coordinator.ts';
+import { ChatComposer } from './chat-composer.svelte.ts';
 import ChatTestProvider from './test-fixtures/ChatTestProvider.svelte';
 import ThreadChatConsumerHarness, {
 	threadChatConsumerHarness
@@ -22,6 +23,7 @@ import en from '../../../i18n/en.json';
 vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../node_modules/svelte/src/index-client.js')
 );
+vi.mock('svelte/reactivity', () => import('./test-fixtures/client-reactivity.ts'));
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
 vi.mock('#lib/chat/index.js', async () => ({
 	ChatRoot: (await import('./ChatRoot.svelte')).default,
@@ -103,9 +105,9 @@ afterEach(async () => {
 });
 
 describe('AI chat across a remount', () => {
-	const pageOwner = () => new ComposerSendCoordinator({ drafts: new ChatDraftManager('ai-chat') });
+	const pageOwner = () => new ChatComposer({ surface: 'ai-chat' });
 
-	async function mountChat(sendOwner: ComposerSendCoordinator): Promise<void> {
+	async function mountChat(sendOwner: ChatComposer): Promise<void> {
 		const contentProps = { threadId: 'thread-a', hasMessagesAvailable: true, sendOwner };
 		component = mount(ChatTestProvider<typeof contentProps>, {
 			target: document.body,
@@ -145,6 +147,47 @@ describe('AI chat across a remount', () => {
 		await mountChat(sendOwner);
 		expect(textarea().value).toBe('');
 		reply.reject(new Error('refused'));
+		await settleWork();
+
+		expect(textarea().value).toBe('same');
+		expect(storedDrafts('ai-chat')).toEqual({ 'thread-a': 'same' });
+	});
+
+	it('keeps a draft another tab stored before the send when the send is accepted', async () => {
+		const reply = Promise.withResolvers<Record<string, never>>();
+		vi.spyOn(client, 'mutation').mockReturnValue(reply.promise);
+		const sendOwner = pageOwner();
+		await mountChat(sendOwner);
+		await type('send this');
+		const stored = JSON.stringify({ 'thread-a': 'typed in another tab' });
+		localStorage.setItem('drafts:ai-chat', stored);
+		window.dispatchEvent(new StorageEvent('storage', { key: 'drafts:ai-chat', newValue: stored }));
+		await tick();
+		expect(textarea().value).toBe('send this');
+		sendButton().click();
+		await tick();
+
+		await unmountComponent();
+		await mountChat(sendOwner);
+		expect(textarea().value).toBe('typed in another tab');
+		reply.resolve({});
+		await settleWork();
+
+		expect(storedDrafts('ai-chat')).toEqual({ 'thread-a': 'typed in another tab' });
+		expect(textarea().value).toBe('typed in another tab');
+	});
+
+	it('keeps a draft with the same text typed after the remount when the send is accepted', async () => {
+		const reply = Promise.withResolvers<Record<string, never>>();
+		vi.spyOn(client, 'mutation').mockReturnValue(reply.promise);
+		const sendOwner = pageOwner();
+		await mountChat(sendOwner);
+		await send('same');
+
+		await unmountComponent();
+		await mountChat(sendOwner);
+		await type('same');
+		reply.resolve({});
 		await settleWork();
 
 		expect(textarea().value).toBe('same');
@@ -229,6 +272,39 @@ describe.each([
 			expect(textarea().value).toBe(later);
 		}
 	);
+
+	it('keeps a draft with the same text typed after leaving the thread and coming back', async () => {
+		const reply = Promise.withResolvers<Record<string, never>>();
+		vi.spyOn(client, 'mutation').mockReturnValue(reply.promise);
+		await mountHarness();
+		await send('send this');
+		flushSync(() => threadChatConsumerHarness.setThreadId?.('thread-b'));
+		await tick();
+		flushSync(() => threadChatConsumerHarness.setThreadId?.('thread-a'));
+		await tick();
+		expect(textarea().value).toBe('');
+		await type('send this');
+
+		reply.resolve({});
+		await settleWork();
+
+		expect(storedDrafts(surface)).toEqual({ 'thread-a': 'send this' });
+		expect(textarea().value).toBe('send this');
+	});
+
+	it('clears the stored draft of a sent text with surrounding whitespace', async () => {
+		const reply = Promise.withResolvers<Record<string, never>>();
+		vi.spyOn(client, 'mutation').mockReturnValue(reply.promise);
+		await mountHarness();
+		await send('  send this \n');
+		expect(storedDrafts(surface)).toEqual({ 'thread-a': '  send this \n' });
+
+		reply.resolve({});
+		await settleWork();
+
+		expect(storedDrafts(surface)).toEqual({});
+		expect(textarea().value).toBe('');
+	});
 });
 
 describe('AI thread switches', () => {
@@ -304,8 +380,9 @@ describe('support widget accepted send', () => {
 	it('preserves a later support draft after success', async () => {
 		const support = new SupportContext();
 		const { conversation } = support;
+		const drafts = new ChatDraftManager('support');
 		support.selectThread('thread-support');
-		conversation.setDraft('thread-support', 'send this');
+		drafts.setDraft('thread-support', 'send this');
 		const context = new ChatUIContext(conversation, client, undefined, 'right', null, {
 			forgetSession: () => conversation.forgetChatSession(),
 			sendOwner: support.sendOwner
@@ -324,12 +401,59 @@ describe('support widget accepted send', () => {
 		sendButton().click();
 		await tick();
 		await type('keep this');
-		conversation.setDraft('thread-support', 'keep this');
+		drafts.setDraft('thread-support', 'keep this');
 		reply.resolve({});
 		await settleWork();
 
-		expect(conversation.getDraft('thread-support')).toBe('keep this');
+		expect(drafts.getDraft('thread-support')).toBe('keep this');
 		await unmountComponent();
 		context.dispose();
 	});
+
+	it.each([
+		{ since: 'nothing typed since', later: '', stored: {} },
+		{
+			since: 'the same text typed since',
+			later: 'send this',
+			stored: { 'support-created': 'send this' }
+		}
+	])(
+		'keeps only a later draft under the id its send created, with $since',
+		async ({ later, stored }) => {
+			const support = new SupportContext();
+			const { conversation } = support;
+			support.startNewThread();
+			const context = new ChatUIContext(conversation, client, undefined, 'right', null, {
+				forgetSession: () => conversation.forgetChatSession(),
+				sendOwner: support.sendOwner
+			});
+			context.setDisplayMessages([]);
+			const creation = Promise.withResolvers<{ threadId: string; notificationEmail: null }>();
+			const reply = Promise.withResolvers<Record<string, never>>();
+			vi.spyOn(client, 'mutation').mockImplementation((reference) => {
+				const name = getFunctionName(reference);
+				if (name === 'support/threads:getOrCreateWarmThread') return creation.promise;
+				if (name === 'support/messages:sendMessage') return reply.promise;
+				return Promise.resolve({});
+			});
+			const contentProps = { chatUIContext: context };
+			component = mount(ChatTestProvider<typeof contentProps>, {
+				target: document.body,
+				props: { client, content: FeedbackWidget, contentProps, supportThread: support }
+			});
+			await tick();
+			await send('send this');
+			if (later) await type(later);
+
+			creation.resolve({ threadId: 'support-created', notificationEmail: null });
+			await vi.waitFor(() => expect(conversation.threadId).toBe('support-created'));
+			reply.resolve({});
+			await settleWork();
+
+			expect(JSON.parse(localStorage.getItem('drafts:support') ?? '{}')).toEqual(stored);
+			expect(textarea().value).toBe(later);
+			await unmountComponent();
+			context.dispose();
+		}
+	);
 });

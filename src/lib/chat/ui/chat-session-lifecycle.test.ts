@@ -6,6 +6,7 @@ import { getFunctionName } from 'convex/server';
 import { version } from '$app/env';
 import { clearPersistedChatState } from '../core/chat-persisted-state.ts';
 import { ChatAttachmentStore } from '../core/chat-attachment-store.svelte.ts';
+import { ChatDraftManager } from '../core/chat-draft-manager.svelte.ts';
 import { CHAT_PAGE_SIZE, type Attachment } from '../core/types.js';
 import { ChatUIContext, type UploadConfig } from './chat-context.svelte.ts';
 import { SupportContext } from '#lib/components/customer-support/support-context.svelte.ts';
@@ -22,6 +23,7 @@ import en from '../../../i18n/en.json';
 vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../node_modules/svelte/src/index-client.js')
 );
+vi.mock('svelte/reactivity', () => import('./test-fixtures/client-reactivity.ts'));
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
 vi.mock('svelte-sonner', () => ({ toast: { error: vi.fn() } }));
 vi.mock('$app/state', () => ({ page: { data: { lang: 'en' } } }));
@@ -120,11 +122,12 @@ class SupportThreadContext extends SupportContext {
 	setOnThreadChange(callback: ((threadId: string | null) => void) | undefined): void {
 		this.navigation.setOnThreadChange(callback);
 	}
+	/** Writes the support surface's stored draft the way an earlier visit left it. */
 	setDraft(threadId: string | null, value: string): void {
-		this.conversation.setDraft(threadId, value);
+		new ChatDraftManager('support').setDraft(threadId, value);
 	}
 	getDraft(threadId: string | null): string {
-		return this.conversation.getDraft(threadId);
+		return new ChatDraftManager('support').getDraft(threadId);
 	}
 	setRateLimited(retryAfterMs: number): void {
 		this.conversation.setRateLimited(retryAfterMs);
@@ -465,6 +468,25 @@ describe('chat session lifecycle', () => {
 		await vi.waitFor(() => expect(input.value).toBe('draft B'));
 		thread.startNewThread();
 		await vi.waitFor(() => expect(input.value).toBe(''));
+	});
+
+	it('stores a support draft when its thread is left, not while typing', async () => {
+		const thread = new SupportThreadContext();
+		thread.setDraft('thread-a', 'draft A');
+		thread.setThread('thread-a');
+		thread.currentView = 'chat';
+		const context = createSupportContext(thread);
+		await mountSupport(thread, context);
+		const input = document.querySelector('textarea')!;
+		await vi.waitFor(() => expect(input.value).toBe('draft A'));
+
+		typeInto(input, 'typed in A');
+		await tick();
+		expect(thread.getDraft('thread-a')).toBe('draft A');
+
+		thread.selectThread('thread-b');
+		await vi.waitFor(() => expect(input.value).toBe(''));
+		expect(thread.getDraft('thread-a')).toBe('typed in A');
 	});
 
 	it('session clear resets support send state synchronously', () => {
