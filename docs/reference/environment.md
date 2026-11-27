@@ -45,7 +45,7 @@ Set `PREVIEW_ADMIN_PASSWORD` once as a preview default (`bunx convex env default
 | `CF_PURGE_TOKEN`               | CF Workers only: API token with `Cache Purge`, for post-deploy edge cache purge (skipped when unset)                                     |         |  ○   |
 | `NODE_ADAPTER`                 | Set to `1` to build with adapter-node for self-hosted production                                                                         |         |  ○   |
 | `CONVEX_INTERNAL_URL`          | Internal Convex URL for Docker-network routing (self-hosted)                                                                             |         |  ○   |
-| `TOLGEE_API_KEY`               | Tolgee CLI key for deploy-time sync (optional, skips when unset)                                                                         |    ○    |  ○   |
+| `TOLGEE_API_KEY`               | Tolgee CLI key for `i18n:*` and deploy-time sync (optional, skips when unset)                                                            |    ○    |  ○   |
 | `PUBLIC_POSTHOG_API_KEY`       | PostHog analytics API key                                                                                                                |         |  ○   |
 | `PUBLIC_POSTHOG_HOST`          | PostHog ingestion host or managed reverse proxy                                                                                          |         |  ○   |
 | `PUBLIC_POSTHOG_ALLOWED_HOSTS` | Comma-separated hostnames that may send analytics; every other host stays off                                                            |         |  ○   |
