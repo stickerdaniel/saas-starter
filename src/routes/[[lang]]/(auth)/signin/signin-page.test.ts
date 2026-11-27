@@ -700,6 +700,47 @@ describe('sign-in page passkey sign-in', () => {
 			unsubscribe();
 		}
 	});
+
+	it('starts no passkey prompt when the visitor leaves while the client loads', async () => {
+		const load = Promise.withResolvers<void>();
+		vi.doMock('#lib/auth-client-oauth.js', async () => {
+			await load.promise;
+			return state.oauthClient();
+		});
+		await renderSignIn(withDestination(DESTINATION));
+		button(en.auth.signin.passkey_button).click();
+		await tick();
+		await unmount(component!);
+		component = undefined;
+
+		load.resolve();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		await tick();
+
+		expect(state.signIn.passkey).not.toHaveBeenCalled();
+		expect(navigations).toEqual([]);
+	});
+
+	it('stays put when the visitor leaves during the passkey prompt', async () => {
+		const prompt = Promise.withResolvers<void>();
+		state.signIn.passkey.mockImplementation(async () => {
+			await prompt.promise;
+			state.server.session = SIGNED_IN;
+			return { data: SIGNED_IN, error: null };
+		});
+		await renderSignIn(withDestination(DESTINATION));
+		button(en.auth.signin.passkey_button).click();
+		await vi.waitFor(() => expect(state.signIn.passkey).toHaveBeenCalledOnce());
+		await unmount(component!);
+		component = undefined;
+
+		prompt.resolve();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		await tick();
+
+		expect(navigations).toEqual([]);
+		expect(lastSuccessfulAuthMethod.current).toBeNull();
+	});
 });
 
 describe('sign-in page once hydrated', () => {
