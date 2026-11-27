@@ -40,13 +40,7 @@ export type PreviewCheck = {
 	output: { summary: string | null };
 };
 /** One provider record: its origin and build UUID are never taken from different checks. */
-export type VerifiedBuild = {
-	checkId: number;
-	sha: string;
-	origin: string;
-	buildUuid: string;
-	versionOrigin?: string;
-};
+export type VerifiedBuild = { checkId: number; sha: string; origin: string; buildUuid: string };
 
 function previewOrigin(input: string): string {
 	const url = new URL(input);
@@ -128,15 +122,11 @@ export function verifiedCloudflarePreview(
 	const [buildUuid] = ids;
 	if (ids.length !== 1 || buildUuid === undefined || !BUILD_UUID.test(buildUuid))
 		throw new Error(`Check ${check.id} does not name exactly one Cloudflare build UUID`);
-	const [versionOrigin, ...otherVersions] = [
-		...(check.output?.summary || '').matchAll(/^Preview URL: (https:\/\/\S+)$/gm)
-	].map((match) => new URL(required(match[1], 'version preview URL')).origin);
 	return {
 		checkId: id,
 		sha,
 		origin: origin ?? required(published[0], 'published preview origin'),
-		buildUuid,
-		...(versionOrigin !== undefined && otherVersions.length === 0 && { versionOrigin })
+		buildUuid
 	};
 }
 
@@ -496,7 +486,7 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
 		console.log(`Accepted backends ${target.convexUrl} and ${target.convexSiteUrl}`);
 		appendFileSync(
 			process.env.GITHUB_ENV!,
-			`PUBLIC_SITE_URL=${target.origin}\nPUBLIC_CONVEX_URL=${target.convexUrl}\nPUBLIC_CONVEX_SITE_URL=${target.convexSiteUrl}\nE2E_BUILD_UUID=${target.buildUuid}\nE2E_VERSION_URL=${target.versionOrigin ?? ''}\n`
+			`PUBLIC_SITE_URL=${target.origin}\nPUBLIC_CONVEX_URL=${target.convexUrl}\nPUBLIC_CONVEX_SITE_URL=${target.convexSiteUrl}\nE2E_BUILD_UUID=${target.buildUuid}\n`
 		);
 	} else if (mode === 'prepare') {
 		const count = shardCount(process.env.E2E_PUBLIC_SHARDS);

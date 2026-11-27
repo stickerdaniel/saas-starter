@@ -192,6 +192,7 @@ async function main(): Promise<{ markdown: string; description: string; passed: 
 			runs: { type: 'string', default: '5' },
 			out: { type: 'string', default: 'lighthouse-reports' },
 			'changed-files': { type: 'string' },
+			unavailable: { type: 'string' },
 			'deadline-minutes': { type: 'string', default: '13' }
 		}
 	});
@@ -207,6 +208,7 @@ async function main(): Promise<{ markdown: string; description: string; passed: 
 				passed: true
 			};
 	}
+	if (values.unavailable !== undefined) throw new Error(`no audit target: ${values.unavailable}`);
 	if (!values.url) throw new Error('Missing --url');
 	const runs = Number(values.runs);
 	if (!Number.isInteger(runs) || runs < 1) throw new Error('--runs must be a positive integer');
