@@ -116,6 +116,7 @@ export class BillingCheckoutManager {
 			this.#deps.onUnavailable();
 			return;
 		}
+		if (this.open) return;
 		const generation = this.#beginOperation('starting', true);
 		if (generation === null) return;
 

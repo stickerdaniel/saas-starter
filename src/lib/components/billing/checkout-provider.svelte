@@ -5,8 +5,8 @@
 	import { toast } from 'svelte-sonner';
 	import { activeUploadsContext } from '#lib/hooks/active-uploads.svelte.ts';
 	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
-	import CheckoutDialog from './checkout-dialog.svelte';
 	import { setBillingCheckoutContext } from './checkout-context.svelte.ts';
+	import type CheckoutDialog from './checkout-dialog.svelte';
 
 	let { children } = $props();
 
@@ -19,7 +19,15 @@
 		page.data.capabilities?.billing.usable === true || page.data.localE2E?.billing === true
 	);
 
-	setBillingCheckoutContext({
+	function reportError(stage: 'checkout' | 'confirm'): void {
+		haptic.trigger('error');
+		toast.error(stage === 'confirm' ? $t('billing.attach_failed') : $t('billing.checkout_failed'));
+		console.error(
+			stage === 'confirm' ? '[BillingCheckout.confirm] Failed' : '[BillingCheckout.start] Failed'
+		);
+	}
+
+	const checkout = setBillingCheckoutContext({
 		checkout: checkoutOperation,
 		attach: attachOperation,
 		redirect: (url) => {
@@ -34,18 +42,33 @@
 			haptic.trigger('error');
 			toast.error($t('capabilities.billing_unavailable'));
 		},
-		onError: (stage) => {
-			haptic.trigger('error');
-			toast.error(
-				stage === 'confirm' ? $t('billing.attach_failed') : $t('billing.checkout_failed')
-			);
-			console.error(
-				stage === 'confirm' ? '[BillingCheckout.confirm] Failed' : '[BillingCheckout.start] Failed'
-			);
+		onError: reportError
+	});
+
+	let Dialog: typeof CheckoutDialog | null = $state(null);
+	let loading = false;
+
+	async function loadDialog(): Promise<void> {
+		loading = true;
+		try {
+			const module = await import('./checkout-dialog.svelte');
+			Dialog = module.default;
+		} catch {
+			if (!checkout.open) return;
+			checkout.cancel();
+			if (!checkout.open) reportError('checkout');
+		} finally {
+			loading = false;
 		}
+	}
+
+	$effect(() => {
+		if ((checkout.isLoading || checkout.open) && !Dialog && !loading) void loadDialog();
 	});
 </script>
 
 {@render children()}
 
-<CheckoutDialog />
+{#if Dialog}
+	<Dialog />
+{/if}

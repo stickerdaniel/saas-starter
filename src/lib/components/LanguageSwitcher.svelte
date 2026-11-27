@@ -6,7 +6,9 @@
 		LANGUAGE_COOKIE_NAME,
 		LANGUAGE_COOKIE_MAX_AGE
 	} from '#lib/i18n/languages.js';
-	import { LanguageSwitcher as LanguageSwitcherUI } from '#lib/components/ui/language-switcher/index.js';
+	import { onMount, tick } from 'svelte';
+	import LanguageSwitcherButton from './ui/language-switcher/language-switcher-button.svelte';
+	import type LanguageSwitcherMenu from './ui/language-switcher/language-switcher.svelte';
 	import type { LanguageSwitcherProps } from './ui/language-switcher/types';
 	import { useLanguage } from '#lib/utils/i18n.js';
 	import { useAuth } from '@mmailaender/convex-better-auth-svelte/svelte';
@@ -74,14 +76,139 @@
 			}
 		}
 	}
+
+	// The menu, and Bits UI behind it, loads once the page is idle after load,
+	// or earlier on the first hover, focus or press. Until then this button
+	// stands in for its trigger.
+	let Menu: typeof LanguageSwitcherMenu | null = $state(null);
+	let loading: Promise<void> | undefined;
+	let button: HTMLElement | null = $state(null);
+	let trigger: HTMLElement | null = $state(null);
+	let open = $state(false);
+	let pending: 'keyboard' | 'pointer' | null = $state(null);
+
+	function load(): Promise<void> {
+		loading ??= importMenu();
+		return loading;
+	}
+
+	async function importMenu(): Promise<void> {
+		try {
+			const module = await import('./ui/language-switcher/language-switcher.svelte');
+			const focused = button !== null && document.activeElement === button;
+			Menu = module.default;
+			await tick();
+			// The trigger replaces the focused button, which takes focus with it.
+			if (focused) trigger?.focus();
+			if (pending) open = true;
+			pending = null;
+		} catch {
+			loading = undefined;
+			pending = null;
+		}
+	}
+
+	onMount(() => {
+		let cancelIdle = () => {};
+		const preloadWhenIdle = () => {
+			if ('requestIdleCallback' in window) {
+				const id = requestIdleCallback(() => void load());
+				cancelIdle = () => cancelIdleCallback(id);
+			} else {
+				const id = setTimeout(() => void load());
+				cancelIdle = () => clearTimeout(id);
+			}
+		};
+		if (document.readyState === 'complete') preloadWhenIdle();
+		else window.addEventListener('load', preloadWhenIdle, { once: true });
+		return () => {
+			window.removeEventListener('load', preloadWhenIdle);
+			cancelIdle();
+		};
+	});
+
+	// Mirrors the Bits UI trigger: a mouse opens on pointerdown, touch on
+	// pointerup, a key on Enter, Space or ArrowDown, and a click only when no
+	// pointer made it (detail 0, as from a screen reader). Every one of them
+	// opens, so a second activation before the menu loaded cannot close it.
+	$effect(() => {
+		if (!pending) return;
+		const dropOnOutsidePress = (event: PointerEvent) => {
+			if (event.target instanceof Node && button?.contains(event.target)) return;
+			pending = null;
+		};
+		const dropOnEscape = (event: KeyboardEvent) => {
+			if (event.key === 'Escape') pending = null;
+		};
+		document.addEventListener('pointerdown', dropOnOutsidePress, true);
+		document.addEventListener('keydown', dropOnEscape, true);
+		return () => {
+			document.removeEventListener('pointerdown', dropOnOutsidePress, true);
+			document.removeEventListener('keydown', dropOnEscape, true);
+		};
+	});
+
+	function activate(origin: 'keyboard' | 'pointer') {
+		pending = origin;
+		void load();
+	}
+
+	function onpointerdown(event: PointerEvent) {
+		if (event.pointerType === 'touch') return event.preventDefault();
+		if (event.button !== 0 || event.ctrlKey) return;
+		event.preventDefault();
+		activate('pointer');
+	}
+
+	function onpointerup(event: PointerEvent) {
+		if (event.pointerType !== 'touch') return;
+		event.preventDefault();
+		activate('pointer');
+	}
+
+	function onkeydown(event: KeyboardEvent) {
+		if (event.key === 'Escape') pending = null;
+		if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'ArrowDown') return;
+		event.preventDefault();
+		activate('keyboard');
+	}
+
+	function onclick(event: MouseEvent) {
+		if (event.detail !== 0) return;
+		event.preventDefault();
+		activate('pointer');
+	}
 </script>
 
-<LanguageSwitcherUI
-	{languages}
-	value={currentLanguage}
-	{variant}
-	{align}
-	onChange={switchLanguage}
-	onIntent={preloadTranslations}
-	class={className}
-/>
+{#if Menu}
+	<Menu
+		{languages}
+		value={currentLanguage}
+		{variant}
+		{align}
+		bind:open
+		bind:trigger
+		openedWithKeyboard={pending === 'keyboard'}
+		onChange={switchLanguage}
+		onIntent={preloadTranslations}
+		class={className}
+	/>
+{:else}
+	<LanguageSwitcherButton
+		bind:ref={button}
+		{variant}
+		class={className}
+		aria-haspopup="menu"
+		aria-expanded="false"
+		data-state="closed"
+		onpointerenter={() => void load()}
+		onfocus={() => void load()}
+		onfocusout={() => {
+			if (!Menu) pending = null;
+		}}
+		{onpointerdown}
+		{onpointerup}
+		{onkeydown}
+		{onclick}
+	/>
+{/if}

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { inspect } from 'node:util';
 import { getFunctionName } from 'convex/server';
 import type { ConvexClient } from 'convex/browser';
@@ -92,6 +92,8 @@ vi.mock('../../../routes/[[lang]]/app/ai-chat/thread-chat.svelte', () => ({
 
 import ChatTestProvider from '#lib/chat/ui/test-fixtures/ChatTestProvider.svelte';
 import CheckoutProviderHarness from './test-fixtures/CheckoutProviderHarness.svelte';
+import CheckoutManagerProbe from './test-fixtures/CheckoutManagerProbe.svelte';
+import type { BillingCheckoutManager } from './checkout-context.svelte.ts';
 import NavUserHarness from './test-fixtures/NavUserHarness.svelte';
 import PricingThree from '#blocks/pricing/pricing-three.svelte';
 import AIChatPage from '../../../routes/[[lang]]/app/ai-chat/+page.svelte';
@@ -177,9 +179,46 @@ afterEach(async () => {
 });
 
 describe('billing checkout provider', () => {
+	const confirmationPreview = {
+		url: null,
+		customer_id: 'customer_1',
+		has_prorations: false,
+		lines: [{ description: 'Pro - $10 / month', amount: 10, item: {} }],
+		total: 10,
+		currency: 'usd',
+		options: [],
+		product: { id: 'pro', name: 'Pro', items: [] }
+	};
+
 	function checkoutButton(): HTMLButtonElement {
 		return document.querySelector<HTMLButtonElement>('[data-testid="pricing-checkout-pro"]')!;
 	}
+
+	function confirmationDialog(): Element | null {
+		return document.querySelector('[role="alertdialog"]');
+	}
+
+	/** Holds the confirmation dialog's chunk until the test releases it. */
+	function holdDialogChunk() {
+		let release!: () => void;
+		const gate = new Promise<void>((resolve) => (release = resolve));
+		const chunk = { requested: false, release };
+		vi.doUnmock('./checkout-dialog.svelte');
+		vi.doMock('./checkout-dialog.svelte', async (importOriginal) => {
+			chunk.requested = true;
+			await gate;
+			return importOriginal();
+		});
+		return chunk;
+	}
+
+	// The provider loads the dialog on first open. Transforming it takes longer
+	// than a waitFor under a full run; holding the chunk still goes through the mock.
+	beforeAll(() => import('./checkout-dialog.svelte'));
+
+	afterEach(() => {
+		vi.doUnmock('./checkout-dialog.svelte');
+	});
 
 	it.each([
 		['unresolved', {}],
@@ -232,16 +271,7 @@ describe('billing checkout provider', () => {
 
 	it('keeps a failed confirmation retryable with a fixed diagnostic', async () => {
 		state.page.data = { capabilities: { billing: usable, ai: unavailable } };
-		autumn.checkout.mockResolvedValue({
-			url: null,
-			customer_id: 'customer_1',
-			has_prorations: false,
-			lines: [{ description: 'Pro - $10 / month', amount: 10, item: {} }],
-			total: 10,
-			currency: 'usd',
-			options: [],
-			product: { id: 'pro', name: 'Pro', items: [] }
-		});
+		autumn.checkout.mockResolvedValue(confirmationPreview);
 		autumn.attach.mockResolvedValue(null);
 		autumn.errors.set(autumn.attach, new Error(secret));
 		await mountUnderProvider(PricingThree, {});
@@ -269,6 +299,89 @@ describe('billing checkout provider', () => {
 		expect(confirm.disabled).toBe(false);
 		confirm.click();
 		await vi.waitFor(() => expect(autumn.attach).toHaveBeenCalledTimes(2));
+	});
+
+	it('shows the confirmation once a dialog requested by an open checkout loads', async () => {
+		state.page.data = { capabilities: { billing: usable, ai: unavailable } };
+		autumn.checkout.mockResolvedValue(confirmationPreview);
+		const chunk = holdDialogChunk();
+		await mountUnderProvider(PricingThree, {});
+
+		checkoutButton().click();
+		await vi.waitFor(() => expect(chunk.requested).toBe(true));
+		expect(confirmationDialog()).toBeNull();
+
+		chunk.release();
+		await vi.waitFor(() =>
+			expect(confirmationDialog()?.textContent).toContain(en.billing.confirmation.title)
+		);
+	});
+
+	it('ignores a second checkout while the dialog loads', async () => {
+		state.page.data = { capabilities: { billing: usable, ai: unavailable } };
+		autumn.checkout
+			.mockResolvedValueOnce(confirmationPreview)
+			.mockResolvedValue({ ...confirmationPreview, total: 20 });
+		const chunk = holdDialogChunk();
+		await mountUnderProvider(PricingThree, {});
+		checkoutButton().click();
+		await new Promise((resolve) => setTimeout(resolve));
+		expect(checkoutButton().disabled).toBe(false);
+
+		checkoutButton().click();
+		await tick();
+		chunk.release();
+
+		await vi.waitFor(() =>
+			expect(document.querySelector('[data-testid="billing-checkout-total"]')?.textContent).toBe(
+				'$10.00'
+			)
+		);
+		expect(autumn.checkout).toHaveBeenCalledOnce();
+	});
+
+	it('closes a checkout whose dialog fails to load and loads it on the next one', async () => {
+		state.page.data = { capabilities: { billing: usable, ai: unavailable } };
+		autumn.checkout.mockResolvedValue(confirmationPreview);
+		vi.doUnmock('./checkout-dialog.svelte');
+		vi.doMock('./checkout-dialog.svelte', () => {
+			throw new Error('Failed to fetch dynamically imported module');
+		});
+		await mountUnderProvider(PricingThree, {});
+
+		checkoutButton().click();
+		await vi.waitFor(() =>
+			expect(toast.error).toHaveBeenCalledExactlyOnceWith(en.billing.checkout_failed)
+		);
+		expect(confirmationDialog()).toBeNull();
+
+		vi.doUnmock('./checkout-dialog.svelte');
+		checkoutButton().click();
+		await vi.waitFor(() =>
+			expect(confirmationDialog()?.textContent).toContain(en.billing.confirmation.title)
+		);
+		expect(autumn.checkout).toHaveBeenCalledTimes(2);
+	});
+
+	it('shows nothing when the checkout closes before its dialog loads', async () => {
+		state.page.data = { capabilities: { billing: usable, ai: unavailable } };
+		autumn.checkout.mockResolvedValue(confirmationPreview);
+		const chunk = holdDialogChunk();
+		let checkout!: BillingCheckoutManager;
+		await mountUnderProvider(CheckoutManagerProbe, { expose: (manager) => (checkout = manager) });
+		await checkout.start({ productId: 'pro' });
+		await vi.waitFor(() => expect(chunk.requested).toBe(true));
+
+		checkout.cancel();
+		chunk.release();
+		await vi.dynamicImportSettled();
+		await tick();
+		expect(confirmationDialog()).toBeNull();
+
+		await checkout.start({ productId: 'pro' });
+		await vi.waitFor(() =>
+			expect(confirmationDialog()?.textContent).toContain(en.billing.confirmation.title)
+		);
 	});
 
 	it('checks out with a session the client recovered after mount', async () => {
