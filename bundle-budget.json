@@ -40,32 +40,36 @@
 			"initial": 288378,
 			"lazy": 1089210
 		},
+		"/[[lang]]/(docs)/docs/[...slug]": {
+			"initial": 288427,
+			"lazy": 229760
+		},
 		"/[[lang]]/(marketing)": {
-			"initial": 287725,
+			"initial": 288803,
 			"lazy": 230602
 		},
 		"/[[lang]]/(marketing)/about": {
-			"initial": 310984,
+			"initial": 312049,
 			"lazy": 228568
 		},
 		"/[[lang]]/(marketing)/contact": {
-			"initial": 311366,
+			"initial": 312430,
 			"lazy": 228568
 		},
 		"/[[lang]]/(marketing)/impressum": {
-			"initial": 311434,
+			"initial": 312500,
 			"lazy": 228568
 		},
 		"/[[lang]]/(marketing)/pricing": {
-			"initial": 264031,
+			"initial": 265095,
 			"lazy": 228568
 		},
 		"/[[lang]]/(marketing)/privacy": {
-			"initial": 313424,
+			"initial": 314489,
 			"lazy": 228568
 		},
 		"/[[lang]]/(marketing)/terms": {
-			"initial": 314263,
+			"initial": 315328,
 			"lazy": 228568
 		},
 		"/[[lang]]/[...path]": {

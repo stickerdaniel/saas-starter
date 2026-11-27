@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { parseArgs } from 'node:util';
 import zlib from 'node:zlib';
 import { MODULE_GRAPH_FILE, type GraphChunk, type ModuleGraph } from './module-graph-plugin';
 
@@ -225,9 +226,15 @@ async function measureBuild(outputDir: string): Promise<MeasuredBuild> {
 }
 
 if (import.meta.main) {
+	const { values } = parseArgs({
+		options: {
+			'output-root': { type: 'string', default: path.join('.svelte-kit', 'output') },
+			write: { type: 'boolean', default: false }
+		}
+	});
 	const budgetPath = path.join(process.cwd(), BUDGET_FILE);
-	const build = await measureBuild(path.join(process.cwd(), '.svelte-kit', 'output'));
-	if (process.argv.includes('--write')) {
+	const build = await measureBuild(path.resolve(values['output-root']));
+	if (values.write) {
 		const previous: BundleBudget | undefined = fs.existsSync(budgetPath)
 			? JSON.parse(fs.readFileSync(budgetPath, 'utf8'))
 			: undefined;

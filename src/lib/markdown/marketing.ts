@@ -18,8 +18,9 @@ import { isIsoCalendarDate } from '#lib/content/legal-metadata.js';
 import { getRepositoryDocumentUrl, getRepositoryUrl } from '#lib/config/site.js';
 import { prefersMarkdownHeader } from '#lib/http/accept.js';
 import { appendVary } from '#lib/http/vary.js';
+import type { DocsDiscoveryEntry } from '#lib/docs/engine.js';
 
-const MARKDOWN_CONTENT_TYPE = 'text/markdown; charset=utf-8';
+export const MARKDOWN_CONTENT_TYPE = 'text/markdown; charset=utf-8';
 const TEXT_CONTENT_TYPE = 'text/plain; charset=utf-8';
 const MARKETING_CACHE_CONTROL = 'public, max-age=0, s-maxage=300, stale-while-revalidate=300';
 // Markdown is served on URLs that also serve HTML, negotiated via Accept.
@@ -27,7 +28,7 @@ const MARKETING_CACHE_CONTROL = 'public, max-age=0, s-maxage=300, stale-while-re
 // one variant under the URL and serve it for the other Accept value, poisoning
 // HTML responses with Markdown (and vice versa). Keep Markdown out of shared
 // caches; browsers may still cache it privately.
-const MARKDOWN_CACHE_CONTROL = 'private, max-age=300, stale-while-revalidate=300';
+export const MARKDOWN_CACHE_CONTROL = 'private, max-age=300, stale-while-revalidate=300';
 
 interface PublicMarkdownNotFoundContext {
 	origin: string;
@@ -186,12 +187,22 @@ function xmlEscape(value: string): string {
 		.replaceAll("'", '&apos;');
 }
 
-export function renderLlmsTxt(origin: string): string {
+function renderDocsSection(docs: readonly DocsDiscoveryEntry[]): string {
+	if (docs.length === 0) return '';
+	const pages = docs.map(({ title, description, markdownUrl }) => {
+		const link = `- [${encodeMarkdownLiteral(title)}](${markdownUrl})`;
+		return description ? `${link}: ${encodeMarkdownLiteral(description)}` : link;
+	});
+	return `\n\n## Documentation\n\n${pages.join('\n')}`;
+}
+
+export function renderLlmsTxt(origin: string, docs: readonly DocsDiscoveryEntry[] = []): string {
 	const baseOrigin = origin.replace(/\/$/, '');
-	const canonicalPages = PUBLIC_MARKETING_ROUTES.map(
-		(route) =>
-			`- [${route.agentLabel}](${getLocalizedMarketingUrl(baseOrigin, DEFAULT_LANGUAGE, route.pathSuffix)}): ${route.agentDescription}`
-	).join('\n');
+	const canonicalPages =
+		PUBLIC_MARKETING_ROUTES.map(
+			(route) =>
+				`- [${route.agentLabel}](${getLocalizedMarketingUrl(baseOrigin, DEFAULT_LANGUAGE, route.pathSuffix)}): ${route.agentDescription}`
+		).join('\n') + renderDocsSection(docs);
 
 	return renderAuthoredTemplate('llms.txt', llmsTemplate, {
 		AGENT_INSTRUCTIONS_URL: getRepositoryDocumentUrl('AGENTS.md'),
@@ -202,8 +213,11 @@ export function renderLlmsTxt(origin: string): string {
 	});
 }
 
-export function createLlmsTxtResponse(origin: string): Response {
-	return new Response(renderLlmsTxt(origin), {
+export function createLlmsTxtResponse(
+	origin: string,
+	docs: readonly DocsDiscoveryEntry[] = []
+): Response {
+	return new Response(renderLlmsTxt(origin, docs), {
 		status: 200,
 		headers: {
 			'Content-Type': TEXT_CONTENT_TYPE,
@@ -235,7 +249,7 @@ export function createRobotsTxtResponse(origin: string): Response {
 	});
 }
 
-export function renderSitemapXml(origin: string): string {
+export function renderSitemapXml(origin: string, docs: readonly DocsDiscoveryEntry[] = []): string {
 	const baseOrigin = origin.replace(/\/$/, '');
 
 	const urlEntries = PUBLIC_MARKETING_ROUTES.flatMap(({ pathSuffix, lastModified }) => {
@@ -259,19 +273,24 @@ export function renderSitemapXml(origin: string): string {
 			const lastModifiedElement = lastModified ? `\n    <lastmod>${lastModified}</lastmod>` : '';
 			return `  <url>\n    <loc>${loc}</loc>${lastModifiedElement}\n${alternates}\n  </url>`;
 		});
-	}).join('\n');
+	});
+	const docsEntries = docs.map(({ url }) => `  <url>\n    <loc>${xmlEscape(url)}</loc>\n  </url>`);
 
 	return [
 		'<?xml version="1.0" encoding="UTF-8"?>',
 		'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">',
-		urlEntries,
+		...urlEntries,
+		...docsEntries,
 		'</urlset>',
 		''
 	].join('\n');
 }
 
-export function createSitemapXmlResponse(origin: string): Response {
-	return new Response(renderSitemapXml(origin), {
+export function createSitemapXmlResponse(
+	origin: string,
+	docs: readonly DocsDiscoveryEntry[] = []
+): Response {
+	return new Response(renderSitemapXml(origin, docs), {
 		status: 200,
 		headers: {
 			'Content-Type': 'application/xml; charset=utf-8',

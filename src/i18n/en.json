@@ -688,6 +688,9 @@
 			"retry": "Retry"
 		}
 	},
+	"docs": {
+		"label": "Documentation"
+	},
 	"email": {
 		"admin_reply": {
 			"button": "View Conversation",

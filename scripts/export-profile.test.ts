@@ -33,6 +33,7 @@ describe('reduceManifest', () => {
 			'bun run test:unit && bun run check:table-scroll && bun run test:cli && bun run check:streamdown-overlay'
 		);
 		expect(Object.keys(full.scripts).filter((name) => !(name in reduced.scripts))).toEqual([
+			'check:docs-fixture',
 			'check:reduced-export',
 			'test:e2e',
 			'test:e2e:headed',
@@ -59,7 +60,7 @@ describe('reduceManifest', () => {
 				const { 'test:e2e': e2e = '', ...scripts } = full.scripts;
 				return { ...full, scripts: { ...scripts, 'ci:e2e': e2e } };
 			},
-			'it names the scripts ["check:reduced-export","test:bun","test:e2e:headed","test:upstream-report"] and the devDependencies ["@axe-core/playwright","@sentry/core","dom-accessibility-api","miniflare","strip-ansi","tinyglobby"]'
+			'it names the scripts ["check:docs-fixture","check:reduced-export","test:bun","test:e2e:headed","test:upstream-report"] and the devDependencies ["@axe-core/playwright","@sentry/core","dom-accessibility-api","miniflare","strip-ansi","tinyglobby"]'
 		],
 		[
 			'that is reduced but has miniflare back',

@@ -17,15 +17,19 @@ export interface ModuleGraph {
 	chunks: GraphChunk[];
 }
 
-export function moduleGraph(options: {
+export interface ModuleGraphOptions {
 	outFile: string;
 	root: string;
 	publicEnv: () => Record<string, string | undefined>;
-}): Plugin {
+}
+
+/** `api.options.outFile` stays writable until the bundle is written, for a build that keeps its output apart. */
+export function moduleGraph(options: ModuleGraphOptions): Plugin<{ options: ModuleGraphOptions }> {
 	const relative = (id: string) => path.relative(options.root, id).split(path.sep).join('/');
 	return {
 		name: 'client-module-graph',
 		apply: 'build',
+		api: { options },
 		writeBundle(_options, bundle) {
 			if (this.environment.name !== 'client') return;
 			const chunks = Object.values(bundle).flatMap((output): GraphChunk[] =>

@@ -14,7 +14,8 @@ function usesPublicAuthSnapshot(routeId: string | null, pathname: string): boole
 	return (
 		PUBLIC_DISCOVERY_ROUTE_IDS.has(routeId ?? '') ||
 		routeId === '/[[lang]]/[...path]' ||
-		routeId?.startsWith('/[[lang]]/(marketing)') === true
+		routeId?.startsWith('/[[lang]]/(marketing)') === true ||
+		routeId?.startsWith('/[[lang]]/(docs)/') === true
 	);
 }
 

@@ -16,7 +16,8 @@
  * ✅ useCustomer()            // billing state, recovers via subscription
  *
  * Scope: only the marketing surface (marketing routes, marketing components,
- * and the customer-support widget, which renders on marketing pages). The
+ * and the customer-support widget, which renders on marketing pages) and the
+ * docs routes, which receive the same public auth snapshot. The
  * parallel /app and /admin fresh layout loads make page.data auth reads safe
  * there, so those routes are intentionally out of scope.
  *
@@ -46,6 +47,7 @@ const PAGE_OBJECT_NAMES = new Set(['page', '$page']);
 // (pricing-three is the canonical frozen-billing case this rule exists for).
 const MARKETING_SURFACE_FRAGMENTS = [
 	'src/routes/[[lang]]/(marketing)/',
+	'src/routes/[[lang]]/(docs)/',
 	'src/lib/components/marketing/',
 	'src/lib/components/customer-support/',
 	'src/blocks/'

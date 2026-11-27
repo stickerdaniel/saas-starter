@@ -3,10 +3,26 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
+	DOCS_FIXTURE_MARKER,
+	findDocsFixtureMarker,
 	findLinkedStylesheets,
+	findPrerenderedDocsFiles,
 	findPrerenderedNegotiatedMarketingPages,
 	findPrerenderOriginPlaceholders
 } from './check-build-output';
+
+function outputTree(files: Record<string, string>, check: (root: string) => void): void {
+	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'build-output-'));
+	try {
+		for (const [file, content] of Object.entries(files)) {
+			fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+			fs.writeFileSync(path.join(root, file), content);
+		}
+		check(root);
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true });
+	}
+}
 
 describe('findPrerenderOriginPlaceholders', () => {
 	it('reports placeholder origins only in public text artifacts', () => {
@@ -48,6 +64,49 @@ describe('findPrerenderedNegotiatedMarketingPages', () => {
 		} finally {
 			fs.rmSync(outDir, { recursive: true, force: true });
 		}
+	});
+});
+
+describe('findPrerenderedDocsFiles', () => {
+	it('reports prerendered docs pages and Markdown twins in every language and without one', () => {
+		outputTree(
+			{
+				'pages/en/docs.html': 'entry',
+				'pages/de/docs/reference/code.html': 'page',
+				'dependencies/fr/docs.md': 'twin',
+				'pages/docs.html': 'entry without a language',
+				'pages/docs/reference.html': 'page without a language',
+				'dependencies/docs.md': 'twin without a language',
+				'pages/en/documentation.html': 'unrelated',
+				'pages/docsx.html': 'unrelated',
+				'pages/en/about.html': 'unrelated'
+			},
+			(root) =>
+				expect(findPrerenderedDocsFiles(root).toSorted()).toEqual(
+					[
+						'dependencies/docs.md',
+						'dependencies/fr/docs.md',
+						'pages/de/docs/reference/code.html',
+						'pages/docs.html',
+						'pages/docs/reference.html',
+						'pages/en/docs.html'
+					].map((file) => path.join(root, file))
+				)
+		);
+	});
+});
+
+describe('findDocsFixtureMarker', () => {
+	it('reports output files that hold the docs fixture catalog', () => {
+		outputTree(
+			{
+				'server/chunks/catalog.js': `const body = "${DOCS_FIXTURE_MARKER}";`,
+				'server/chunks/other.js': 'const body = "ordinary";',
+				'client/_app/immutable/assets/image.gif': DOCS_FIXTURE_MARKER
+			},
+			(root) =>
+				expect(findDocsFixtureMarker(root)).toEqual([path.join(root, 'server/chunks/catalog.js')])
+		);
 	});
 });
 
