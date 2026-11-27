@@ -492,7 +492,9 @@ export default defineConfig(async ({ command, mode }) => {
 
 	return {
 		cacheDir: isolatedCacheDir,
-		...(devtoolsEnabled && { devtools: { apply: 'serve' as const, mcp: false } }),
+		...(devtoolsEnabled && {
+			devtools: { apply: 'serve' as const, mcp: false, embeddedVisibility: 'passive' as const }
+		}),
 		plugins,
 		worker: {
 			plugins: () => [licenses.workerPlugin()]
