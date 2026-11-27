@@ -3,7 +3,7 @@
 // built here. A local repository stands in for the template: each fork rewrites the
 // default GitHub URL to it with `url.<path>.insteadOf`, so nothing touches the network.
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -334,6 +334,144 @@ describe('find-fork-point', () => {
 		expect(r.stderr).toContain('shallow clone');
 		expect(r.stderr).toContain('git fetch --unshallow');
 		expect(r.stdout).toBe('');
+	});
+
+	it('keeps the omitted field when --mark-synced records a sync', () => {
+		const fork = cloneAt('mark-omitted', shas.u2);
+		writeFiles(fork, {
+			'.upstream-sync.json': JSON.stringify({ forkPoint: shas.u2, omitted: ['tests'] })
+		});
+		commitAll(fork, 'chore: record setup');
+
+		const r = spawnSync('bun', [FORK_POINT, '--mark-synced', shas.u3], {
+			cwd: fork,
+			encoding: 'utf-8',
+			env: childEnv(),
+			timeout: 30_000
+		});
+
+		expect(r.status, r.stderr).toBe(0);
+		expect(JSON.parse(readFileSync(join(fork, '.upstream-sync.json'), 'utf-8'))).toMatchObject({
+			forkPoint: shas.u2,
+			lastSynced: shas.u3,
+			omitted: ['tests']
+		});
+	});
+
+	describe('a project that omits the test suite', () => {
+		beforeEach(() => {
+			writeFiles(upstream, { 'src/app.test.ts': 'test 1\n' });
+			commitAll(upstream, 'test: cover the app');
+			writeFiles(upstream, {
+				'src/app.ts': 'export const v = 5;\n',
+				'src/app.test.ts': 'test 2\n'
+			});
+			commitAll(upstream, 'fix: app and its test');
+		});
+
+		function consumer(name: string, marker: Record<string, unknown>): string {
+			const fork = cloneAt(name, shas.u4);
+			writeFiles(fork, {
+				'.upstream-sync.json': JSON.stringify({ lastSynced: shas.u4, ...marker })
+			});
+			commitAll(fork, 'chore: record sync');
+			return fork;
+		}
+
+		it('labels a test-only commit omitted-only and lists the mixed one as before', () => {
+			const fork = consumer('omits-tests', { omitted: ['tests'] });
+
+			const listed = bunJson(fork, LIST_CHANGES).json as {
+				commits: Array<Record<string, unknown>>;
+			};
+			const text = spawnSync('bun', [LIST_CHANGES], {
+				cwd: fork,
+				encoding: 'utf-8',
+				env: childEnv()
+			});
+
+			expect(listed.commits.map(({ subject, omittedOnly }) => ({ subject, omittedOnly }))).toEqual([
+				{ subject: 'test: cover the app', omittedOnly: true },
+				{ subject: 'fix: app and its test', omittedOnly: undefined }
+			]);
+			expect(text.stdout).toMatch(/test: cover the app \(omitted-only\)\n/);
+			expect(text.stdout).toMatch(/fix: app and its test\n/);
+		});
+
+		function labelOf(fork: string, subject: string): unknown {
+			const listed = bunJson(fork, LIST_CHANGES).json as {
+				commits: Array<Record<string, unknown>>;
+			};
+			return listed.commits.find((commit) => commit.subject === subject)?.omittedOnly;
+		}
+
+		it('labels a commit omitted-only when its only path has non-ASCII characters', () => {
+			writeFiles(upstream, { 'e2e/日本語.ts': 'export {};\n' });
+			commitAll(upstream, 'test: add a support file');
+
+			expect(
+				labelOf(consumer('non-ascii', { omitted: ['tests'] }), 'test: add a support file')
+			).toBe(true);
+		});
+
+		it.skipIf(process.platform === 'win32')(
+			'labels a commit omitted-only when its only path holds a newline',
+			() => {
+				writeFiles(upstream, { 'e2e/line\nbreak.ts': 'export {};\n' });
+				commitAll(upstream, 'test: add a support file');
+
+				expect(
+					labelOf(consumer('newline', { omitted: ['tests'] }), 'test: add a support file')
+				).toBe(true);
+			}
+		);
+
+		it('does not label a rename of shared code into the suite omitted-only', () => {
+			writeFiles(upstream, { 'src/shared/helpers.ts': CLI_SOURCE });
+			commitAll(upstream, 'feat: add helpers');
+			mkdirSync(join(upstream, 'e2e'));
+			git(upstream, ['mv', 'src/shared/helpers.ts', 'e2e/support.ts']);
+			commitAll(upstream, 'refactor: move helpers into the suite');
+
+			const listed = bunJson(consumer('rename-in', { omitted: ['tests'] }), LIST_CHANGES).json as {
+				commits: Array<Record<string, unknown>>;
+			};
+
+			const moved = listed.commits.find(
+				({ subject }) => subject === 'refactor: move helpers into the suite'
+			);
+
+			expect([moved?.files, moved?.categories, moved?.omittedOnly]).toEqual([
+				1,
+				['tests'],
+				undefined
+			]);
+		});
+
+		it('labels a rename inside the suite omitted-only', () => {
+			writeFiles(upstream, { 'e2e/helpers.ts': CLI_SOURCE });
+			commitAll(upstream, 'test: add helpers');
+			git(upstream, ['mv', 'e2e/helpers.ts', 'e2e/support.ts']);
+			commitAll(upstream, 'test: rename helpers');
+
+			expect(
+				labelOf(consumer('rename-inside', { omitted: ['tests'] }), 'test: rename helpers')
+			).toBe(true);
+		});
+
+		it('lists the same commits without the label for a project that keeps the suite', () => {
+			const omits = bunJson(consumer('omits', { omitted: ['tests'] }), LIST_CHANGES).json;
+			const keeps = bunJson(consumer('keeps', {}), LIST_CHANGES).json as {
+				commits: Array<Record<string, unknown>>;
+			};
+
+			expect(keeps.commits.some((commit) => 'omittedOnly' in commit)).toBe(false);
+			expect(keeps.commits.map(({ subject }) => subject)).toEqual([
+				'test: cover the app',
+				'fix: app and its test'
+			]);
+			expect(omits.count).toBe(keeps.commits.length);
+		});
 	});
 
 	it('matches a content copy whose first commit is an exact upstream tree', () => {

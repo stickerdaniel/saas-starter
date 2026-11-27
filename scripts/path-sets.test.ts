@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { pathSets } from './path-sets';
+import { isPathSetNameList, pathSets } from './path-sets';
 
 const root = join(import.meta.dirname, '..');
 const confectModules = execFileSync('git', ['ls-files', '-z', '--', 'src/lib/confect/*.ts'], {
@@ -46,5 +46,24 @@ describe('the tests set', () => {
 		expect(
 			Object.fromEntries(Object.keys(paths).map((path) => [path, pathSets.tests.includes(path)]))
 		).toEqual(paths);
+	});
+});
+
+describe('templateProfiles', () => {
+	it('declares every set this template revision can omit', () => {
+		const { templateProfiles } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+
+		expect(isPathSetNameList(templateProfiles)).toBe(true);
+		expect([...templateProfiles].sort()).toEqual(Object.keys(pathSets).sort());
+	});
+
+	it('removes only scripts that package.json has', () => {
+		const { scripts } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+
+		expect(
+			Object.values(pathSets).flatMap(({ removedScripts }) =>
+				removedScripts.filter((script) => !Object.hasOwn(scripts, script))
+			)
+		).toEqual([]);
 	});
 });

@@ -296,7 +296,8 @@ function main() {
 		forkPoint,
 		lastSynced,
 		syncedAt: (marker?.syncedAt as string) || null,
-		excluded: (marker?.excluded as unknown[]) || []
+		excluded: (marker?.excluded as unknown[]) || [],
+		...(marker?.omitted !== undefined && { omitted: marker.omitted })
 	};
 
 	// Write path (opt-in): persist the marker after a successful sync.
