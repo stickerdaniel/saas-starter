@@ -1,6 +1,6 @@
 import type { ColumnDef } from '@tanstack/table-core';
 import type { DataTableFeatures } from '#lib/components/ui/data-table/data-table.svelte.ts';
-import type { DataTableSkeleton } from '#lib/components/tables/skeleton.ts';
+import type { DataTableSkeleton } from '#lib/components/ui/data-table/skeleton.ts';
 import { renderComponent, renderTextCell } from '#lib/components/ui/data-table/index.js';
 import DataTableColumnHeader from '#lib/components/admin/data-table-column-header.svelte';
 import type { AuditLogItem } from '#lib/confect/admin/auditLog/queries.js';

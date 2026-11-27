@@ -346,6 +346,7 @@ const WEB_SCRIPTS = [
 	'generate-logos.test.ts',
 	'generate-og-image-url.ts',
 	'i18n-orphan-keys.test.ts',
+	'i18n-primitive-keys.test.ts',
 	'i18n-used-keys.test.ts',
 	'inline-styles.ts',
 	'kit-generated-hmr.ts',

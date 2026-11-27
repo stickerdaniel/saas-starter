@@ -1,4 +1,4 @@
-import { browser } from '$app/env';
+import { BROWSER } from 'esm-env';
 import { MediaQuery } from 'svelte/reactivity';
 import type { defaultPatterns, HapticInput as WebHapticsInput, WebHaptics } from 'web-haptics';
 
@@ -6,7 +6,7 @@ export type HapticPreset = keyof typeof defaultPatterns;
 export type HapticInput = HapticPreset | number | number[];
 
 let WebHapticsClass: typeof WebHaptics | undefined;
-if (browser) {
+if (BROWSER) {
 	import('web-haptics').then((m) => {
 		WebHapticsClass = m.WebHaptics;
 	});
@@ -23,13 +23,13 @@ export class UseHaptic {
 
 	constructor(options?: { debug?: boolean }) {
 		this.#debug = options?.debug ?? false;
-		if (browser) {
+		if (BROWSER) {
 			this.#reducedMotion = new MediaQuery('prefers-reduced-motion: reduce');
 		}
 	}
 
 	get isSupported(): boolean {
-		return browser && typeof navigator !== 'undefined' && 'vibrate' in navigator;
+		return BROWSER && typeof navigator !== 'undefined' && 'vibrate' in navigator;
 	}
 
 	get isActive(): boolean {
@@ -50,7 +50,7 @@ export class UseHaptic {
 	}
 
 	trigger(input?: HapticInput): void {
-		if (!browser || this.prefersReducedMotion) return;
+		if (!BROWSER || this.prefersReducedMotion) return;
 
 		const engine = this.#ensureEngine();
 		if (!engine) return;
@@ -77,7 +77,7 @@ export class UseHaptic {
 	}
 
 	#ensureEngine(): WebHaptics | null {
-		if (!browser || !WebHapticsClass) return null;
+		if (!BROWSER || !WebHapticsClass) return null;
 		if (this.#engine) return this.#engine;
 		this.#engine = new WebHapticsClass({ debug: this.#debug });
 		return this.#engine;

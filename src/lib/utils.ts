@@ -6,7 +6,7 @@ import {
 	type DefaultThemeGroupIds
 } from 'tailwind-merge';
 
-// Theme values and utilities from layout.css that tailwind-merge cannot infer from a
+// Theme values and utilities from tokens.css that tailwind-merge cannot infer from a
 // name. Without them a caller's transition-all would sit beside a primitive's
 // transition-control-colors, and stylesheet order rather than the caller would win.
 // tv() merges with its own instance, so every tv() definition whose classes use one of

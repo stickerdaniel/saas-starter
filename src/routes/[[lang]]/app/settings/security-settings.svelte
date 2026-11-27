@@ -1,5 +1,5 @@
 <script lang="ts">
-	import TruncatedText from '#lib/components/truncated-text.svelte';
+	import { TruncatedText } from '#lib/components/ui/truncated-text/index.js';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import PasskeyDeleteButton from '#lib/components/ui/owned/passkey-delete-button.svelte';
 	import { Input } from '#lib/components/ui/input/index.js';

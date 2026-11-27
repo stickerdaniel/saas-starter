@@ -5,7 +5,7 @@
 		base: 'block text-center shrink-0 overflow-hidden rounded-md text-sm font-medium whitespace-nowrap',
 		variants: {
 			// The primary button inverts in dark mode the same way --primary does in
-			// the .dark block of src/routes/layout.css: a zinc-900 button on a
+			// the .dark block of src/lib/components/ui/tokens.css: a zinc-900 button on a
 			// zinc-900 card would be unreadable. The destructive variant keeps its
 			// red fill and white label, which carry in both schemes.
 			variant: {

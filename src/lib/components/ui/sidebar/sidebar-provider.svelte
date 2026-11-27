@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { afterNavigate } from '$app/navigation';
 	import * as Tooltip from '#lib/components/ui/tooltip/index.js';
 	import { cn, type WithElementRef } from '#lib/utils.js';
+	import { untrack } from 'svelte';
 	import type { HTMLAttributes } from 'svelte/elements';
 	import {
 		SIDEBAR_COOKIE_MAX_AGE,
@@ -15,6 +15,7 @@
 		ref = $bindable(null),
 		open = $bindable(true),
 		onOpenChange = () => {},
+		afterNavigate,
 		class: className,
 		style,
 		children,
@@ -22,6 +23,7 @@
 	}: WithElementRef<HTMLAttributes<HTMLDivElement>> & {
 		open?: boolean;
 		onOpenChange?: (open: boolean) => void;
+		afterNavigate: (callback: () => void) => void;
 	} = $props();
 
 	const sidebar = setSidebar({
@@ -35,7 +37,7 @@
 		}
 	});
 
-	afterNavigate(() => {
+	untrack(() => afterNavigate)(() => {
 		if (sidebar.isMobile && sidebar.openMobile) {
 			sidebar.setOpenMobile(false);
 		}

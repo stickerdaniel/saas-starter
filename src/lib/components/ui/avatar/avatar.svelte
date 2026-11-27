@@ -19,7 +19,7 @@
 		/** Separates stacked avatars with a ring in the surface color behind them. */
 		outline?: 'none' | 'background' | 'secondary';
 		surface?: 'default' | 'primary';
-		/** `stack` joins the hover motion that layout.css defines for t-avatar. */
+		/** `stack` joins the hover motion that tokens.css defines for t-avatar. */
 		motion?: 'none' | 'stack';
 	} = $props();
 </script>

@@ -30,7 +30,7 @@
 			class="grid place-content-center text-current transition-none [&>svg]:size-3.5"
 		>
 			<!-- The tick stays mounted whatever the state: it draws itself through
-			     stroke-dashoffset (`.t-check` in layout.css), and a path that mounts
+			     stroke-dashoffset (`.t-check` in tokens.css), and a path that mounts
 			     already checked has no offset left to animate from. While unchecked
 			     the dash offset covers the whole stroke, so nothing paints.
 			     `--check-len` is lucide's own `check` path length (M20 6 9 17l-5-5,

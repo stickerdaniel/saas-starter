@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getTranslate } from '@tolgee/svelte';
-	import TruncatedText from '#lib/components/truncated-text.svelte';
+	import { TruncatedText } from '#lib/components/ui/truncated-text/index.js';
 	import type { AuditLogItem } from '#lib/confect/admin/auditLog/queries.js';
 	import { formatDuration } from '#lib/utils/format-duration.js';
 
@@ -33,9 +33,9 @@
 	});
 </script>
 
-<div class="min-w-0 text-sm" data-testid={testId}>
-	<TruncatedText
-		text={details ?? '-'}
-		class={details ? 'text-muted-foreground' : 'text-muted-foreground/50'}
-	/>
+<div
+	class={['min-w-0 text-sm', details ? 'text-muted-foreground' : 'text-muted-foreground/50']}
+	data-testid={testId}
+>
+	<TruncatedText text={details ?? '-'} />
 </div>

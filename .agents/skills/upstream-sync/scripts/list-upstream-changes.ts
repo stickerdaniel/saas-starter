@@ -109,7 +109,10 @@ const CATEGORY_RULES: Array<[string, (side: ChangeSide) => boolean]> = [
 	['i18n', ({ path }) => /^src\/i18n\/|\bmessages?\/|\.ftl$/.test(path)],
 	[
 		'theme',
-		({ path }) => /layout\.css$|app\.css$|tailwind|theme|design-?tokens|design-?system/i.test(path)
+		({ path }) =>
+			/layout\.css$|app\.css$|ui\/tokens\.css$|tailwind|theme|design-?tokens|design-?system/i.test(
+				path
+			)
 	],
 	[
 		'env/deploy',

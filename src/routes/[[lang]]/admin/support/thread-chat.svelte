@@ -22,7 +22,7 @@
 	import LoaderCircle from '@lucide/svelte/icons/loader-circle';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { useMedia } from '#lib/hooks/use-media.svelte.ts';
-	import { SlidingHeader } from '#lib/components/ui/sliding-header/index.js';
+	import { SlidingHeader } from '#lib/components/customer-support/sliding-header/index.js';
 	import { adminSupportUIContext } from '#lib/hooks/admin-support-ui.svelte.ts';
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { page } from '$app/state';

@@ -4,7 +4,7 @@
  * duration, pixels for a distance, none for a scale factor.
  *
  * The recipes deliberately keep their values in CSS so a designer can retune
- * them in `layout.css` without touching code. Any JS that has to stay in step
+ * them in `components/ui/tokens.css` without touching code. Any JS that has to stay in step
  * with a transition therefore reads the value back rather than repeating it,
  * which is what stops the two copies drifting apart.
  */

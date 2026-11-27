@@ -1,12 +1,12 @@
 import { Renderer } from '@better-svelte-email/server';
-import layoutStyles from '../../routes/layout.css?raw';
+import tokenStyles from '../components/ui/tokens.css?raw';
 import preflightCss from 'tailwindcss/preflight.css?raw';
 import { nestEmailDarkStyles, sanitizeEmailCss } from './email-css';
 
-const emailLayoutStyles = sanitizeEmailCss(layoutStyles);
+const emailTokenStyles = sanitizeEmailCss(tokenStyles);
 
 // Tailwind uses the last definition for duplicate custom variants. Keep the
-// email-safe media definition after the app CSS so its class-based `dark`
+// email-safe media definition after the tokens so their class-based `dark`
 // variant cannot override email rendering.
 const EMAIL_DARK_VARIANT_OVERRIDE = `@custom-variant dark {
 	@media (prefers-color-scheme: dark) {
@@ -15,7 +15,7 @@ const EMAIL_DARK_VARIANT_OVERRIDE = `@custom-variant dark {
 }`;
 
 const baseRenderer = new Renderer({
-	customCSS: `${preflightCss}\n${emailLayoutStyles}\n${EMAIL_DARK_VARIANT_OVERRIDE}`,
+	customCSS: `${preflightCss}\n${emailTokenStyles}\n${EMAIL_DARK_VARIANT_OVERRIDE}`,
 	tailwindConfig: {
 		// Media is the only dark-mode strategy an email can use: a mail client never
 		// toggles a `.dark` ancestor, it only reports the system colour scheme. The

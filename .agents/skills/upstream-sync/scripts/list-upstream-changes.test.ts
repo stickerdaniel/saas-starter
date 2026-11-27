@@ -60,6 +60,7 @@ describe('categoriesFor', () => {
 	it('maps paths to divergence categories', () => {
 		expect(categoriesFor(flat('src/i18n/en.json'))).toEqual(['i18n']);
 		expect(categoriesFor(flat('src/routes/layout.css'))).toEqual(['theme']);
+		expect(categoriesFor(flat('src/lib/components/ui/tokens.css'))).toEqual(['theme']);
 		expect(categoriesFor(flat('.github/workflows/ci.yml'))).toEqual(['env/deploy']);
 		expect(categoriesFor(flat('src/lib/convex/schema.ts'))).toEqual(['backend']);
 		expect(categoriesFor(flat('src/lib/confect/functions.ts'))).toEqual(['backend']);

@@ -18,7 +18,7 @@
 	Emails cannot resolve the theme tokens, because the `.dark` class that
 	redefines them never exists in a mail client, so every dark: utility across
 	these components names a zinc step directly. The steps are the ones the .dark
-	block in src/routes/layout.css resolves to: zinc-900 card, zinc-800 border and
+	block in src/lib/components/ui/tokens.css resolves to: zinc-900 card, zinc-800 border and
 	muted surfaces, zinc-50 foreground, zinc-400 muted foreground.
 -->
 <div

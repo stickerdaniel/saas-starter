@@ -8,6 +8,6 @@
 </script>
 
 <!-- The app shell's sidebar provides the context the user menu reads. -->
-<Sidebar.Provider>
+<Sidebar.Provider afterNavigate={() => {}}>
 	<NavUser user={{ name: 'Visitor', email: 'visitor@example.com', avatar: '' }} />
 </Sidebar.Provider>

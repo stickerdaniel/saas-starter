@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 // footers and keyboard hints, which sit on the muted surface as well as the page.
 const AA_NORMAL_TEXT = 4.5;
 
-const css = readFileSync(path.resolve('src/routes/layout.css'), 'utf8');
+const css = readFileSync(path.resolve('src/lib/components/ui/tokens.css'), 'utf8');
 
 function tokens(selector: string): Map<string, string> {
 	const start = css.indexOf(`${selector} {`);

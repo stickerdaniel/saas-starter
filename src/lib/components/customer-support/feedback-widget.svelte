@@ -25,7 +25,7 @@
 	import MessagesSquareIcon from '@lucide/svelte/icons/messages-square';
 	import UsersRoundIcon from '@lucide/svelte/icons/users-round';
 	import { SlidingPanel } from '#lib/components/ui/sliding-panel/index.js';
-	import { SlidingHeader } from '#lib/components/ui/sliding-header/index.js';
+	import { SlidingHeader } from './sliding-header/index.js';
 
 	const { t } = getTranslate();
 

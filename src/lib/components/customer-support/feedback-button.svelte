@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Button } from '#lib/components/ui/button/index.js';
 	import LauncherIcon from './launcher-icon.svelte';
-	import IconSwap from '#lib/components/motion/icon-swap.svelte';
+	import IconSwap from '#lib/components/ui/icon-swap/icon-swap.svelte';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import type { ChatUIContext } from '#lib/chat/index.js';
 	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';

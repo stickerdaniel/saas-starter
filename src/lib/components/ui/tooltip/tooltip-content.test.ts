@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
  * translate directly, the axis the caller left alone fell back to 0.
  */
 
-const layoutCss = readFileSync(join(import.meta.dirname, '../../../../routes/layout.css'), 'utf8');
+const tokensCss = readFileSync(join(import.meta.dirname, '../tokens.css'), 'utf8');
 
 function blockBody(source: string, marker: string): string {
 	const markerIndex = source.indexOf(marker);
@@ -40,7 +40,7 @@ function declarations(body: string): Map<string, string> {
 	return new Map(entries);
 }
 
-const utilitySource = `@utility tooltip-arrow-offset {${blockBody(layoutCss, '@utility tooltip-arrow-offset')}}`;
+const utilitySource = `@utility tooltip-arrow-offset {${blockBody(tokensCss, '@utility tooltip-arrow-offset')}}`;
 const compiler = await compile(
 	`@theme { --spacing: 0.25rem; }\n@tailwind utilities;\n${utilitySource}`
 );

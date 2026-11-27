@@ -10,7 +10,7 @@ This skill is temporary. Delete it as tracked in https://github.com/stickerdanie
 
 Every finding is **drift** or **deliberate**. Drift gets fixed; a **one-off** value **snaps** to the nearest existing token or scale step. A deliberate choice survives as a component variant, a theme token, an `@utility`, or a named exception in `eslint/shadcn-policy.js`. New tokens, variants, and utilities come only from the **closed list** that step 5 produces.
 
-The template's decisions are the **precedent**: the exceptions and their reasons in `eslint/shadcn-policy.js`, the tokens in `src/routes/layout.css`, the component variants, and the template's migration PRs. A fork reuses the precedent and decides anew only where its own design differs, such as its brand colors.
+The template's decisions are the **precedent**: the exceptions and their reasons in `eslint/shadcn-policy.js`, the tokens in `src/lib/components/ui/tokens.css`, the component variants, and the template's migration PRs. A fork reuses the precedent and decides anew only where its own design differs, such as its brand colors.
 
 In a fork, the upstream sync that delivered the rules held back every rule that still had fork findings (see `.agents/skills/upstream-sync/reference/ci-gotchas.md`). The fork is done when its `eslint/shadcn-policy.js` enforces all six rules and every difference from the template's file is a fork exception with its reason.
 

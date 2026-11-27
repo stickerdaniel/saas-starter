@@ -11,6 +11,7 @@ import type {
 } from '#lib/chat/core/chat-session-port.svelte.ts';
 import type { ChatUIContext } from '#lib/chat/ui/chat-context.svelte.ts';
 import type { SupportConversation } from '#lib/components/customer-support/support-conversation.svelte.ts';
+import type SidebarProvider from '#lib/components/ui/sidebar/sidebar-provider.svelte';
 
 describe('first-party boundary compile-time contracts', () => {
 	it('shares a structural chat session, never a concrete manager', () => {
@@ -41,6 +42,12 @@ describe('first-party boundary compile-time contracts', () => {
 		// missing dispatch would drop the message.
 		expectTypeOf<Omit<ComponentProps<typeof ChatInput>, 'onSend'>>().not.toExtend<
 			ComponentProps<typeof ChatInput>
+		>();
+	});
+
+	it('refuses a sidebar provider without a navigation registration', () => {
+		expectTypeOf<Omit<ComponentProps<typeof SidebarProvider>, 'afterNavigate'>>().not.toExtend<
+			ComponentProps<typeof SidebarProvider>
 		>();
 	});
 });
