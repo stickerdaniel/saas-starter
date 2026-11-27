@@ -6,6 +6,7 @@ on:
     paths:
       - package.json
       - bun.lock
+      - bunfig.toml
       - packages/create-saas-starter/**
       - scripts/windows-job.ts
       - scripts/template-setup.ts
@@ -26,6 +27,7 @@ on:
     paths:
       - package.json
       - bun.lock
+      - bunfig.toml
       - packages/create-saas-starter/**
       - scripts/windows-job.ts
       - scripts/template-setup.ts
