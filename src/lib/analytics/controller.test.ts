@@ -86,7 +86,7 @@ async function settle(): Promise<void> {
 		await net.flush();
 		if (inflight.size === 0) break;
 		await Promise.race([
-			Promise.allSettled([...inflight]),
+			Promise.allSettled(inflight),
 			new Promise((resolve) => setTimeout(resolve, 1000))
 		]);
 	}

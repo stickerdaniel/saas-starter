@@ -55,15 +55,18 @@ function commit(copy: string, message: string): string {
 	git(copy, 'add', '--all');
 	git(
 		copy,
-		...[
-			'-c',
-			'user.name=export',
-			'-c',
-			'user.email=export@localhost',
-			'-c',
-			'commit.gpgsign=false'
-		],
-		...['commit', '--quiet', '--no-verify', '--allow-empty', '--message', message]
+		'-c',
+		'user.name=export',
+		'-c',
+		'user.email=export@localhost',
+		'-c',
+		'commit.gpgsign=false',
+		'commit',
+		'--quiet',
+		'--no-verify',
+		'--allow-empty',
+		'--message',
+		message
 	);
 	return git(copy, 'rev-parse', 'HEAD').trim();
 }
