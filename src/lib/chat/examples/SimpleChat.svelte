@@ -34,6 +34,6 @@
 	</div>
 
 	{#key sendLease.owner}
-		<SimpleChatThread {threadId} {greeting} sendOwner={sendLease.owner} />
+		<SimpleChatThread {threadId} {greeting} composer={sendLease.owner} />
 	{/key}
 </div>

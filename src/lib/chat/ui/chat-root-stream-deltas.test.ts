@@ -210,7 +210,8 @@ const session: ChatSessionPort = {
 		getCachedReasoning: () => undefined,
 		updateReasoningCache: () => {},
 		clearReasoningCache: () => {}
-	}
+	},
+	forgetChatSession: () => {}
 };
 
 type HarnessProps = { threadId: string; session: ChatSessionPort };

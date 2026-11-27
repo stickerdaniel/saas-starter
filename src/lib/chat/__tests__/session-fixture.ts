@@ -33,11 +33,17 @@ export function createChatSession(threadId: string | null = null) {
 			getCachedReasoning: vi.fn<(order: number) => string | undefined>(),
 			updateReasoningCache: vi.fn<(order: number, reasoning: string) => void>(),
 			clearReasoningCache: vi.fn<(order: number) => void>()
-		}
+		},
+		forgetChatSession: vi.fn<() => void>()
 	} satisfies ChatSessionPort;
 	return Object.assign(session, {
 		setThread(next: string | null) {
 			conversation = new ChatConversation(next);
+		},
+		/** Move to `next` the way a surface does: the id-less conversation receives it, any other is replaced. */
+		moveTo(next: string | null) {
+			if (conversation.threadId === null && next !== null) conversation.assign(next);
+			else conversation = new ChatConversation(next);
 		}
 	});
 }

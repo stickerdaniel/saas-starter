@@ -9,19 +9,15 @@ import type { Attachment, DisplayMessage, MessageRole } from '../core/types.js';
 import { getChatSessionEpoch, isChatSessionCurrent } from '../core/chat-persisted-state.js';
 import { FadeOnLoad } from '#lib/utils/fade-on-load.svelte.ts';
 import type { UploadProfile } from '../../uploads/profiles.js';
-import { ComposerAttachmentCoordinator } from './composer-attachment-coordinator.svelte.ts';
-import type {
-	ActiveUploadsRegistry,
-	ComposerAttachmentSendSnapshot,
-	ComposerUploadFileOptions,
-	UploadConfig
-} from './composer-attachment-coordinator.svelte.ts';
+import { attachmentFileIdentity } from './attachment-transfer.js';
 import {
-	ChatComposer,
-	type ComposerSendOutcome,
-	type ComposerSendResources,
-	type ComposerSendTarget
-} from './chat-composer.svelte.ts';
+	uploadProfileOf,
+	type ActiveUploadsRegistry,
+	type ComposerAttachmentSendSnapshot,
+	type ComposerUploadFileOptions,
+	type UploadConfig
+} from './composer-attachment-coordinator.svelte.ts';
+import type { ChatComposer, ComposerSendOutcome, ComposerView } from './chat-composer.svelte.ts';
 
 export type {
 	ActiveUploadsRegistry,
@@ -29,16 +25,6 @@ export type {
 	DirectUploadConfig,
 	UploadConfig
 } from './composer-attachment-coordinator.svelte.ts';
-
-export type ChatUIContextOptions = {
-	forgetSession?: () => void;
-	/**
-	 * Holds this surface's text and settles its sends, and outlives this context,
-	 * so a refusal that arrives after the view unmounted still finds its way back.
-	 * Without one, the context gets a composer of its own that stores nothing.
-	 */
-	sendOwner?: ChatComposer;
-};
 
 export type ChatAlignment = 'left' | 'right';
 
@@ -50,7 +36,7 @@ export type ChatSendSnapshot = {
 };
 
 /** Core state plus UI state such as the reasoning accordions. */
-export class ChatUIContext implements ComposerSendTarget {
+export class ChatUIContext implements ComposerView {
 	readonly core: ChatSessionPort;
 
 	readonly client: ConvexClient;
@@ -60,6 +46,9 @@ export class ChatUIContext implements ComposerSendTarget {
 
 	/** The assistant gets the opposite side */
 	readonly userAlignment: ChatAlignment;
+
+	/** Where the uploads this view starts report that they are running. */
+	readonly activeUploads: ActiveUploadsRegistry | null;
 
 	reasoningOpenState = $state(new SvelteMap<string, boolean>());
 
@@ -78,12 +67,8 @@ export class ChatUIContext implements ComposerSendTarget {
 	readonly messagesFade = new FadeOnLoad<DisplayMessage[]>();
 
 	private disposed = false;
-	private readonly sendOwner: ChatComposer;
-	private readonly detachFromSendOwner: () => void;
-	/** Moves whenever the composer's pending sends do. */
-	private pendingSendsVersion = $state(0);
-
-	private readonly attachmentCoordinator: ComposerAttachmentCoordinator;
+	private readonly composer: ChatComposer;
+	private readonly detachFromComposer: () => void;
 
 	/** The one composer mounted inside this ChatRoot. */
 	private composerFocus?: () => void;
@@ -93,48 +78,47 @@ export class ChatUIContext implements ComposerSendTarget {
 
 	private _hasEverDisplayedMessages = false;
 
+	/**
+	 * @param composer holds this surface's text, attachments and sends, and
+	 * outlives this context, so a refusal that arrives after the view unmounted
+	 * still finds its way back.
+	 */
 	constructor(
 		core: ChatSessionPort,
 		client: ConvexClient,
+		composer: ChatComposer,
 		uploadConfig?: UploadConfig,
 		userAlignment: ChatAlignment = 'right',
-		activeUploads: ActiveUploadsRegistry | null = null,
-		options: ChatUIContextOptions = {}
+		activeUploads: ActiveUploadsRegistry | null = null
 	) {
 		this.core = core;
 		this.client = client;
+		this.composer = composer;
 		this.uploadConfig = uploadConfig;
 		this.userAlignment = userAlignment;
-		this.sendOwner = options.sendOwner ?? new ChatComposer();
-		this.attachmentCoordinator = new ComposerAttachmentCoordinator({
-			getThreadId: () => core.threadId,
-			uploadConfig,
-			activeUploads,
-			onForgetPersistedState: () => {
-				options.forgetSession?.();
-				this.sendOwner.forgetPersistedState();
-			},
-			pendingSendAttachments: () => this.pendingSendAttachments
-		});
-		this.detachFromSendOwner = this.sendOwner.attachTarget(this);
+		this.activeUploads = activeUploads;
+		this.detachFromComposer = composer.addView(this);
 		this.activate();
 	}
 
-	/** Show the text of the conversation the session shows now. ChatRoot calls it when that changes. */
+	/**
+	 * Show the text and files of the conversation the session shows now. ChatRoot
+	 * calls it when that changes. Leaving a real thread restarts the message fade.
+	 */
 	activate(): void {
-		this.sendOwner.activate(this);
+		if (this.composer.activate(this)) {
+			this.messagesFade.reset();
+			this._hasEverDisplayedMessages = false;
+		}
 	}
 
 	/**
-	 * Lets go of every composer this context holds, because their session ended.
-	 *
-	 * Emptying storage alone is not enough: this context keeps its own copy and
-	 * would write it back on its next save. The support widget belongs to the
-	 * shell and stays mounted on the page the user lands on after signing out, so
-	 * that write back would happen.
+	 * Lets go of what the composer holds, because its session ended. Runs once
+	 * per session end, so a surface that hands its view over during the sweep
+	 * can call it before the old view goes.
 	 */
 	forgetPersistedState(): void {
-		this.attachmentCoordinator.forgetPersistedState();
+		this.composer.forgetPersistedState();
 	}
 
 	/** User messages use userAlignment, every other role the opposite side. */
@@ -190,13 +174,6 @@ export class ChatUIContext implements ComposerSendTarget {
 	}
 
 	setDisplayMessages(messages: DisplayMessage[]): void {
-		// The attachment coordinator owns thread identity and its park/adopt
-		// transitions. The UI animation resets only when leaving a real thread, never
-		// when a new conversation first receives its id.
-		if (this.attachmentCoordinator.syncThread()) {
-			this.messagesFade.reset();
-			this._hasEverDisplayedMessages = false;
-		}
 		this.displayMessages = messages;
 
 		// Animate only the first display of messages
@@ -214,16 +191,11 @@ export class ChatUIContext implements ComposerSendTarget {
 	}
 
 	/**
-	 * Shows the existing thread the conversation moved to with that thread's own
-	 * stored attachments, dropping the ones held for the conversation it left. For
-	 * surfaces that never carry files from one conversation into another. Call it
-	 * before the messages of the new thread are displayed.
+	 * Drops the files of a conversation this surface left, stored ones included.
+	 * For surfaces that never carry files from one conversation into another.
 	 */
-	enterSelectedThread(): void {
-		if (this.attachmentCoordinator.enterSelectedThread()) {
-			this.messagesFade.reset();
-			this._hasEverDisplayedMessages = false;
-		}
+	discardAttachments(conversation: ChatConversation): void {
+		this.composer.discardAttachments(conversation);
 	}
 
 	/** True once the query has resolved */
@@ -258,12 +230,12 @@ export class ChatUIContext implements ComposerSendTarget {
 
 	/** The text of the conversation this context shows, held by the composer. A disposed context shows none. */
 	get inputValue(): string {
-		return this.disposed ? '' : this.sendOwner.textOf(this.core.conversation);
+		return this.disposed ? '' : this.composer.textOf(this.core.conversation);
 	}
 
 	setInputValue(value: string): void {
 		if (this.disposed) return;
-		this.sendOwner.edit(this.conversation, value);
+		this.composer.edit(this.conversation, value);
 	}
 
 	clearInput(): void {
@@ -275,7 +247,7 @@ export class ChatUIContext implements ComposerSendTarget {
 			sessionEpoch: getChatSessionEpoch(),
 			conversation: this.conversation,
 			inputValue: untrack(() => this.inputValue),
-			attachments: this.attachmentCoordinator.captureSendAttachments()
+			attachments: this.composer.captureAttachments(this.conversation)
 		};
 	}
 
@@ -285,12 +257,11 @@ export class ChatUIContext implements ComposerSendTarget {
 
 	clearInputForSend(snapshot: ChatSendSnapshot): void {
 		if (this.disposed) return;
-		this.sendOwner.clearSent(snapshot);
+		this.composer.clearSent(snapshot);
 	}
 
 	clearAttachmentsForSend(snapshot: ChatSendSnapshot): void {
-		if (!isChatSessionCurrent(snapshot.sessionEpoch)) return;
-		this.attachmentCoordinator.clearSendAttachments(snapshot.attachments);
+		this.composer.clearSentAttachments(snapshot);
 	}
 
 	isSendSnapshotCurrent(snapshot: ChatSendSnapshot): boolean {
@@ -301,74 +272,55 @@ export class ChatUIContext implements ComposerSendTarget {
 
 	/** Hand a cleared send to the surface's composer; call the result with its outcome. */
 	beginSend(snapshot: ChatSendSnapshot): (outcome: ComposerSendOutcome) => void {
-		const sendId = this.sendOwner.begin(this, snapshot);
-		return (outcome) => this.sendOwner.settle(sendId, outcome);
+		const sendId = this.composer.begin(snapshot);
+		return (outcome) => this.composer.settle(sendId, outcome);
 	}
 
-	restoreAttachments(attachments: Attachment[]): void {
-		if (this.disposed) return;
-		this.attachmentCoordinator.restoreSendAttachments({ attachments });
-	}
-
-	sendResources(): ComposerSendResources {
-		return this.attachmentCoordinator.sendResources();
-	}
-
-	pendingSendsChanged(): void {
-		this.pendingSendsVersion = untrack(() => this.pendingSendsVersion) + 1;
-	}
-
-	/** Files this conversation's unsettled sends hold, which a refusal would put back here. */
-	private get pendingSendAttachments(): number {
-		// The composer counts its sends untracked, so this read is what re-runs a
-		// dependent when a send settles.
-		void this.pendingSendsVersion;
-		return this.sendOwner.pendingAttachmentCount(this);
-	}
-
-	/** Rendered attachments for the current composer. */
+	/** Rendered attachments of the conversation this context shows. A disposed context shows none. */
 	get attachments(): Attachment[] {
-		return this.attachmentCoordinator.attachments;
+		return this.disposed ? [] : this.composer.attachmentsOf(this.core.conversation);
 	}
 
-	/** The upload policy every attachment entry point of this composer reads. */
+	/** The upload policy every attachment entry point of this view reads. */
 	get uploadProfile(): UploadProfile {
-		return this.attachmentCoordinator.profile;
+		return uploadProfileOf(this.uploadConfig);
 	}
 
-	/** The picker cap, owned by the attachment coordinator. */
+	/** The picker cap of this view. */
 	get maxAttachments(): number {
-		return this.attachmentCoordinator.maxAttachments;
+		return this.uploadProfile.maxFiles;
 	}
 
 	/** Whether another file fits the cap, counting the files of pending sends. */
 	get canAddAttachment(): boolean {
-		return this.attachmentCoordinator.canAddAttachment;
+		return this.composer.canAddAttachment(this);
 	}
 
 	addAttachments(newAttachments: Attachment[]): void {
-		this.attachmentCoordinator.addAttachments(newAttachments);
+		this.composer.addAttachments(this, newAttachments);
 	}
 
 	removeAttachment(index: number): void {
-		this.attachmentCoordinator.removeAttachment(index);
+		this.composer.removeAttachment(this.conversation, index);
 	}
 
 	clearAttachments(): void {
-		this.attachmentCoordinator.clearAttachments();
+		this.composer.clearAttachments(this.conversation);
 	}
 
-	/** Release resources held by this mounted chat surface. */
+	/** Stop showing anything; the composer lets go of what no other view shows. */
 	dispose(): void {
 		if (this.disposed) return;
 		this.disposed = true;
-		this.detachFromSendOwner();
-		this.attachmentCoordinator.dispose();
+		this.detachFromComposer();
 	}
 
 	/** Check source and transformed identities for an existing file. */
 	hasFile(name: string, size: number): boolean {
-		return this.attachmentCoordinator.hasFile(name, size);
+		const picked = `${name}:${size}`;
+		return this.attachments.some((attachment) =>
+			attachmentFileIdentity(attachment).includes(picked)
+		);
 	}
 
 	uploadFile(
@@ -376,12 +328,12 @@ export class ChatUIContext implements ComposerSendTarget {
 		filename?: string,
 		options?: ComposerUploadFileOptions
 	): Promise<void> {
-		return this.attachmentCoordinator.uploadFile(file, filename, options);
+		return this.composer.uploadFile(this, file, filename, options);
 	}
 
 	/** Retry the retained payload for a failed attachment. */
 	retryUpload(index: number): void {
-		this.attachmentCoordinator.retryUpload(index);
+		this.composer.retryUpload(this.conversation, index);
 	}
 
 	/** Upload a screenshot through the same composer attachment lifecycle. */
@@ -390,7 +342,7 @@ export class ChatUIContext implements ComposerSendTarget {
 		filename: string,
 		dimensions?: { width: number; height: number }
 	): Promise<void> {
-		return this.attachmentCoordinator.uploadScreenshot(blob, filename, dimensions, {
+		return this.composer.uploadScreenshot(this, blob, filename, dimensions, {
 			onPreprocessFailed: this.composerRefusal
 		});
 	}
@@ -415,7 +367,11 @@ export class ChatUIContext implements ComposerSendTarget {
 	}
 
 	get hasUploadingFiles(): boolean {
-		return this.attachmentCoordinator.hasUploadingFiles;
+		return this.attachments.some(
+			(attachment) =>
+				(attachment.type === 'file' || attachment.type === 'screenshot') &&
+				attachment.uploadState?.status === 'uploading'
+		);
 	}
 
 	/**
@@ -424,7 +380,11 @@ export class ChatUIContext implements ComposerSendTarget {
 	 * never stored. The inline error offers retry and discard.
 	 */
 	get hasFailedUploads(): boolean {
-		return this.attachmentCoordinator.hasFailedUploads;
+		return this.attachments.some(
+			(attachment) =>
+				(attachment.type === 'file' || attachment.type === 'screenshot') &&
+				attachment.uploadState?.status === 'error'
+		);
 	}
 
 	/** Whether the text is longer than one message may be, as after a refused send merged back. */
@@ -467,7 +427,14 @@ export class ChatUIContext implements ComposerSendTarget {
 	}
 
 	get uploadedFileIds(): string[] {
-		return this.attachmentCoordinator.uploadedFileIds;
+		return this.attachments
+			.filter(
+				(attachment): attachment is Extract<Attachment, { type: 'file' | 'screenshot' }> =>
+					(attachment.type === 'file' || attachment.type === 'screenshot') &&
+					attachment.uploadState?.status === 'success'
+			)
+			.map((attachment) => attachment.uploadState!.fileId!)
+			.filter(Boolean);
 	}
 }
 

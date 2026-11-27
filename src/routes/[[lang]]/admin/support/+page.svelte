@@ -38,7 +38,10 @@
 	// while the page stays open hands over the next session's owner, and the
 	// thread view is rebuilt around it below.
 	let sendLease = $state.raw(
-		acquireChatComposer('admin-support', { renewed: (next) => (sendLease = next) })
+		acquireChatComposer('admin-support', {
+			storeFiles: true,
+			renewed: (next) => (sendLease = next)
+		})
 	);
 	onDestroy(() => sendLease.release());
 
@@ -210,7 +213,7 @@
 								initialThread={selectedThread}
 								{canImpersonate}
 								viewerId={adminUserId}
-								sendOwner={sendLease.owner}
+								composer={sendLease.owner}
 							/>
 						{/key}
 					{/key}
@@ -276,7 +279,7 @@
 								initialThread={selectedThread}
 								{canImpersonate}
 								viewerId={adminUserId}
-								sendOwner={sendLease.owner}
+								composer={sendLease.owner}
 							/>
 						{/key}
 					{/key}
@@ -323,7 +326,7 @@
 								{canImpersonate}
 								viewerId={adminUserId}
 								onBackClick={clearThread}
-								sendOwner={sendLease.owner}
+								composer={sendLease.owner}
 							/>
 						{/key}
 					{/key}

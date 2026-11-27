@@ -9,7 +9,6 @@
 	import { ChatUIContext, type UploadConfig } from '#lib/chat/ui/chat-context.svelte.ts';
 	import { ChatCore } from '#lib/chat/core/chat-core.svelte.ts';
 	import { ChatComposer } from '#lib/chat/ui/chat-composer.svelte.ts';
-	import { ChatAttachmentStore } from '#lib/chat/core/chat-attachment-store.svelte.ts';
 	import MessageQuotaBanner from '#lib/components/message-quota-banner.svelte';
 	import { getTranslate } from '@tolgee/svelte';
 	import { page } from '$app/state';
@@ -31,7 +30,7 @@
 		onUpgrade,
 		isUpgrading = false,
 		onMessageSent,
-		sendOwner
+		composer
 	}: {
 		threadId: string;
 		isPro?: boolean;
@@ -41,8 +40,8 @@
 		onUpgrade?: () => void;
 		isUpgrading?: boolean;
 		onMessageSent?: () => void;
-		/** Holds text and settles sends past this component; the page owns it so a remount keeps it. */
-		sendOwner?: ChatComposer;
+		/** Holds text and files and settles sends past this component; the page owns it so a remount keeps it. */
+		composer?: ChatComposer;
 	} = $props();
 
 	const client = useConvexClient();
@@ -51,8 +50,7 @@
 		purpose: 'aiChat',
 		getAttachmentText: api.aiChat.files.getAttachmentText,
 		locale: page.data.lang,
-		translate: (key, params) => $t(key, params),
-		attachmentStore: new ChatAttachmentStore('ai-chat')
+		translate: (key, params) => $t(key, params)
 	};
 
 	// Create ChatCore for this thread
@@ -78,12 +76,12 @@
 		}
 	});
 
-	// The owner is fixed for this component's lifetime; one made here is mounted here.
+	// The composer is fixed for this component's lifetime; one made here is mounted here.
 	// svelte-ignore state_referenced_locally
-	const ownsSendOwner = !sendOwner;
+	const ownsComposer = !composer;
 	// svelte-ignore state_referenced_locally
-	const owner = sendOwner ?? new ChatComposer({ surface: 'ai-chat' });
-	if (ownsSendOwner) onDestroy(owner.mount());
+	const chatComposer = composer ?? new ChatComposer({ surface: 'ai-chat', storeFiles: true });
+	if (ownsComposer) onDestroy(chatComposer.mount());
 
 	// Report transfers to the app so a navigation that would kill one asks first.
 	// Absent outside the app shell (isolated tests, the standalone example), where
@@ -91,13 +89,10 @@
 	const chatUIContext = new ChatUIContext(
 		chatCore,
 		client,
+		chatComposer,
 		uploadConfig,
 		'right',
-		activeUploadsContext.getOr(null),
-		{
-			forgetSession: () => chatCore.forgetChatSession(),
-			sendOwner: owner
-		}
+		activeUploadsContext.getOr(null)
 	);
 
 	// Revoke blob preview URLs of unsent attachments when this thread view unmounts

@@ -1,5 +1,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MAX_ATTACHMENTS, type Attachment } from '../core/types.js';
+import type { ConvexClient } from 'convex/browser';
+import { createChatSession } from '../__tests__/session-fixture';
+import { MAX_ATTACHMENTS, type Attachment, type DisplayMessage } from '../core/types.js';
 
 const uploadFileWithProgress = vi.fn();
 
@@ -9,16 +11,14 @@ vi.mock('../core/file-uploader.js', () => ({
 	UploadError: class UploadError extends Error {}
 }));
 
-const { ComposerAttachmentCoordinator } =
-	await import('./composer-attachment-coordinator.svelte.ts');
+const { ChatUIContext } = await import('./chat-context.svelte.ts');
+const { ChatComposer } = await import('./chat-composer.svelte.ts');
 
-type Coordinator = InstanceType<typeof ComposerAttachmentCoordinator>;
+type Context = InstanceType<typeof ChatUIContext>;
 
 const uploadConfig = {
 	purpose: 'support'
-} satisfies NonNullable<
-	ConstructorParameters<typeof ComposerAttachmentCoordinator>[0]['uploadConfig']
->;
+} satisfies NonNullable<ConstructorParameters<typeof ChatUIContext>[3]>;
 
 function successfulAttachment(name = 'saved.png'): Attachment {
 	return {
@@ -48,18 +48,29 @@ function pendingTransfer() {
 
 const shot = () => new Blob(['x'], { type: 'image/png' });
 
-const coordinators: Coordinator[] = [];
-function coordinatorAt(
-	thread: { current: string | null },
-	activeUploads?: { claim(owner: object): void; release(owner: object): void }
-): Coordinator {
-	const coordinator = new ComposerAttachmentCoordinator({
-		getThreadId: () => thread.current,
+const contexts: Context[] = [];
+/** A view on its own composer, showing `threadId` and able to move to another thread. */
+function composerAt(
+	threadId: string | null,
+	activeUploads: { claim(owner: object): void; release(owner: object): void } | null = null
+) {
+	const session = createChatSession(threadId);
+	const ctx = new ChatUIContext(
+		session,
+		{} as ConvexClient,
+		new ChatComposer(),
 		uploadConfig,
+		'right',
 		activeUploads
-	});
-	coordinators.push(coordinator);
-	return coordinator;
+	);
+	contexts.push(ctx);
+	return {
+		ctx,
+		switchTo(next: string | null) {
+			session.moveTo(next);
+			ctx.activate();
+		}
+	};
 }
 
 beforeAll(() => {
@@ -86,7 +97,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-	for (const coordinator of coordinators.splice(0)) coordinator.dispose();
+	for (const context of contexts.splice(0)) context.dispose();
 	vi.restoreAllMocks();
 });
 
@@ -96,8 +107,7 @@ describe('ComposerAttachmentCoordinator', () => {
 			url: 'https://cdn.test/photo.webp',
 			fileId: 'file-photo'
 		});
-		const thread = { current: 'thread-a' };
-		const coordinator = coordinatorAt(thread);
+		const { ctx: coordinator } = composerAt('thread-a');
 		const source = new File(['original'], 'photo.png', { type: 'image/png' });
 		const transformed = new Blob(['normalized'], { type: 'image/webp' });
 		let finishPreprocessing!: () => void;
@@ -139,7 +149,7 @@ describe('ComposerAttachmentCoordinator', () => {
 
 	it('uploads a prepared screenshot unchanged and cancels it on removal', async () => {
 		uploadFileWithProgress.mockImplementationOnce(() => new Promise(() => {}));
-		const coordinator = coordinatorAt({ current: 'thread-a' });
+		const { ctx: coordinator } = composerAt('thread-a');
 		const blob = new Blob(['edited screenshot'], { type: 'image/png' });
 
 		void coordinator.uploadScreenshot(blob, 'shot.png', { width: 640, height: 480 });
@@ -177,7 +187,7 @@ describe('ComposerAttachmentCoordinator', () => {
 	});
 
 	it('owns the pick-time attachment cap even when called without ChatInput', async () => {
-		const coordinator = coordinatorAt({ current: 'thread-a' });
+		const { ctx: coordinator } = composerAt('thread-a');
 		coordinator.addAttachments(
 			Array.from({ length: MAX_ATTACHMENTS }, (_, index) => ({
 				type: 'image' as const,
@@ -195,37 +205,60 @@ describe('ComposerAttachmentCoordinator', () => {
 	});
 
 	it('parks and restores the live collection when moving between real threads', () => {
-		const thread = { current: 'thread-a' };
-		const coordinator = coordinatorAt(thread);
-		coordinator.syncThread();
-		coordinator.addAttachments([successfulAttachment('from-a.png')]);
+		const chat = composerAt('thread-a');
+		chat.ctx.addAttachments([successfulAttachment('from-a.png')]);
 
-		thread.current = 'thread-b';
-		expect(coordinator.syncThread()).toBe(true);
-		expect(coordinator.attachments).toHaveLength(0);
+		chat.switchTo('thread-b');
+		expect(chat.ctx.attachments).toHaveLength(0);
 
-		thread.current = 'thread-a';
-		expect(coordinator.syncThread()).toBe(true);
-		expect(coordinator.attachments).toMatchObject([{ name: 'from-a.png' }]);
+		chat.switchTo('thread-a');
+		expect(chat.ctx.attachments).toMatchObject([{ name: 'from-a.png' }]);
+	});
+
+	it('fades in the messages of each real thread it moves to, and not on assignment', () => {
+		const message = (id: string): DisplayMessage => ({
+			id,
+			_creationTime: 0,
+			order: 0,
+			role: 'assistant',
+			status: 'success',
+			text: id,
+			parts: [{ type: 'text', text: id, state: 'done' }],
+			displayText: id,
+			displayReasoning: '',
+			isStreaming: false,
+			hasReasoningStream: false
+		});
+		const fade = 'animate-in fade-in-0 duration-200';
+		const chat = composerAt('thread-a');
+		chat.ctx.setDisplayMessages([message('in-a')]);
+		expect(chat.ctx.messagesFade.animationClass).toBe(fade);
+
+		chat.switchTo('thread-b');
+		expect(chat.ctx.messagesFade.animationClass).toBe('');
+		chat.ctx.setDisplayMessages([message('in-b')]);
+		expect(chat.ctx.messagesFade.animationClass).toBe(fade);
+
+		chat.switchTo(null);
+		expect(chat.ctx.messagesFade.animationClass).toBe('');
+		chat.ctx.setDisplayMessages([message('in-new')]);
+		chat.switchTo('thread-c');
+		expect(chat.ctx.messagesFade.animationClass).toBe(fade);
 	});
 
 	it('rewrites a parked snapshot when its transfer finishes', async () => {
 		const transfer = pendingTransfer();
-		const thread = { current: 'thread-a' };
-		const coordinator = coordinatorAt(thread);
-		coordinator.syncThread();
-		const upload = coordinator.uploadScreenshot(shot(), 'shot.png');
+		const chat = composerAt('thread-a');
+		const upload = chat.ctx.uploadScreenshot(shot(), 'shot.png');
 
-		thread.current = 'thread-b';
-		coordinator.syncThread();
-		expect(coordinator.attachments).toHaveLength(0);
+		chat.switchTo('thread-b');
+		expect(chat.ctx.attachments).toHaveLength(0);
 
 		transfer.succeed('shot');
 		await upload;
-		thread.current = 'thread-a';
-		coordinator.syncThread();
+		chat.switchTo('thread-a');
 
-		expect(coordinator.attachments).toMatchObject([
+		expect(chat.ctx.attachments).toMatchObject([
 			{
 				name: 'shot.png',
 				uploadState: { status: 'success', progress: 100, fileId: 'file-shot' }
@@ -239,15 +272,15 @@ describe('ComposerAttachmentCoordinator', () => {
 			claim: (owner: object) => owners.add(owner),
 			release: (owner: object) => owners.delete(owner)
 		};
-		const coordinator = coordinatorAt({ current: 'thread-a' }, activeUploads);
+		const { ctx } = composerAt('thread-a', activeUploads);
 		uploadFileWithProgress.mockImplementationOnce(() => new Promise(() => {}));
-		void coordinator.uploadScreenshot(shot(), 'shot.png');
-		expect(owners.has(coordinator)).toBe(true);
+		void ctx.uploadScreenshot(shot(), 'shot.png');
+		expect(owners.size).toBe(1);
 
-		coordinator.dispose();
-		coordinator.dispose();
+		ctx.dispose();
+		ctx.dispose();
 
-		expect(owners.has(coordinator)).toBe(false);
+		expect(owners.size).toBe(0);
 		expect(URL.revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:http://localhost/attachment');
 	});
 });

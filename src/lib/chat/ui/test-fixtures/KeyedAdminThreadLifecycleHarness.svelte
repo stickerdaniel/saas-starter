@@ -1,6 +1,9 @@
 <script module lang="ts">
+	import { ActiveUploads, activeUploadsContext } from '#lib/hooks/active-uploads.svelte.ts';
+
 	export const keyedAdminThreadLifecycle: {
 		setThreadId?: (threadId: string) => void;
+		activeUploads?: ActiveUploads;
 	} = {};
 </script>
 
@@ -12,10 +15,13 @@
 	// Initial seed for the fixture's own keyed thread state.
 	// svelte-ignore state_referenced_locally
 	let threadId = $state(initialThreadId);
-	const sendOwner = new ChatComposer({ surface: 'admin-support' });
+	const activeUploads = new ActiveUploads();
+	activeUploadsContext.set(activeUploads);
+	keyedAdminThreadLifecycle.activeUploads = activeUploads;
+	const composer = new ChatComposer({ surface: 'admin-support', storeFiles: true });
 	keyedAdminThreadLifecycle.setThreadId = (next) => (threadId = next);
 </script>
 
 {#key threadId}
-	<AdminThreadChat {threadId} {sendOwner} />
+	<AdminThreadChat {threadId} {composer} />
 {/key}

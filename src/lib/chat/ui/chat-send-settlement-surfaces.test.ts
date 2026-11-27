@@ -105,10 +105,10 @@ afterEach(async () => {
 });
 
 describe('AI chat across a remount', () => {
-	const pageOwner = () => new ChatComposer({ surface: 'ai-chat' });
+	const pageOwner = () => new ChatComposer({ surface: 'ai-chat', storeFiles: true });
 
-	async function mountChat(sendOwner: ChatComposer): Promise<void> {
-		const contentProps = { threadId: 'thread-a', hasMessagesAvailable: true, sendOwner };
+	async function mountChat(composer: ChatComposer): Promise<void> {
+		const contentProps = { threadId: 'thread-a', hasMessagesAvailable: true, composer };
 		component = mount(ChatTestProvider<typeof contentProps>, {
 			target: document.body,
 			props: { client, content: AIThreadChat, contentProps }
@@ -119,14 +119,14 @@ describe('AI chat across a remount', () => {
 	it('keeps an identical prompt typed again and stored before the remount', async () => {
 		const reply = Promise.withResolvers<never>();
 		vi.spyOn(client, 'mutation').mockReturnValue(reply.promise);
-		const sendOwner = pageOwner();
-		await mountChat(sendOwner);
+		const composer = pageOwner();
+		await mountChat(composer);
 		await send('same');
 		await type('same');
 		expect(storedDrafts('ai-chat')).toEqual({ 'thread-a': 'same' });
 
 		await unmountComponent();
-		await mountChat(sendOwner);
+		await mountChat(composer);
 		expect(textarea().value).toBe('same');
 		reply.reject(new Error('refused'));
 		await settleWork();
@@ -138,13 +138,13 @@ describe('AI chat across a remount', () => {
 	it('does not repeat the stored copy of the pending send after a remount', async () => {
 		const reply = Promise.withResolvers<never>();
 		vi.spyOn(client, 'mutation').mockReturnValue(reply.promise);
-		const sendOwner = pageOwner();
-		await mountChat(sendOwner);
+		const composer = pageOwner();
+		await mountChat(composer);
 		await send('same');
 		expect(storedDrafts('ai-chat')).toEqual({ 'thread-a': 'same' });
 
 		await unmountComponent();
-		await mountChat(sendOwner);
+		await mountChat(composer);
 		expect(textarea().value).toBe('');
 		reply.reject(new Error('refused'));
 		await settleWork();
@@ -156,8 +156,8 @@ describe('AI chat across a remount', () => {
 	it('keeps a draft another tab stored before the send when the send is accepted', async () => {
 		const reply = Promise.withResolvers<Record<string, never>>();
 		vi.spyOn(client, 'mutation').mockReturnValue(reply.promise);
-		const sendOwner = pageOwner();
-		await mountChat(sendOwner);
+		const composer = pageOwner();
+		await mountChat(composer);
 		await type('send this');
 		const stored = JSON.stringify({ 'thread-a': 'typed in another tab' });
 		localStorage.setItem('drafts:ai-chat', stored);
@@ -168,7 +168,7 @@ describe('AI chat across a remount', () => {
 		await tick();
 
 		await unmountComponent();
-		await mountChat(sendOwner);
+		await mountChat(composer);
 		expect(textarea().value).toBe('typed in another tab');
 		reply.resolve({});
 		await settleWork();
@@ -180,12 +180,12 @@ describe('AI chat across a remount', () => {
 	it('keeps a draft with the same text typed after the remount when the send is accepted', async () => {
 		const reply = Promise.withResolvers<Record<string, never>>();
 		vi.spyOn(client, 'mutation').mockReturnValue(reply.promise);
-		const sendOwner = pageOwner();
-		await mountChat(sendOwner);
+		const composer = pageOwner();
+		await mountChat(composer);
 		await send('same');
 
 		await unmountComponent();
-		await mountChat(sendOwner);
+		await mountChat(composer);
 		await type('same');
 		reply.resolve({});
 		await settleWork();
@@ -383,10 +383,7 @@ describe('support widget accepted send', () => {
 		const drafts = new ChatDraftManager('support');
 		support.selectThread('thread-support');
 		drafts.setDraft('thread-support', 'send this');
-		const context = new ChatUIContext(conversation, client, undefined, 'right', null, {
-			forgetSession: () => conversation.forgetChatSession(),
-			sendOwner: support.sendOwner
-		});
+		const context = new ChatUIContext(conversation, client, support.composer);
 		context.setDisplayMessages([]);
 		const reply = Promise.withResolvers<Record<string, never>>();
 		vi.spyOn(client, 'mutation').mockReturnValue(reply.promise);
@@ -423,10 +420,7 @@ describe('support widget accepted send', () => {
 			const support = new SupportContext();
 			const { conversation } = support;
 			support.startNewThread();
-			const context = new ChatUIContext(conversation, client, undefined, 'right', null, {
-				forgetSession: () => conversation.forgetChatSession(),
-				sendOwner: support.sendOwner
-			});
+			const context = new ChatUIContext(conversation, client, support.composer);
 			context.setDisplayMessages([]);
 			const creation = Promise.withResolvers<{ threadId: string; notificationEmail: null }>();
 			const reply = Promise.withResolvers<Record<string, never>>();

@@ -26,6 +26,7 @@ import { ChatCore } from '../../core/chat-core.svelte.ts';
 import type { AttachmentUploadResult } from '../../core/file-uploader.js';
 import { MAX_MESSAGE_LENGTH, type Attachment } from '../../core/types.js';
 import type { AttachmentTransferPayload } from '../attachment-transfer.js';
+import { ChatComposer } from '../chat-composer.svelte.ts';
 import { ChatUIContext } from '../chat-context.svelte.ts';
 import ChatTestProvider from './ChatTestProvider.svelte';
 import ChatInputOptionsHarness from './ChatInputOptionsHarness.svelte';
@@ -217,7 +218,10 @@ export function setupChatInputOptions() {
 			threadId: 'thread-options',
 			api: { sendMessage: api.aiChat.messages.sendMessage }
 		});
-		state.ctx = new ChatUIContext(state.core, state.client, { upload: state.upload, profile });
+		state.ctx = new ChatUIContext(state.core, state.client, new ChatComposer(), {
+			upload: state.upload,
+			profile
+		});
 		state.ctx.setDisplayMessages([]);
 		vi.spyOn(console, 'error').mockImplementation(() => {});
 		Object.defineProperty(URL, 'createObjectURL', {
@@ -893,7 +897,7 @@ function optionsCase(state: ChatInputOptions, { props, compact }: (typeof cases)
 
 		beforeEach(() => {
 			state.ctx.dispose();
-			state.ctx = new ChatUIContext(state.core, state.client, {
+			state.ctx = new ChatUIContext(state.core, state.client, new ChatComposer(), {
 				upload: state.upload,
 				profile: { ...profile, maxFiles }
 			});

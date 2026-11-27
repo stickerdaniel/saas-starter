@@ -6,16 +6,18 @@
  */
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ConvexClient } from 'convex/browser';
 import { toast } from 'svelte-sonner';
+import { createChatSession } from '../__tests__/session-fixture';
+import { clearPersistedChatState } from '../core/chat-persisted-state.ts';
 import { uploadBlobWithProgress, UploadError } from '../../uploads/transfer.js';
 import type { UploadProfile } from '../../uploads/profiles.js';
 import type { AttachmentUploadResult } from '../core/file-uploader.js';
 import type { Attachment } from '../core/types.js';
 import type { AttachmentTransferPayload } from './attachment-transfer.js';
-import {
-	ComposerAttachmentCoordinator,
-	type UploadConfig
-} from './composer-attachment-coordinator.svelte.ts';
+import { ChatComposer } from './chat-composer.svelte.ts';
+import { ChatUIContext } from './chat-context.svelte.ts';
+import type { UploadConfig } from './composer-attachment-coordinator.svelte.ts';
 
 vi.mock('svelte-sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('$app/env/public', () => ({ PUBLIC_CONVEX_SITE_URL: 'https://site.test' }));
@@ -54,20 +56,80 @@ const result = (id: string): AttachmentUploadResult => ({
 	url: `/attachments/upload-${id}`
 });
 
-const coordinators: ComposerAttachmentCoordinator[] = [];
-function composer(
+const contexts: ChatUIContext[] = [];
+/** A view on its own composer and session, showing `threadId`. */
+function composerOn(
 	config: UploadConfig,
-	thread: { current: string | null } = { current: 'thread-a' },
-	activeUploads?: { claim(owner: object): void; release(owner: object): void }
+	threadId: string | null = 'thread-a',
+	activeUploads: { claim(owner: object): void; release(owner: object): void } | null = null,
+	shared = new ChatComposer()
 ) {
-	const coordinator = new ComposerAttachmentCoordinator({
-		getThreadId: () => thread.current,
-		uploadConfig: config,
+	const session = createChatSession(threadId);
+	const ctx = new ChatUIContext(
+		session,
+		{} as ConvexClient,
+		shared,
+		config,
+		'right',
 		activeUploads
-	});
-	coordinator.syncThread();
-	coordinators.push(coordinator);
-	return coordinator;
+	);
+	contexts.push(ctx);
+	return {
+		ctx,
+		get conversation() {
+			return session.conversation;
+		},
+		/** Replace the shown conversation with a new one for `next`. */
+		replaceWith(next: string | null) {
+			session.setThread(next);
+			ctx.activate();
+		},
+		/** Give the shown id-less conversation its thread id. */
+		assign(next: string) {
+			session.moveTo(next);
+			ctx.activate();
+		}
+	};
+}
+
+const composer = (...args: Parameters<typeof composerOn>) => composerOn(...args).ctx;
+
+/** Another view of `shared` on `threadId`. */
+const viewOf = (
+	shared: ChatComposer,
+	config: UploadConfig,
+	threadId = 'thread-a',
+	activeUploads: { claim(owner: object): void; release(owner: object): void } | null = null
+) => composerOn(config, threadId, activeUploads, shared).ctx;
+
+function claims() {
+	const owners = new Set<object>();
+	return {
+		owners,
+		registry: {
+			claim: (owner: object) => void owners.add(owner),
+			release: (owner: object) => void owners.delete(owner)
+		}
+	};
+}
+
+/** A finished result with no transfer behind it, as `addAttachments` admits one. */
+const keyless = (id: string): Attachment => ({
+	type: 'file',
+	name: `${id}.txt`,
+	size: id.length,
+	mimeType: 'text/plain',
+	url: `/attachments/upload-${id}`,
+	uploadState: { status: 'success', progress: 100, fileId: `upload-${id}` }
+});
+
+/** Send what `ctx` holds the way ChatInput does, and return the send's outcome callback. */
+function sendFrom(ctx: ChatUIContext) {
+	const snapshot = ctx.captureSendSnapshot();
+	ctx.clearInputForSend(snapshot);
+	const settle = ctx.beginSend(snapshot);
+	ctx.clearAttachmentsForSend(snapshot);
+	return settle;
 }
 
 const textFile = (name = 'notes.txt', body = 'notes') =>
@@ -101,7 +163,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-	for (const coordinator of coordinators.splice(0)) coordinator.dispose();
+	for (const context of contexts.splice(0)) context.dispose();
 	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
 });
@@ -141,7 +203,7 @@ function routeServer() {
 describe('the direct route transport', () => {
 	it('posts the bytes to the surface route once, and removal sends nothing', async () => {
 		const server = routeServer();
-		const coordinator = composer({ purpose: 'support' }, { current: 'thread-a' });
+		const coordinator = composer({ purpose: 'support' });
 		const file = textFile();
 
 		await coordinator.uploadFile(file);
@@ -252,13 +314,13 @@ describe('a custom attachment transport', () => {
 		const owners = new Set<object>();
 		const coordinator = composer(
 			{ upload: transport.upload, release: transport.release },
-			{ current: 'thread-a' },
+			'thread-a',
 			{ claim: (owner) => owners.add(owner), release: (owner) => owners.delete(owner) }
 		);
 
 		const pending = coordinator.uploadFile(textFile());
 		const [attempt] = transport.attempts;
-		expect(owners.has(coordinator)).toBe(true);
+		expect(owners.size).toBe(1);
 
 		coordinator.removeAttachment(0);
 		expect(attempt!.signal.aborted).toBe(true);
@@ -266,7 +328,7 @@ describe('a custom attachment transport', () => {
 		await pending;
 
 		expect(coordinator.attachments).toEqual([]);
-		expect(owners.has(coordinator)).toBe(false);
+		expect(owners.size).toBe(0);
 		expect(transport.release).not.toHaveBeenCalled();
 		expect(console.error).not.toHaveBeenCalled();
 	});
@@ -274,11 +336,11 @@ describe('a custom attachment transport', () => {
 	it.each([
 		{
 			name: 'removed',
-			abandon: (coordinator: ComposerAttachmentCoordinator) => coordinator.removeAttachment(0)
+			abandon: (coordinator: ChatUIContext) => coordinator.removeAttachment(0)
 		},
 		{
 			name: 'disposed',
-			abandon: (coordinator: ComposerAttachmentCoordinator) => coordinator.dispose()
+			abandon: (coordinator: ChatUIContext) => coordinator.dispose()
 		}
 	])(
 		'releases a success that lands after its attachment was $name, exactly once',
@@ -287,7 +349,7 @@ describe('a custom attachment transport', () => {
 			const owners = new Set<object>();
 			const coordinator = composer(
 				{ upload: transport.upload, release: transport.release },
-				{ current: 'thread-a' },
+				'thread-a',
 				{ claim: (owner) => owners.add(owner), release: (owner) => owners.delete(owner) }
 			);
 
@@ -302,7 +364,7 @@ describe('a custom attachment transport', () => {
 			expect(transport.release).toHaveBeenCalledExactlyOnceWith(result('late'));
 			expect(coordinator.attachments).toEqual([]);
 			expect(coordinator.uploadedFileIds).toEqual([]);
-			expect(owners.has(coordinator)).toBe(false);
+			expect(owners.size).toBe(0);
 		}
 	);
 
@@ -318,21 +380,19 @@ describe('a custom attachment transport', () => {
 
 	it('releases the copy a parked attachment replaces when its thread returns', async () => {
 		const transport = surfaceTransport();
-		const thread = { current: 'thread-a' as string | null };
-		const coordinator = composer({ upload: transport.upload, release: transport.release }, thread);
+		const chat = composerOn({ upload: transport.upload, release: transport.release });
+		const coordinator = chat.ctx;
 		const first = coordinator.uploadFile(textFile());
 		transport.attempts[0]!.succeed(result('first'));
 		await first;
 
-		thread.current = null;
-		coordinator.syncThread();
+		chat.replaceWith(null);
 		const second = coordinator.uploadFile(textFile());
 		transport.attempts[1]!.succeed(result('second'));
 		await second;
 		expect(transport.release).not.toHaveBeenCalled();
 
-		thread.current = 'thread-a';
-		coordinator.syncThread();
+		chat.assign('thread-a');
 
 		expect(coordinator.uploadedFileIds).toEqual(['upload-first']);
 		expect(transport.release).toHaveBeenCalledExactlyOnceWith(result('second'));
@@ -340,13 +400,12 @@ describe('a custom attachment transport', () => {
 
 	it('releases every live and parked unsent result when the composer is disposed', async () => {
 		const transport = surfaceTransport();
-		const thread = { current: 'thread-a' as string | null };
-		const coordinator = composer({ upload: transport.upload, release: transport.release }, thread);
+		const chat = composerOn({ upload: transport.upload, release: transport.release });
+		const coordinator = chat.ctx;
 		const parked = coordinator.uploadFile(textFile('parked.txt'));
 		transport.attempts[0]!.succeed(result('parked'));
 		await parked;
-		thread.current = 'thread-b';
-		coordinator.syncThread();
+		chat.replaceWith('thread-b');
 		const live = coordinator.uploadFile(textFile('live.txt'));
 		transport.attempts[1]!.succeed(result('live'));
 		await live;
@@ -361,12 +420,11 @@ describe('a custom attachment transport', () => {
 	it('never releases what a send cleared, and releases it once a refused send restored it', async () => {
 		const { coordinator, transport } = await adopted();
 
-		const snapshot = coordinator.captureSendAttachments();
-		coordinator.clearSendAttachments(snapshot);
+		const settle = sendFrom(coordinator);
 		expect(coordinator.attachments).toEqual([]);
 		expect(transport.release).not.toHaveBeenCalled();
 
-		coordinator.restoreSendAttachments(snapshot);
+		settle('refused');
 		expect(coordinator.uploadedFileIds).toEqual(['upload-notes.txt']);
 		coordinator.removeAttachment(0);
 		expect(transport.release).toHaveBeenCalledExactlyOnceWith(result('notes.txt'));
@@ -374,10 +432,11 @@ describe('a custom attachment transport', () => {
 
 	it('releases a result once even when an older send snapshot brings it back', async () => {
 		const { coordinator, transport } = await adopted();
-		const snapshot = coordinator.captureSendAttachments();
+		const settle = coordinator.beginSend(coordinator.captureSendSnapshot());
 
 		coordinator.removeAttachment(0);
-		coordinator.restoreSendAttachments(snapshot);
+		settle('refused');
+		expect(coordinator.uploadedFileIds).toEqual(['upload-notes.txt']);
 		coordinator.removeAttachment(0);
 
 		expect(transport.release).toHaveBeenCalledExactlyOnceWith(result('notes.txt'));
@@ -386,8 +445,9 @@ describe('a custom attachment transport', () => {
 	it('does not release a sent result when the composer is disposed afterwards', async () => {
 		const { coordinator, transport } = await adopted();
 
-		coordinator.clearSendAttachments(coordinator.captureSendAttachments());
+		const settle = sendFrom(coordinator);
 		coordinator.dispose();
+		settle('accepted');
 
 		expect(transport.release).not.toHaveBeenCalled();
 	});
@@ -441,6 +501,330 @@ describe('a custom attachment transport', () => {
 		expect(
 			coordinator.attachments.map((attachment) => 'name' in attachment && attachment.name)
 		).toEqual(['one.txt', 'two.txt']);
+	});
+});
+
+describe('results across the views of one composer', () => {
+	it('releases a late refusal through the transport it was sent with, after two session ends', async () => {
+		const sentWith = surfaceTransport();
+		const mountedNow = surfaceTransport();
+		const shared = new ChatComposer();
+		const first = viewOf(shared, { upload: sentWith.upload, release: sentWith.release });
+		const pending = first.uploadFile(textFile());
+		sentWith.attempts[0]!.succeed(result('notes'));
+		await pending;
+		const settle = sendFrom(first);
+		first.dispose();
+		const second = viewOf(shared, { upload: mountedNow.upload, release: mountedNow.release });
+
+		clearPersistedChatState();
+		clearPersistedChatState();
+		settle('refused');
+		settle('refused');
+
+		expect(sentWith.release).toHaveBeenCalledExactlyOnceWith(result('notes'));
+		expect(mountedNow.release).not.toHaveBeenCalled();
+		expect(second.attachments).toEqual([]);
+	});
+
+	it('uploads with the settings of the view that starts it, and hands a gone view its late result', async () => {
+		vi.mocked(toast.error).mockClear();
+		const before = surfaceTransport();
+		const after = surfaceTransport();
+		const beforeClaims = claims();
+		const afterClaims = claims();
+		const roomy: UploadProfile = {
+			extensions: { '.txt': 'text/plain' },
+			maxBytes: 100,
+			maxBytesLabel: '100 B',
+			maxFiles: 6
+		};
+		const shared = new ChatComposer();
+		const first = viewOf(
+			shared,
+			{
+				upload: before.upload,
+				release: before.release,
+				profile: roomy,
+				translate: (key) => `before:${key}`
+			},
+			'thread-a',
+			beforeClaims.registry
+		);
+		const invalidated = first.uploadFile(textFile());
+		expect(beforeClaims.owners.size).toBe(1);
+
+		first.dispose();
+		expect(before.attempts[0]!.signal.aborted).toBe(true);
+		expect(beforeClaims.owners.size).toBe(0);
+		const second = viewOf(
+			shared,
+			{
+				upload: after.upload,
+				release: after.release,
+				profile: { ...roomy, maxBytes: 10, maxBytesLabel: '10 B' },
+				translate: (key) => `after:${key}`
+			},
+			'thread-a',
+			afterClaims.registry
+		);
+		before.attempts[0]!.succeed(result('late'));
+		await invalidated;
+		expect(before.release).toHaveBeenCalledExactlyOnceWith(result('late'));
+
+		await second.uploadFile(textFile('large.txt', 'x'.repeat(50)));
+		expect(toast.error).toHaveBeenCalledExactlyOnceWith('after:chat.error.file_too_large', {
+			description: 'after:chat.error.file_max_size'
+		});
+		const fresh = second.uploadFile(textFile('small.txt', 'ok'));
+		expect(after.upload).toHaveBeenCalledOnce();
+		expect(before.upload).toHaveBeenCalledOnce();
+		expect(afterClaims.owners.size).toBe(1);
+		after.attempts[0]!.succeed(result('small'));
+		await fresh;
+
+		expect(second.uploadedFileIds).toEqual(['upload-small']);
+		expect(afterClaims.owners.size).toBe(0);
+		expect(before.release).toHaveBeenCalledOnce();
+		expect(after.release).not.toHaveBeenCalled();
+	});
+
+	it('releases results with one file id through the transport each came from', async () => {
+		const a = surfaceTransport();
+		const b = surfaceTransport();
+		const shared = new ChatComposer();
+		const first = viewOf(shared, { upload: a.upload, release: a.release });
+		const fromA = first.uploadFile(textFile('a.txt'));
+		a.attempts[0]!.succeed(result('same'));
+		await fromA;
+		const second = viewOf(shared, { upload: b.upload, release: b.release });
+		const fromB = second.uploadFile(textFile('b.txt'));
+		b.attempts[0]!.succeed(result('same'));
+		await fromB;
+		expect(second.attachments).toHaveLength(2);
+
+		second.removeAttachment(1);
+		expect(b.release).toHaveBeenCalledExactlyOnceWith(result('same'));
+		expect(a.release).not.toHaveBeenCalled();
+
+		first.dispose();
+		second.dispose();
+		expect(a.release).toHaveBeenCalledExactlyOnceWith(result('same'));
+		expect(b.release).toHaveBeenCalledOnce();
+	});
+
+	it('releases a keyless result once, also after a refused send brought it back', () => {
+		const transport = surfaceTransport();
+		const ctx = composer({ upload: transport.upload, release: transport.release });
+		ctx.addAttachments([keyless('first')]);
+		const settle = ctx.beginSend(ctx.captureSendSnapshot());
+
+		ctx.removeAttachment(0);
+		expect(transport.release).toHaveBeenCalledExactlyOnceWith(result('first'));
+		settle('refused');
+		expect(ctx.uploadedFileIds).toEqual(['upload-first']);
+		ctx.removeAttachment(0);
+		expect(transport.release).toHaveBeenCalledOnce();
+
+		ctx.addAttachments([keyless('second')]);
+		ctx.removeAttachment(0);
+		expect(transport.release).toHaveBeenCalledTimes(2);
+		expect(transport.release).toHaveBeenLastCalledWith(result('second'));
+	});
+
+	it('releases a keyless result through the view that added it, after that view closed', () => {
+		const adding = surfaceTransport();
+		const remaining = surfaceTransport();
+		const shared = new ChatComposer();
+		const first = viewOf(shared, { upload: adding.upload, release: adding.release });
+		const second = viewOf(shared, { upload: remaining.upload, release: remaining.release });
+		first.addAttachments([keyless('kept')]);
+		const settle = sendFrom(first);
+		first.dispose();
+
+		settle('refused');
+		expect(second.uploadedFileIds).toEqual(['upload-kept']);
+		const older = second.beginSend(second.captureSendSnapshot());
+		second.removeAttachment(0);
+		expect(adding.release).toHaveBeenCalledExactlyOnceWith(result('kept'));
+
+		older('refused');
+		expect(second.uploadedFileIds).toEqual(['upload-kept']);
+		second.removeAttachment(0);
+		second.dispose();
+		expect(adding.release).toHaveBeenCalledOnce();
+		expect(remaining.release).not.toHaveBeenCalled();
+	});
+
+	it('keeps the off-screen transfer of a mounted view when another view closes', async () => {
+		const transport = surfaceTransport();
+		const config = { upload: transport.upload, release: transport.release };
+		const uploads = claims();
+		const shared = new ChatComposer();
+		const first = composerOn(config, 'thread-1', uploads.registry, shared);
+		const second = viewOf(shared, config, 'thread-3', uploads.registry);
+		const pending = first.ctx.uploadFile(textFile());
+		first.replaceWith('thread-2');
+
+		second.dispose();
+		expect(transport.attempts[0]!.signal.aborted).toBe(false);
+		expect(uploads.owners.size).toBe(1);
+
+		first.replaceWith('thread-1');
+		expect(uploadState(first.ctx.attachments[0])?.status).toBe('uploading');
+		transport.attempts[0]!.succeed(result('notes'));
+		await pending;
+		expect(first.ctx.uploadedFileIds).toEqual(['upload-notes']);
+		expect(uploads.owners.size).toBe(0);
+	});
+
+	it.each([
+		{ name: 'the view that stays leaves, then the other closes on the thread', leaving: ['first'] },
+		{ name: 'the view that closes leaves first, then the other', leaving: ['second', 'first'] },
+		{ name: 'the view that stays leaves first, then the other', leaving: ['first', 'second'] }
+	] as const)(
+		'keeps a transfer two views left on their thread when one closes: $name',
+		async ({ leaving }) => {
+			const transport = surfaceTransport();
+			const config = { upload: transport.upload, release: transport.release };
+			const uploads = claims();
+			const shared = new ChatComposer();
+			const views = {
+				first: composerOn(config, 'thread-1', uploads.registry, shared),
+				second: composerOn(config, 'thread-1', uploads.registry, shared)
+			};
+			const pending = views.first.ctx.uploadFile(textFile());
+			for (const view of leaving) views[view].replaceWith(`thread-${view}`);
+
+			views.second.ctx.dispose();
+			expect(transport.attempts[0]!.signal.aborted).toBe(false);
+			expect(uploads.owners.size).toBe(1);
+
+			views.first.replaceWith('thread-1');
+			expect(uploadState(views.first.ctx.attachments[0])?.status).toBe('uploading');
+			transport.attempts[0]!.succeed(result('notes'));
+			await pending;
+			expect(views.first.ctx.uploadedFileIds).toEqual(['upload-notes']);
+		}
+	);
+
+	it('keeps both views interested in a thread an id-less conversation joins off screen', () => {
+		const transport = surfaceTransport();
+		const config = { upload: transport.upload, release: transport.release };
+		const shared = new ChatComposer();
+		const first = composerOn(config, null, null, shared);
+		const second = composerOn(config, 'thread-1', null, shared);
+		void first.ctx.uploadFile(textFile('first.txt'));
+		void second.ctx.uploadFile(textFile('second.txt'));
+		const joining = first.conversation;
+		first.replaceWith('thread-2');
+		second.replaceWith('thread-3');
+		joining.assign('thread-1');
+
+		second.ctx.dispose();
+		expect(transport.attempts.map((attempt) => attempt.signal.aborted)).toEqual([false, false]);
+
+		first.replaceWith('thread-1');
+		expect(first.ctx.attachments.map((a) => 'name' in a && a.name).sort()).toEqual([
+			'first.txt',
+			'second.txt'
+		]);
+		first.ctx.dispose();
+		expect(transport.attempts.map((attempt) => attempt.signal.aborted)).toEqual([true, true]);
+	});
+
+	it.each([
+		{
+			emptied: 'sent its only file',
+			empty: async (
+				view: ReturnType<typeof composerOn>,
+				transport: ReturnType<typeof surfaceTransport>
+			) => {
+				const pending = view.ctx.uploadFile(textFile());
+				transport.attempts[0]!.succeed(result('sent'));
+				await pending;
+				view.replaceWith('thread-2');
+				view.replaceWith('thread-1');
+				sendFrom(view.ctx);
+				view.replaceWith('thread-2');
+			}
+		},
+		{
+			emptied: 'had its only file refused before upload',
+			empty: async (view: ReturnType<typeof composerOn>) => {
+				const refused = view.ctx.uploadFile(textFile('large.txt', 'x'.repeat(500)));
+				view.replaceWith('thread-2');
+				await refused;
+			}
+		}
+	])(
+		"cancels a later view's transfer when it closes on a thread another view $emptied",
+		async ({ empty }) => {
+			const transport = surfaceTransport();
+			const config: UploadConfig = {
+				upload: transport.upload,
+				release: transport.release,
+				profile: {
+					extensions: { '.txt': 'text/plain' },
+					maxBytes: 100,
+					maxBytesLabel: '100 B',
+					maxFiles: 6
+				}
+			};
+			const uploads = claims();
+			const shared = new ChatComposer();
+			const first = composerOn(config, 'thread-1', uploads.registry, shared);
+			await empty(first, transport);
+			expect(first.ctx.attachments).toEqual([]);
+
+			const later = composerOn(config, 'thread-1', uploads.registry, shared);
+			void later.ctx.uploadFile(textFile('later.txt'));
+			const attempt = transport.attempts.at(-1)!;
+			expect(uploads.owners.size).toBe(1);
+			later.ctx.dispose();
+
+			expect(attempt.signal.aborted).toBe(true);
+			expect(uploads.owners.size).toBe(0);
+		}
+	);
+
+	it('cancels the off-screen transfer of a view once that view closes', () => {
+		const transport = surfaceTransport();
+		const uploads = claims();
+		const first = composerOn(
+			{ upload: transport.upload, release: transport.release },
+			'thread-1',
+			uploads.registry
+		);
+		void first.ctx.uploadFile(textFile());
+		first.replaceWith('thread-2');
+
+		first.ctx.dispose();
+
+		expect(transport.attempts[0]!.signal.aborted).toBe(true);
+		expect(uploads.owners.size).toBe(0);
+	});
+
+	it('keeps the files of a thread while another view still shows it', async () => {
+		const transport = surfaceTransport();
+		const config = { upload: transport.upload, release: transport.release };
+		const shared = new ChatComposer();
+		const first = viewOf(shared, config);
+		const second = viewOf(shared, config);
+		const done = first.uploadFile(textFile('done.txt'));
+		transport.attempts[0]!.succeed(result('done'));
+		await done;
+		const running = first.uploadFile(textFile('running.txt'));
+
+		first.dispose();
+		expect(transport.attempts[1]!.signal.aborted).toBe(false);
+		transport.attempts[1]!.succeed(result('running'));
+		await running;
+
+		expect(second.uploadedFileIds).toEqual(['upload-done', 'upload-running']);
+		expect(transport.release).not.toHaveBeenCalled();
+		second.dispose();
+		expect(transport.release).toHaveBeenCalledTimes(2);
 	});
 });
 

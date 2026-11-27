@@ -57,9 +57,7 @@ function createSupportFixture(): {
 	const support = new SupportContext();
 	const { conversation } = support;
 	support.selectThread('thread-support');
-	const context = new ChatUIContext(conversation, client, undefined, 'right', null, {
-		forgetSession: () => conversation.forgetChatSession()
-	});
+	const context = new ChatUIContext(conversation, client, support.composer);
 	return { support, context };
 }
 
@@ -366,9 +364,7 @@ describe('support feedback read receipt', () => {
 		} as unknown as ConvexClient;
 		const support = new SupportContext();
 		support.selectThread('thread-support');
-		const ctx = new ChatUIContext(support.conversation, readClient, undefined, 'right', null, {
-			forgetSession: () => support.conversation.forgetChatSession()
-		});
+		const ctx = new ChatUIContext(support.conversation, readClient, support.composer);
 		// The file's afterEach restores the console spies even when an assertion fails.
 		onTestFinished(() => ctx.dispose());
 		const consoleOutput = captureConsole();

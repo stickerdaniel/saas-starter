@@ -8,7 +8,6 @@
 	import AIChatbar from '#lib/components/customer-support/ai-chatbar.svelte';
 	import FeedbackButton from '#lib/components/customer-support/feedback-button.svelte';
 	import { SupportContext, supportContext } from './support-context.svelte.ts';
-	import { ChatAttachmentStore } from '#lib/chat/core/chat-attachment-store.svelte.ts';
 	import { ChatUIContext, type UploadConfig } from '#lib/chat/ui/chat-context.svelte.ts';
 	import type { ChatComposer } from '#lib/chat/ui/chat-composer.svelte.ts';
 	import {
@@ -57,7 +56,8 @@
 	// widget stores a draft when its thread is left, not on every keystroke.
 	let sendLease = acquireChatComposer('support', {
 		saveDrafts: 'on-switch',
-		renewed: (next) => renewSendOwner(next)
+		storeFiles: true,
+		renewed: (next) => renewComposer(next)
 	});
 	onDestroy(() => sendLease.release());
 	const support = new SupportContext(() => aiUsable, sendLease.owner);
@@ -129,7 +129,6 @@
 		getAttachmentText: api.support.files.getAttachmentText,
 		locale: page.data.lang,
 		translate: (key, params) => $t(key, params),
-		attachmentStore: new ChatAttachmentStore('support'),
 		getVisitorArgs: () => {
 			const userId = conversation.userId;
 			const anonymousUserId = isAnonymousUser(userId) ? (userId ?? undefined) : undefined;
@@ -142,17 +141,14 @@
 	// registry is absent outside the app shell (isolated tests, the standalone
 	// example), where no layout asks.
 	const activeUploads = activeUploadsContext.getOr(null);
-	function createChatUIContext(sendOwner: ChatComposer): ChatUIContext {
-		return new ChatUIContext(conversation, client, uploadConfig, 'right', activeUploads, {
-			forgetSession: () => conversation.forgetChatSession(),
-			sendOwner
-		});
+	function createChatUIContext(composer: ChatComposer): ChatUIContext {
+		return new ChatUIContext(conversation, client, composer, uploadConfig, 'right', activeUploads);
 	}
-	let chatUIContext = $state.raw(createChatUIContext(support.sendOwner));
+	let chatUIContext = $state.raw(createChatUIContext(support.composer));
 
-	function renewSendOwner(next: ComposerSendLease): void {
+	function renewComposer(next: ComposerSendLease): void {
 		sendLease = next;
-		support.sendOwner = next.owner;
+		support.composer = next.owner;
 		const previous = chatUIContext;
 		chatUIContext = createChatUIContext(next.owner);
 		// Renewal runs inside the session-end sweep, and disposing unregisters the

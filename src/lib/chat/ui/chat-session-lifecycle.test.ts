@@ -77,6 +77,15 @@ const sharedFileAttachment: Attachment = {
 
 let component: ReturnType<typeof mount> | undefined;
 class SupportThreadContext extends SupportContext {
+	constructor() {
+		super();
+		// The widget's session end also drops a pending request to open it.
+		const forgetConversation = this.conversation.forgetChatSession.bind(this.conversation);
+		this.conversation.forgetChatSession = () => {
+			forgetConversation();
+			this.navigation.clearWidgetOpenRequest();
+		};
+	}
 	get threadId() {
 		return this.conversation.threadId;
 	}
@@ -132,10 +141,6 @@ class SupportThreadContext extends SupportContext {
 	setRateLimited(retryAfterMs: number): void {
 		this.conversation.setRateLimited(retryAfterMs);
 	}
-	forgetChatSession(): void {
-		this.conversation.forgetChatSession();
-		this.navigation.clearWidgetOpenRequest();
-	}
 	sendMessage(...args: Parameters<SupportContext['conversation']['sendMessage']>) {
 		return this.conversation.sendMessage(...args);
 	}
@@ -148,10 +153,7 @@ function createSupportContext(
 	thread: SupportThreadContext,
 	uploadConfig?: UploadConfig
 ): ChatUIContext {
-	return new ChatUIContext(thread.conversation, client, uploadConfig, 'right', null, {
-		forgetSession: () => thread.forgetChatSession(),
-		sendOwner: thread.sendOwner
-	});
+	return new ChatUIContext(thread.conversation, client, thread.composer, uploadConfig);
 }
 const originalElementAnimate = Element.prototype.animate;
 
@@ -321,10 +323,7 @@ describe('chat session lifecycle', () => {
 	it('a generation-one null-origin rejection cannot contaminate generation two', async () => {
 		const thread = new SupportThreadContext();
 		thread.startNewThread();
-		const context = createSupportContext(thread, {
-			purpose: 'support',
-			attachmentStore: new ChatAttachmentStore('support')
-		});
+		const context = createSupportContext(thread, { purpose: 'support' });
 		const message = Promise.withResolvers<Record<string, never>>();
 		vi.spyOn(client, 'mutation').mockImplementation((reference) => {
 			const name = getFunctionName(reference);
@@ -412,10 +411,7 @@ describe('chat session lifecycle', () => {
 		async (outcome) => {
 			const thread = new SupportThreadContext();
 			thread.startNewThread();
-			const context = createSupportContext(thread, {
-				purpose: 'support',
-				attachmentStore: new ChatAttachmentStore('support')
-			});
+			const context = createSupportContext(thread, { purpose: 'support' });
 			const creation = Promise.withResolvers<{
 				threadId: string;
 				notificationEmail: null;
@@ -510,10 +506,7 @@ describe('chat session lifecycle', () => {
 
 	it('does not retry a rejected eager send into a thread selected after going back', async () => {
 		const thread = new SupportThreadContext();
-		const context = createSupportContext(thread, {
-			purpose: 'support',
-			attachmentStore: new ChatAttachmentStore('support')
-		});
+		const context = createSupportContext(thread, { purpose: 'support' });
 		const creation = Promise.withResolvers<{
 			threadId: string;
 			notificationEmail: null;
@@ -606,10 +599,7 @@ describe('chat session lifecycle', () => {
 
 	it('uses a same-navigation eager creation with exact attachment order and optimistic payload', async () => {
 		const thread = new SupportThreadContext();
-		const context = createSupportContext(thread, {
-			purpose: 'support',
-			attachmentStore: new ChatAttachmentStore('support')
-		});
+		const context = createSupportContext(thread, { purpose: 'support' });
 		contexts.push(context);
 		const creation = Promise.withResolvers<{
 			threadId: string;
@@ -769,10 +759,7 @@ describe('chat session lifecycle', () => {
 	it('does not roll a successful dispatched send back into a later selected thread', async () => {
 		const thread = new SupportThreadContext();
 		thread.selectThread('thread-a');
-		const context = createSupportContext(thread, {
-			purpose: 'support',
-			attachmentStore: new ChatAttachmentStore('support')
-		});
+		const context = createSupportContext(thread, { purpose: 'support' });
 		const message = Promise.withResolvers<Record<string, never>>();
 		const mutation = vi.spyOn(client, 'mutation').mockImplementation((reference) => {
 			if (getFunctionName(reference) === 'support/messages:sendMessage') return message.promise;

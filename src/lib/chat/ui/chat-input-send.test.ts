@@ -8,6 +8,7 @@ import { SupportContext } from '#lib/components/customer-support/support-context
 import { ChatCore } from '../core/chat-core.svelte.ts';
 import { ChatAttachmentStore } from '../core/chat-attachment-store.svelte.ts';
 import type { Attachment } from '../core/types.js';
+import { ChatComposer } from './chat-composer.svelte.ts';
 import { ChatUIContext } from './chat-context.svelte.ts';
 import ChatTestProvider from './test-fixtures/ChatTestProvider.svelte';
 import ChatInputHarness from './test-fixtures/ChatInputHarness.svelte';
@@ -89,19 +90,15 @@ function createContext(threadId: string | null): ChatUIContext {
 		api: { sendMessage: api.aiChat.messages.sendMessage }
 	});
 	core = contextCore;
-	return new ChatUIContext(
-		contextCore,
-		client,
-		{
-			purpose: 'aiChat',
-			attachmentStore: new ChatAttachmentStore(surface)
-		},
-		'right',
-		null,
-		{
-			forgetSession: () => contextCore.forgetChatSession()
-		}
-	);
+	return new ChatUIContext(contextCore, client, new ChatComposer({ surface, storeFiles: true }), {
+		purpose: 'aiChat'
+	});
+}
+
+function storedKeys(threadId: string): Array<string | undefined> {
+	return new ChatAttachmentStore(surface)
+		.readThread(threadId)
+		.map((attachment) => ('key' in attachment ? attachment.key : undefined));
 }
 
 beforeEach(() => {
@@ -240,25 +237,20 @@ describe('ChatInput send rollback through ChatRoot', () => {
 	it('does not restore an origin-thread snapshot into the thread now on screen', async () => {
 		const { pending, input } = await startSend();
 		core.setThread('thread-b');
-		ctx.setDisplayMessages([]);
+		ctx.activate();
 		const newer: Attachment = { type: 'image', url: 'https://chat.test/thread-b.png' };
 		ctx.addAttachments([newer]);
-		const restoreStored = vi.spyOn(ctx.uploadConfig!.attachmentStore!, 'restoreThreadAttachments');
+		expect(storedKeys('thread-input')).toEqual([]);
 		const error = new Error('Send rejected');
 
 		pending.reject(error);
-		await vi.waitFor(() => expect(restoreStored).toHaveBeenCalled());
+		await vi.waitFor(() => expect(storedKeys('thread-input')).toHaveLength(2));
 
 		expect(console.error).not.toHaveBeenCalled();
 		expect(input.value).toBe('');
 		expect(ctx.attachments).toEqual([newer]);
-		expect(restoreStored).toHaveBeenCalledWith('thread-input', expect.any(Array));
-		expect(restoreStored.mock.calls[0]?.[1]).toEqual(attachments);
-		expect(
-			new ChatAttachmentStore(surface)
-				.readThread('thread-input')
-				.map((attachment) => ('key' in attachment ? attachment.key : undefined))
-		).toEqual(['screenshot-first', 'document-second']);
+		expect(storedKeys('thread-input')).toEqual(['screenshot-first', 'document-second']);
+		expect(storedKeys('thread-b')).toEqual([]);
 	});
 
 	it('keeps a created null-origin snapshot bound after later navigation', async () => {
@@ -281,10 +273,10 @@ describe('ChatInput send rollback through ChatRoot', () => {
 		document.querySelector<HTMLButtonElement>(`button[aria-label="${en.chat.aria.send}"]`)!.click();
 		await tick();
 		core.conversation.assign('thread-created');
-		ctx.setDisplayMessages([]);
+		ctx.activate();
 		core.setThread('thread-b');
 		core.isNewConversation = false;
-		ctx.setDisplayMessages([]);
+		ctx.activate();
 		const newer: Attachment = { type: 'image', url: 'https://chat.test/thread-b.png' };
 		ctx.addAttachments([newer]);
 
@@ -361,15 +353,8 @@ describe('ChatInput send rollback through ChatRoot', () => {
 		ctx = new ChatUIContext(
 			conversation,
 			client,
-			{
-				purpose: 'support',
-				attachmentStore: new ChatAttachmentStore(surface)
-			},
-			'right',
-			null,
-			{
-				forgetSession: () => conversation.forgetChatSession()
-			}
+			new ChatComposer({ surface, saveDrafts: 'on-switch', storeFiles: true }),
+			{ purpose: 'support' }
 		);
 		ctx.setDisplayMessages([]);
 		const error = new Error('Send rejected');

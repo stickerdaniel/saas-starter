@@ -5,6 +5,8 @@
 
 import { inspect } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
+import type { ConvexClient } from 'convex/browser';
+import { createChatSession } from '../__tests__/session-fixture';
 import type * as FileUploader from '../core/file-uploader.js';
 import { UploadError, type UploadErrorCode } from '../../uploads/transfer.js';
 
@@ -16,8 +18,8 @@ vi.mock('../core/file-uploader.js', async (importOriginal) => ({
 	uploadFileWithProgress: (...args: unknown[]) => uploadFileWithProgress(...args)
 }));
 
-const { ComposerAttachmentCoordinator } =
-	await import('./composer-attachment-coordinator.svelte.ts');
+const { ChatUIContext } = await import('./chat-context.svelte.ts');
+const { ChatComposer } = await import('./chat-composer.svelte.ts');
 
 // Made-up backend text.
 const SENTINEL = 'upload-sentinel: quarterly-plan for private@sentinel.example';
@@ -35,19 +37,19 @@ function consoleLines(): string[] {
 		);
 }
 
-const coordinators: Array<InstanceType<typeof ComposerAttachmentCoordinator>> = [];
+const contexts: Array<InstanceType<typeof ChatUIContext>> = [];
 
 async function failedUpload(error: unknown) {
 	uploadFileWithProgress.mockRejectedValueOnce(error);
-	const coordinator = new ComposerAttachmentCoordinator({
-		getThreadId: () => 'thread-a',
-		uploadConfig: {
-			purpose: 'support'
-		}
-	});
-	coordinators.push(coordinator);
-	await coordinator.uploadScreenshot(new Blob(['x'], { type: 'image/png' }), 'shot.png');
-	return coordinator;
+	const context = new ChatUIContext(
+		createChatSession('thread-a'),
+		{} as ConvexClient,
+		new ChatComposer(),
+		{ purpose: 'support' }
+	);
+	contexts.push(context);
+	await context.uploadScreenshot(new Blob(['x'], { type: 'image/png' }), 'shot.png');
+	return context;
 }
 
 describe('ComposerAttachmentCoordinator upload failure diagnostics', () => {
@@ -59,12 +61,12 @@ describe('ComposerAttachmentCoordinator upload failure diagnostics', () => {
 	});
 
 	afterEach(() => {
-		for (const coordinator of coordinators.splice(0)) coordinator.dispose();
+		for (const context of contexts.splice(0)) context.dispose();
 		vi.restoreAllMocks();
 	});
 
 	it('logs the code and status of a rejected transfer, not its cause', async () => {
-		const coordinator = await failedUpload(
+		const context = await failedUpload(
 			new UploadError('http', 413, { cause: new Error(`storage said ${SENTINEL}`) })
 		);
 
@@ -74,7 +76,7 @@ describe('ComposerAttachmentCoordinator upload failure diagnostics', () => {
 			/^\[ComposerAttachmentCoordinator\] Upload failed diagnostic=[0-9a-f]{16} status=413 code=http$/
 		);
 		expect(lines.join('\n')).not.toContain('sentinel');
-		expect(coordinator.attachments[0]).toMatchObject({
+		expect(context.attachments[0]).toMatchObject({
 			uploadState: { status: 'error', error: 'http' }
 		});
 	});
@@ -91,13 +93,13 @@ describe('ComposerAttachmentCoordinator upload failure diagnostics', () => {
 	});
 
 	it('logs an unexpected rejection without its message', async () => {
-		const coordinator = await failedUpload(new Error(SENTINEL));
+		const context = await failedUpload(new Error(SENTINEL));
 
 		const lines = consoleLines();
 		expect(lines).toHaveLength(1);
 		expect(lines[0]).toMatch(/ code=unclassified$/);
 		expect(lines.join('\n')).not.toContain('sentinel');
-		expect(coordinator.attachments[0]).toMatchObject({
+		expect(context.attachments[0]).toMatchObject({
 			uploadState: { status: 'error', error: 'server' }
 		});
 	});

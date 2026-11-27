@@ -75,4 +75,6 @@ export interface ChatSessionPort {
 	/** `false` settles the awaited turn; `true` starts the surface's own kind of wait. */
 	setAwaitingStream(awaiting: boolean): void;
 	readonly streamCache: StreamCachePort;
+	/** Drop the send state of a session that ended. The composer calls it for every view it shows. */
+	forgetChatSession(): void;
 }
