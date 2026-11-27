@@ -36,17 +36,23 @@ const USER = {
 	updatedAt: 1
 };
 
+type Principal = { readonly userId: string; readonly scopes: readonly string[] };
+
 type Stubs = {
 	readonly scopes: readonly string[];
 	readonly userId?: string;
+	readonly principals?: Readonly<Record<string, Principal>>;
 	readonly useRecordedAt?: number | null;
 	readonly viewer?: unknown;
 	readonly sendAs?: (args: unknown) => Promise<unknown>;
 };
 
+const verifiedToken = Schema.decodeUnknownSync(Schema.Struct({ token: Schema.String }));
+
 const backend = ({
 	scopes,
 	userId = USER._id,
+	principals = {},
 	useRecordedAt = Date.now(),
 	viewer = USER,
 	sendAs = () => Promise.resolve({ messageId: 'message-1' })
@@ -54,27 +60,28 @@ const backend = ({
 	const calls: string[] = [];
 	const sent: unknown[] = [];
 	const runQuery = vi.fn();
-	runQuery.mockImplementation((reference: FunctionReference<'query', 'internal'>) => {
-		const name = getFunctionName(reference);
-		calls.push(name);
-		switch (name) {
-			case 'oauth/access:verify':
-				return Promise.resolve({
-					userId,
-					clientId: 'client-1',
-					scopes,
-					expiresAt: Date.now() + 3_600_000,
-					grant: '0',
-					audience: MCP_URL,
-					useRecordedAt
-				});
-			case 'users:viewerAs':
-				return Promise.resolve(viewer);
-			case 'messages:listAs':
-				return Promise.resolve([]);
+	runQuery.mockImplementation(
+		(reference: FunctionReference<'query', 'internal'>, args: unknown) => {
+			const name = getFunctionName(reference);
+			calls.push(name);
+			switch (name) {
+				case 'oauth/access:verify':
+					return Promise.resolve({
+						...(principals[verifiedToken(args).token] ?? { userId, scopes }),
+						clientId: 'client-1',
+						expiresAt: Date.now() + 3_600_000,
+						grant: '0',
+						audience: MCP_URL,
+						useRecordedAt
+					});
+				case 'users:viewerAs':
+					return Promise.resolve(viewer);
+				case 'messages:listAs':
+					return Promise.resolve([]);
+			}
+			return Promise.reject(new Error(`unexpected query ${name}`));
 		}
-		return Promise.reject(new Error(`unexpected query ${name}`));
-	});
+	);
 	const runMutation = vi.fn();
 	runMutation.mockImplementation(
 		(reference: FunctionReference<'mutation', 'internal'>, args: unknown) => {
@@ -247,22 +254,33 @@ describe('tool result', () => {
 		});
 	});
 
-	it('posts each message as the principal of its own request', async () => {
-		const sent: unknown[] = [];
-		for (const userId of ['user-1', 'user-2']) {
-			const server = endpoint({ scopes: READ_WRITE, userId });
-			const response = await server.handle(
-				rpc({
-					method: 'tools/call',
-					params: { name: 'post_community_message', arguments: { body: `from ${userId}` } }
-				})
-			);
-			expect(decodeCall(await response.text()).result.isError).toBe(false);
-			sent.push(...server.sent);
+	it('serves each request of one handler as its own principal', async () => {
+		const server = endpoint({
+			scopes: [],
+			principals: {
+				first: { userId: 'user-1', scopes: READ_WRITE },
+				second: { userId: 'user-2', scopes: READ_WRITE },
+				reader: { userId: 'user-3', scopes: READ }
+			}
+		});
+		const as = (token: string) => ({ authorization: `Bearer ${token}` });
+		const listed = async (token: string) => {
+			const response = await server.handle(rpc({ method: 'tools/list', headers: as(token) }));
+			return decodeList(await response.text())
+				.result.tools.map((tool) => tool.name)
+				.sort();
+		};
+
+		expect(await listed('first')).toEqual(ALL_TOOLS);
+		expect(await listed('reader')).toEqual(READ_TOOLS);
+		const statuses = [];
+		for (const token of ['first', 'second', 'reader']) {
+			statuses.push((await server.handle(callWrite(as(token)))).status);
 		}
-		expect(sent).toEqual([
-			{ userId: 'user-1', body: 'from user-1' },
-			{ userId: 'user-2', body: 'from user-2' }
+		expect(statuses).toEqual([200, 200, 403]);
+		expect(server.sent).toEqual([
+			{ userId: 'user-1', body: 'hello' },
+			{ userId: 'user-2', body: 'hello' }
 		]);
 	});
 });
