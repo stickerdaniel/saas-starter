@@ -76,6 +76,14 @@ function chatAt(
 		switchTo(next: string | null) {
 			core.moveTo(next);
 			ctx.activate();
+		},
+		/** Leave for `next` the way the support widget does, dropping what it leaves behind. */
+		leaveFor(next: string | null) {
+			const previous = core.conversation;
+			core.setThread(next);
+			ctx.activate();
+			ctx.discardAttachments(previous);
+			if (next === null) ctx.discardAttachments(core.conversation);
 		}
 	};
 }
@@ -462,6 +470,34 @@ describe('ChatUIContext persisted attachments', () => {
 
 		expect(chatAt(null).ctx.attachments).toHaveLength(1);
 	});
+
+	it.each([
+		{ target: 'an existing thread', next: 'thread-a', opened: 'before' },
+		{ target: 'an existing thread', next: 'thread-a', opened: 'after' },
+		{ target: 'a new conversation', next: null, opened: 'before' },
+		{ target: 'a new conversation', next: null, opened: 'after' }
+	] as const)(
+		'keeps what another tab stored without an id when it leaves for $target, opened $opened that tab stored it',
+		async ({ next, opened }) => {
+			const store = () => new ChatAttachmentStore(surface).readThread(null);
+			const mine = opened === 'before' ? chatAt(null) : undefined;
+			const otherTab = chatAt(null);
+			await uploadInto(otherTab.ctx, 'theirs.png', 'file-theirs');
+			const leaving = mine ?? chatAt(null);
+			if (opened === 'after') {
+				expect(names(leaving.ctx)).toEqual(['theirs.png']);
+				await uploadInto(leaving.ctx, 'mine.png', 'file-mine');
+				expect(store().map((a) => ('name' in a ? a.name : undefined))).toEqual([
+					'theirs.png',
+					'mine.png'
+				]);
+			}
+
+			leaving.leaveFor(next);
+
+			expect(store().map((a) => ('name' in a ? a.name : undefined))).toEqual(['theirs.png']);
+		}
+	);
 
 	it('moves the composer with the conversation when it gets its id', async () => {
 		const chat = chatAt(null);

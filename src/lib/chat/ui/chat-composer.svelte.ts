@@ -124,6 +124,8 @@ export class ChatComposer implements PersistedChatHolder {
 	private readonly entries = new SvelteMap<number, SendEntry>();
 	/** Each view with the conversation it last activated. */
 	private readonly views = new SvelteMap<ComposerView, ChatConversation | null>();
+	/** The view that last left each conversation, which may still come back to its files. */
+	private readonly keepers = new SvelteMap<ConversationKey, ComposerView>();
 	private mounts = 0;
 	private unregister: (() => void) | null = null;
 	/** The session whose end this composer last let go of, or the one it was made in. */
@@ -161,7 +163,8 @@ export class ChatComposer implements PersistedChatHolder {
 	/**
 	 * Register a view. It shows its conversation once it calls `activate`, and
 	 * its uploads use its upload settings. Detaching a view lets go of every
-	 * conversation no remaining view shows, files in transfer included.
+	 * conversation no remaining view shows or last left, files in transfer
+	 * included.
 	 */
 	addView(view: ComposerView): () => void {
 		this.files.checkView(view);
@@ -187,7 +190,10 @@ export class ChatComposer implements PersistedChatHolder {
 			if (previous === next) return false;
 			this.views.set(view, next);
 			if (previous && keyOf(previous) === keyOf(next)) return false;
-			if (previous) this.leave(previous, !this.saveWhileTyping);
+			if (previous) {
+				this.keepers.set(keyOf(previous), view);
+				this.leave(previous, !this.saveWhileTyping);
+			}
 			this.show(next, view);
 			return previous !== null && previous.threadId !== null;
 		});
@@ -248,7 +254,7 @@ export class ChatComposer implements PersistedChatHolder {
 	/** Drop the files of a conversation the surface left for good, stored ones included. */
 	discardAttachments(conversation: ChatConversation): void {
 		untrack(() => {
-			this.files.clearAttachments(keyOf(conversation));
+			this.files.discard(keyOf(conversation));
 			if (conversation.threadId === null) this.forgetIdle(conversation);
 		});
 	}
@@ -423,6 +429,7 @@ export class ChatComposer implements PersistedChatHolder {
 			this.refusedWithoutId.clear();
 			this.abandon(() => true);
 			this.files.forget();
+			this.keepers.clear();
 			this.texts.clear();
 			this.draftWrites.clear();
 			for (const view of this.views.keys()) view.core.forgetChatSession();
@@ -445,12 +452,20 @@ export class ChatComposer implements PersistedChatHolder {
 	private detach(view: ComposerView): void {
 		const shown = this.views.get(view);
 		if (!this.views.delete(view)) return;
-		if (shown) this.leave(shown, false);
+		if (shown) {
+			this.keepers.set(keyOf(shown), view);
+			this.leave(shown, false);
+		}
 		for (const key of this.files.keys()) {
 			if (this.isShown(key)) continue;
 			if (typeof key !== 'string' && this.refusedWithoutId.has(key)) continue;
+			const keeper = this.keepers.get(key);
+			if (keeper && this.views.has(keeper)) continue;
 			this.files.dispose(key);
 			if (typeof key !== 'string') this.forgetIdle(key);
+		}
+		for (const [key, keeper] of this.keepers) {
+			if (!this.views.has(keeper)) this.keepers.delete(key);
 		}
 		this.syncRegistration();
 	}
@@ -544,6 +559,9 @@ export class ChatComposer implements PersistedChatHolder {
 		const text = present === moved ? moved : joinWork([present], moved);
 		if (text.trim()) this.writeDraft(threadId, text);
 		if (this.isShown(threadId) && text) this.texts.set(threadId, text);
+		const keeper = this.keepers.get(conversation);
+		this.keepers.delete(conversation);
+		if (keeper && !this.keepers.has(threadId)) this.keepers.set(threadId, keeper);
 		this.files.assign(conversation, threadId);
 		this.dropSurfaceIfIdle();
 	}

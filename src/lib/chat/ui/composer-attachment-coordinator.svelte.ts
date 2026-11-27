@@ -173,6 +173,9 @@ export class ComposerAttachmentCoordinator {
 	/** The owner of the results without a transfer that each view added. */
 	private keylessOwners = new WeakMap<AttachmentView, ResultOwner>();
 
+	/** Transfers of stored files a conversation without a thread id took from the shared empty key. */
+	private readonly takenWithoutId = new SvelteSet<string>();
+
 	/** @param surface names the attachment store; without one, files live only in memory. */
 	constructor(surface?: string) {
 		this.store = surface ? new ChatAttachmentStore(surface) : undefined;
@@ -229,6 +232,31 @@ export class ComposerAttachmentCoordinator {
 		this.lists.delete(key);
 		this.persist(key);
 		this.releaseAbandoned(cleared);
+	}
+
+	/**
+	 * Remove every attachment of a conversation the surface left for good. A
+	 * conversation without a thread id takes out of the shared empty key only
+	 * the files it added, never the ones it took from there.
+	 */
+	discard(key: ConversationKey): void {
+		if (typeof key === 'string') {
+			this.clearAttachments(key);
+			return;
+		}
+		const discarded = this.listOf(key);
+		const added = discarded.filter((attachment) => {
+			const transfer = transferKeyOf(attachment);
+			return transfer === undefined || !this.takenWithoutId.has(transfer);
+		});
+		for (const attachment of discarded) {
+			const transfer = transferKeyOf(attachment);
+			if (transfer) this.takenWithoutId.delete(transfer);
+			this.drop(attachment);
+		}
+		this.lists.delete(key);
+		this.write([['', this.strangersUnderEmptyKey(added)]]);
+		this.releaseAbandoned(discarded);
 	}
 
 	/** Let go of an entry nobody shows any more, leaving its storage as it is. */
@@ -308,6 +336,10 @@ export class ComposerAttachmentCoordinator {
 		if (!this.store) return;
 		if (typeof key !== 'string') {
 			const unclaimed = this.unclaimedWithoutId();
+			for (const attachment of unclaimed) {
+				const transfer = transferKeyOf(attachment);
+				if (transfer) this.takenWithoutId.add(transfer);
+			}
 			if (unclaimed.length > 0) this.adopt(key, unclaimed);
 			return;
 		}
@@ -335,6 +367,10 @@ export class ComposerAttachmentCoordinator {
 			revokeAttachmentPreview(attachment);
 			return false;
 		});
+		for (const attachment of moved) {
+			const transfer = transferKeyOf(attachment);
+			if (transfer) this.takenWithoutId.delete(transfer);
+		}
 		this.setList(threadId, moved);
 		this.adopt(threadId, [...(this.store?.readThread(threadId) ?? []), ...local]);
 		this.write([['', this.strangersUnderEmptyKey(this.listOf(threadId))]]);
@@ -349,6 +385,7 @@ export class ComposerAttachmentCoordinator {
 		this.persist(...keys);
 		this.releaseAbandoned(dropped);
 		this.keylessOwners = new WeakMap();
+		this.takenWithoutId.clear();
 	}
 
 	/** Inserts the source-identity placeholder synchronously, then uploads. */

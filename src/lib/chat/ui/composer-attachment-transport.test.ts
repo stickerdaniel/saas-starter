@@ -653,6 +653,45 @@ describe('results across the views of one composer', () => {
 		expect(remaining.release).not.toHaveBeenCalled();
 	});
 
+	it('keeps the off-screen transfer of a mounted view when another view closes', async () => {
+		const transport = surfaceTransport();
+		const config = { upload: transport.upload, release: transport.release };
+		const uploads = claims();
+		const shared = new ChatComposer();
+		const first = composerOn(config, 'thread-1', uploads.registry, shared);
+		const second = viewOf(shared, config, 'thread-3', uploads.registry);
+		const pending = first.ctx.uploadFile(textFile());
+		first.replaceWith('thread-2');
+
+		second.dispose();
+		expect(transport.attempts[0]!.signal.aborted).toBe(false);
+		expect(uploads.owners.size).toBe(1);
+
+		first.replaceWith('thread-1');
+		expect(uploadState(first.ctx.attachments[0])?.status).toBe('uploading');
+		transport.attempts[0]!.succeed(result('notes'));
+		await pending;
+		expect(first.ctx.uploadedFileIds).toEqual(['upload-notes']);
+		expect(uploads.owners.size).toBe(0);
+	});
+
+	it('cancels the off-screen transfer of a view once that view closes', () => {
+		const transport = surfaceTransport();
+		const uploads = claims();
+		const first = composerOn(
+			{ upload: transport.upload, release: transport.release },
+			'thread-1',
+			uploads.registry
+		);
+		void first.ctx.uploadFile(textFile());
+		first.replaceWith('thread-2');
+
+		first.ctx.dispose();
+
+		expect(transport.attempts[0]!.signal.aborted).toBe(true);
+		expect(uploads.owners.size).toBe(0);
+	});
+
 	it('keeps the files of a thread while another view still shows it', async () => {
 		const transport = surfaceTransport();
 		const config = { upload: transport.upload, release: transport.release };
