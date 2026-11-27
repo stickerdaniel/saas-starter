@@ -1,6 +1,6 @@
 import * as Data from 'effect/Data';
 import { untrack } from 'svelte';
-import { SvelteMap } from 'svelte/reactivity';
+import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { ChatDraftManager } from '../core/chat-draft-manager.svelte.ts';
 import type { ChatAttachmentStore } from '../core/chat-attachment-store.svelte.ts';
 import {
@@ -129,6 +129,8 @@ export class ChatComposer implements PersistedChatHolder {
 	/** How often this composer wrote each thread's stored draft. */
 	private readonly draftWrites = new SvelteMap<string, number>();
 	private readonly assignments = new SvelteMap<ChatConversation, () => void>();
+	/** Conversations without a thread id whose refused text waits here for one. */
+	private readonly refusedWithoutId = new SvelteSet<ChatConversation>();
 	private nextSendId = 0;
 	private readonly entries = new SvelteMap<number, SendEntry>();
 	/** Each view with the conversation it last activated. The latest mount wins a tie. */
@@ -215,6 +217,7 @@ export class ChatComposer implements PersistedChatHolder {
 		const id = this.nextSendId++;
 		const threadId = snapshot.conversation.threadId;
 		untrack(() => {
+			this.refusedWithoutId.delete(snapshot.conversation);
 			this.entries.set(
 				id,
 				SendEntry.Open({
@@ -281,7 +284,7 @@ export class ChatComposer implements PersistedChatHolder {
 				group.map((candidate) => candidate.send),
 				refused
 			);
-		else if (threadId === null) this.forgetIdle(conversation);
+		if (threadId === null) this.forgetIdle(conversation);
 		this.dropSurfaceIfIdle();
 	}
 
@@ -320,6 +323,7 @@ export class ChatComposer implements PersistedChatHolder {
 			this.held = [];
 			for (const unsubscribe of this.assignments.values()) unsubscribe();
 			this.assignments.clear();
+			this.refusedWithoutId.clear();
 			this.texts.clear();
 			this.draftWrites.clear();
 			this.abandon(() => true);
@@ -392,11 +396,18 @@ export class ChatComposer implements PersistedChatHolder {
 	}
 
 	/**
-	 * Drop the text of a conversation without a thread id that no view shows and
-	 * no send holds, and stop waiting for its id unless refused files still do.
+	 * Drop the text of a conversation without a thread id that no view shows, no
+	 * send holds and no refusal put back, and stop waiting for its id unless
+	 * refused files still do.
 	 */
 	private forgetIdle(conversation: ChatConversation): void {
-		if (this.isShown(conversation) || this.hasLiveSend(conversation)) return;
+		if (
+			this.isShown(conversation) ||
+			this.hasLiveSend(conversation) ||
+			this.refusedWithoutId.has(conversation)
+		) {
+			return;
+		}
 		this.texts.delete(conversation);
 		if (this.held.some((held) => held.conversation === conversation)) return;
 		this.assignments.get(conversation)?.();
@@ -408,6 +419,7 @@ export class ChatComposer implements PersistedChatHolder {
 	 * text behind what the thread already holds, stored once, and its held files.
 	 */
 	private assigned(conversation: ChatConversation, threadId: string): void {
+		this.refusedWithoutId.delete(conversation);
 		const moved = this.texts.get(conversation) ?? '';
 		this.texts.delete(conversation);
 		const present = this.texts.has(threadId)
@@ -510,16 +522,27 @@ export class ChatComposer implements PersistedChatHolder {
 			const text = joinWork(texts, this.texts.get(key) ?? '');
 			this.texts.set(key, text);
 			if (typeof key === 'string') this.writeDraft(key, text);
+			else this.awaitId(key);
 			return;
 		}
 		if (!this.drafts) return;
 		if (typeof key !== 'string') {
 			this.texts.set(key, joinWork(texts, this.texts.get(key) ?? ''));
-			this.watchAssignment(key);
+			this.awaitId(key);
 			return;
 		}
 		const stored = this.draftCaptured(key, group) ? '' : this.drafts.getDraft(key);
 		this.writeDraft(key, joinWork(texts, stored));
+	}
+
+	/**
+	 * Wait for the thread id of a conversation whose refused text was put back.
+	 * A surface with a draft store keeps that text until then, whichever views
+	 * come and go.
+	 */
+	private awaitId(conversation: ChatConversation): void {
+		this.watchAssignment(conversation);
+		if (this.drafts) this.refusedWithoutId.add(conversation);
 	}
 
 	private publish(group: PendingSend[], refused: PendingSend[]): void {

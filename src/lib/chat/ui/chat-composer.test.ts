@@ -460,6 +460,77 @@ describe('composers that come and go', () => {
 		}
 	);
 
+	describe.each(['on-switch', 'while-typing'] as const)(
+		'a refused new conversation, saving %s',
+		(saveDrafts) => {
+			const surface = () => {
+				const name = `settlement-${crypto.randomUUID()}`;
+				return chatSurface({
+					name,
+					owner: () => new ChatComposer({ surface: name, saveDrafts })
+				});
+			};
+
+			it('keeps the refused text after its view moves on, until the id arrives', async () => {
+				const chat = surface();
+				const core = new ChatCore({ threadId: null });
+				const composer = await chat.open(null, core);
+				await composer.send('first words');
+				chat.sends[0]!.reject(new Error('refused'));
+				await settleWork();
+				expect(composer.text()).toBe('first words');
+
+				const { conversation } = core;
+				core.setThread('thread-b');
+				await tick();
+				conversation.assign('thread-created');
+				await settleWork();
+
+				expect(chat.drafts!.getDraft('thread-created')).toBe('first words');
+				core.setThread('thread-created');
+				await tick();
+				expect(composer.text()).toBe('first words');
+			});
+
+			it('keeps the refused text across a remount that took its files, until the id arrives', async () => {
+				const chat = surface();
+				const core = new ChatCore({ threadId: null });
+				const composer = await chat.open(null, core);
+				await composer.send('first words', 'a');
+				await composer.close();
+				chat.sends[0]!.reject(new Error('refused'));
+				await settleWork();
+
+				const remounted = await chat.open(null, core);
+				expect(remounted.text()).toBe('first words');
+				expect(remounted.attachments()).toEqual(['a']);
+				await remounted.close();
+				core.conversation.assign('thread-created');
+				await settleWork();
+
+				expect(chat.drafts!.getDraft('thread-created')).toBe('first words');
+				const reopened = await chat.open('thread-created', core);
+				expect(reopened.text()).toBe('first words');
+			});
+		}
+	);
+
+	it('stops waiting for the id of a refused new conversation on a surface without drafts', async () => {
+		const chat = chatSurface({ persistent: false });
+		const core = new ChatCore({ threadId: null });
+		const listening = assignmentListeners(core);
+		const composer = await chat.open(null, core);
+		await composer.send('first words');
+		await composer.type('follow-up');
+		await composer.close();
+		expect(listening.size).toBe(1);
+
+		chat.sends[0]!.reject(new Error('refused'));
+		await settleWork();
+
+		expect(listening.size).toBe(0);
+	});
+
 	it('stores a refusal that arrived before its new conversation got an id', async () => {
 		const chat = chatSurface();
 		const core = new ChatCore({ threadId: null });
