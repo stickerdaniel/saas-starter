@@ -30,7 +30,7 @@ on:
 # and every other event get a group of their own, so they never cancel the
 # head's run.
 concurrency:
-  group: ${{ github.workflow }}-${{ (github.event.check_run.app.slug == 'cloudflare-workers-and-pages' && github.run_attempt == 1 && github.event.check_run.pull_requests[0].head.sha == github.event.check_run.head_sha) && github.event.check_run.check_suite.head_branch || github.run_id }}
+  group: ${{ github.workflow }}-${{ (github.event.check_run.app.slug == 'cloudflare-workers-and-pages' && github.run_attempt == 1 && github.event.check_run.pull_requests[0].head.sha == github.event.check_run.head_sha) && (github.event.check_run.check_suite.head_branch || github.event.check_run.pull_requests[0].head.ref) || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -56,8 +56,8 @@ jobs:
             -f context="E2E Tests" \
             -f description="Skipped (production build, no preview)"
 
-  # A build that published a per-version Preview URL gets its Lighthouse
-  # verdict from the lighthouse job instead. A null head branch counts as
+  # A build that published a Preview URL or a Preview Alias URL gets its
+  # Lighthouse verdict from the lighthouse job instead. A null head branch counts as
   # not the default branch.
   lighthouse-no-preview:
     name: Lighthouse No Preview Status
@@ -69,6 +69,7 @@ jobs:
       github.event.check_run.app.slug == 'cloudflare-workers-and-pages' &&
       github.event.check_run.conclusion == 'success' &&
       !contains(github.event.check_run.output.summary || '', 'Preview URL') &&
+      !contains(github.event.check_run.output.summary || '', 'Preview Alias URL') &&
       (github.event.check_run.pull_requests[0] ||
       github.event.check_run.check_suite.head_branch != github.event.repository.default_branch)
     steps:
@@ -413,22 +414,29 @@ jobs:
           echo "files=$RUNNER_TEMP/changed-files.json" >> "$GITHUB_OUTPUT"
       # The branch alias can move to another build during the audit, and the
       # tested commit's own scripts choose it in prepare. The per-version URL
-      # comes from the triggering Cloudflare check, or from the dispatch input.
+      # comes from the Cloudflare check of the audited commit. A dispatch input
+      # must name that same URL.
       - name: Resolve the per-version preview URL
         id: target
         env:
+          GH_TOKEN: ${{ github.token }}
           EVENT: ${{ github.event_name }}
           DISPATCHED_URL: ${{ inputs.preview_url }}
+          HEAD_SHA: ${{ github.event.check_run.head_sha || inputs.sha }}
           SUMMARY: ${{ github.event.check_run.output.summary }}
         run: |
+          summary=$SUMMARY
           if [ "$EVENT" = workflow_dispatch ]; then
-            url=$DISPATCHED_URL
-          else
-            url=$(printf '%s\n' "$SUMMARY" | sed -n -E 's#^Preview URL: (https://[A-Za-z0-9.-]+)/?$#\1#p')
+            summary=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs?per_page=100" \
+              --jq '[.check_runs[] | select(.app.slug == "cloudflare-workers-and-pages" and .conclusion == "success")][0].output.summary // ""')
           fi
-          if [ -n "$url" ] && [ "$(printf '%s\n' "$url" | wc -l)" -eq 1 ]; then
-            echo "url=$url" >> "$GITHUB_OUTPUT"
+          url=$(printf '%s\n' "$summary" | sed -n -E 's#^Preview URL: (https://[A-Za-z0-9.-]+)/?$#\1#p')
+          [ -n "$url" ] && [ "$(printf '%s\n' "$url" | wc -l)" -eq 1 ] || exit 0
+          if [ "$EVENT" = workflow_dispatch ] && [ "${DISPATCHED_URL%/}" != "$url" ]; then
+            echo "::warning::The dispatch input ${DISPATCHED_URL} is not the commit's per-version Preview URL ${url}."
+            exit 0
           fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
       # Skips before it needs a target, so a change that cannot alter /en
       # passes without a preview.
       - name: Audit the landing page
