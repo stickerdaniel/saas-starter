@@ -23,12 +23,12 @@ The endpoint runs on Effect's request-scoped MCP layer, which serves only the se
 | Codex 0.172.0                          | `initialize` with `2025-06-18`                                 | HTTP 400, no tool                                                 |
 | Cursor CLI 2026.11.19                  | `initialize` with `2025-11-25`                                 | HTTP 400, "Connection failed"                                     |
 
-The bearer check comes first, so a request without a valid token gets the 401 challenge whatever it carries. With a valid token, a client of an earlier revision gets HTTP 400 with a JSON-RPC error in the body, whose `id` repeats the id of the request:
+The origin check comes first, then the bearer check. A request from a foreign origin gets HTTP 403, and a preflight from the app's own origin gets HTTP 204. Any other request without a valid token gets the 401 challenge whatever it carries. Past both checks, the `initialize` of an earlier revision gets HTTP 400 with a JSON-RPC error in the body, whose `id` repeats the id of the request:
 
 - `initialize` without the `MCP-Protocol-Version` header: `{"jsonrpc":"2.0","id":1,"error":{"code":-32020,"message":"MCP-Protocol-Version header is required"}}`
 - `initialize` with the header `2025-11-25`: `{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"Required request metadata is missing"}}`
 
-With a valid token, `GET` and `DELETE` get HTTP 405 with `Allow: POST`.
+Past both checks, `GET` and `DELETE` get HTTP 405 with `Allow: POST`.
 
 Earlier revisions can join by configuration once a released version of `effect` serves them in `McpServer.layerHttpRequestScoped`. The upstream change is `Effect-TS/effect` pull request 10075, "Serve legacy MCP adapters stateless on layerHttpRequestScoped". A merge without a release changes nothing. With such a release, the adapters of the earlier revisions join `protocols` in [`endpoint.ts`](../../src/lib/confect/mcp/endpoint.ts). Effect's long-lived `McpServer.layerHttp` does not help on Convex: its sessions live in process memory, and on a deployed Convex HTTP action every request after `initialize` gets HTTP 404.
 
@@ -101,12 +101,12 @@ Convex cloud sends no response header before the first byte of the body, so a cl
 
 ## Request body
 
-A request with a valid token and a body over 1,048,576 bytes gets HTTP 413. The origin check and the bearer check come first: the same body gets 403 from a foreign origin and 401 without a valid token. Before the endpoint refuses a request, it reads and discards the body, up to 16 MiB, because Convex cloud turned an answer that left a body unread into a Cloudflare 520. One case differs: a chunked body that passes the limit is cancelled at the limit, and its 413 leaves without the rest.
+A `POST` that passes the origin check and the bearer check with a body over 1,048,576 bytes gets HTTP 413. Both checks come first: the same body gets 403 from a foreign origin and 401 without a valid token. Before the endpoint answers 403, 401 or 413, it reads and discards the body, up to 16 MiB, because on Convex cloud a 401 that left a declared body unread reached the client as a Cloudflare 520 in 10 of 10 runs. One case differs: a chunked body is cancelled after the first chunk that takes the total over the limit, and its 413 leaves without the rest.
 
 ## Configuration
 
 - `MCP_PUBLIC_ORIGIN` (Convex backend, optional): the origin of the endpoint when Convex HTTP actions are served under a custom domain. It changes the resource URL in the protected resource metadata, the metadata URL in the 401 challenge, the resource new clients are linked to at registration, and the URL the Apps tab shows. The endpoint accepts tokens for both the Convex site URL and this origin.
-- Browser origins: a request without an `Origin` header proceeds, a request from the app's own origin gets CORS headers, and any other origin gets HTTP 403. An internal error (HTTP 500) carries no CORS headers. Add further origins to `ALLOWED_BROWSER_ORIGINS` in [`src/lib/confect/oauth/resource.ts`](../../src/lib/confect/oauth/resource.ts).
+- Browser origins: a request without an `Origin` header proceeds, a request from the app's own origin gets CORS headers on every response, an internal error (HTTP 500) included, and any other origin gets HTTP 403. Add further origins to `ALLOWED_BROWSER_ORIGINS` in [`src/lib/confect/oauth/resource.ts`](../../src/lib/confect/oauth/resource.ts).
 - `post_community_message` runs the same code as the community chat, so it needs [billing](billing.md) configured. Without it the tool returns `Tool execution failed due to an internal server error.`
 
 ## Where to start in the code
