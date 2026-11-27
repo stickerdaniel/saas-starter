@@ -58,6 +58,7 @@ export const pathSets = {
 		},
 		devDependencies: [
 			'@axe-core/playwright',
+			'@modelcontextprotocol/client',
 			'@sentry/core',
 			'dom-accessibility-api',
 			'miniflare',
