@@ -197,24 +197,19 @@ describe('LazyToaster', () => {
 			const undone = { onAutoClose: vi.fn(), onDismiss: vi.fn() };
 			const undo = vi.fn();
 			toast('Passkey deleted', { duration: 5000, ...expired });
-			toast('Second passkey deleted', { duration: Number.POSITIVE_INFINITY, ...closed });
+			toast('Second passkey deleted', { duration: 5000, ...closed });
 			toast('Third passkey deleted', {
-				duration: Number.POSITIVE_INFINITY,
+				duration: 5000,
 				action: { label: 'Undo', onClick: undo },
 				...undone
 			});
 			flushSync();
 			await settle();
 
-			vi.advanceTimersByTime(5000);
-			flushSync();
-			expect(expired.onAutoClose).toHaveBeenCalledOnce();
-			expect(expired.onDismiss).not.toHaveBeenCalled();
-
+			vi.advanceTimersByTime(1000);
 			closeButton('Second passkey deleted')?.click();
 			flushSync();
 			expect(closed.onDismiss).toHaveBeenCalledOnce();
-			expect(closed.onAutoClose).not.toHaveBeenCalled();
 
 			[...(fallbackWith('Third passkey deleted')[0]?.querySelectorAll('button') ?? [])]
 				.find((button) => button.textContent?.trim() === 'Undo')
@@ -222,33 +217,48 @@ describe('LazyToaster', () => {
 			flushSync();
 			expect(undo).toHaveBeenCalledOnce();
 			expect(fallbackWith('Third passkey deleted')).toHaveLength(0);
+
+			vi.advanceTimersByTime(10_000);
+			flushSync();
+			expect(expired.onAutoClose).toHaveBeenCalledOnce();
+			expect(expired.onDismiss).not.toHaveBeenCalled();
+			expect(closed.onAutoClose).not.toHaveBeenCalled();
 			expect(undone.onAutoClose).not.toHaveBeenCalled();
 			expect(undone.onDismiss).not.toHaveBeenCalled();
 		});
 
-		it('keeps a toast while the tab is hidden or the pointer is on it', async () => {
+		it('pauses every toast while the tab is hidden or the pointer is on the list', async () => {
 			failRenderer();
+			setHidden(true);
 			toast('Upload finished', { duration: 4000 });
 			flushSync();
 			await settle();
-
-			setHidden(true);
 			vi.advanceTimersByTime(60_000);
 			flushSync();
 			expect(fallbackWith('Upload finished')).toHaveLength(1);
 
 			setHidden(false);
-			const notice = fallbackWith('Upload finished')[0];
-			expect(notice).toBeDefined();
-			notice?.dispatchEvent(new PointerEvent('pointerenter'));
+			toast('Passkey deleted', { duration: 4000 });
+			flushSync();
+			vi.advanceTimersByTime(1000);
+			const list = document.querySelector('[data-testid="toast-fallback"]')?.parentElement;
+			list?.dispatchEvent(new PointerEvent('pointerenter'));
 			vi.advanceTimersByTime(60_000);
+			setHidden(true);
+			list?.dispatchEvent(new PointerEvent('pointerleave'));
+			vi.advanceTimersByTime(60_000);
+			setHidden(false);
 			flushSync();
 			expect(fallbackWith('Upload finished')).toHaveLength(1);
+			expect(fallbackWith('Passkey deleted')).toHaveLength(1);
 
-			notice?.dispatchEvent(new PointerEvent('pointerleave'));
-			vi.advanceTimersByTime(4000);
+			vi.advanceTimersByTime(2999);
+			flushSync();
+			expect(fallbackWith('Passkey deleted')).toHaveLength(1);
+			vi.advanceTimersByTime(1);
 			flushSync();
 			expect(fallbackWith('Upload finished')).toHaveLength(0);
+			expect(fallbackWith('Passkey deleted')).toHaveLength(0);
 		});
 
 		it('offers no close button while a toast is loading', async () => {

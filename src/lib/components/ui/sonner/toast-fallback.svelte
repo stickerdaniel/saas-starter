@@ -37,15 +37,16 @@
 			};
 			const enter = hover(true);
 			const leave = hover(false);
+			const stack = node.parentElement ?? node;
 			document.addEventListener('visibilitychange', sync);
-			node.addEventListener('pointerenter', enter);
-			node.addEventListener('pointerleave', leave);
+			stack.addEventListener('pointerenter', enter);
+			stack.addEventListener('pointerleave', leave);
 			sync();
 			return () => {
 				clearTimeout(timer);
 				document.removeEventListener('visibilitychange', sync);
-				node.removeEventListener('pointerenter', enter);
-				node.removeEventListener('pointerleave', leave);
+				stack.removeEventListener('pointerenter', enter);
+				stack.removeEventListener('pointerleave', leave);
 			};
 		};
 	}
