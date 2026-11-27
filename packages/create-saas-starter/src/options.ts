@@ -4,7 +4,7 @@ import { parseArgs } from 'node:util';
 import packageJson from '../package.json' with { type: 'json' };
 
 export const CLI_VERSION = packageJson.version;
-export const DEFAULT_TEMPLATE_SHA = '8a2c3bd982e0c6aac2bdda7821aed704a8034af3';
+export const DEFAULT_TEMPLATE_SHA = '29ef7d453fd4ed170f30b176857c560347f619a3';
 
 export const HELP_TEXT = `create-saas-starter ${CLI_VERSION}
 
@@ -26,6 +26,7 @@ Options:
   --yes                     Disable interactive prompts
   --trust-template          Trust the resolved template revision
   --skip-install            Run setup but leave dependencies uninstalled
+  --with-tests              Keep the template's test suite
   --dry-run                 Validate locally without side effects
   -h, --help                Show help
   --version                 Show version
@@ -51,6 +52,7 @@ export interface CliOptions {
 	yes: boolean;
 	trustTemplate: boolean;
 	skipInstall: boolean;
+	withTests: boolean;
 	dryRun: boolean;
 	help: boolean;
 	version: boolean;
@@ -93,6 +95,7 @@ export function parseCliOptions(args: string[]): CliOptions {
 				yes: { type: 'boolean' },
 				'trust-template': { type: 'boolean' },
 				'skip-install': { type: 'boolean' },
+				'with-tests': { type: 'boolean' },
 				'dry-run': { type: 'boolean' },
 				help: { type: 'boolean', short: 'h' },
 				version: { type: 'boolean' }
@@ -136,6 +139,7 @@ export function parseCliOptions(args: string[]): CliOptions {
 		yes: values.yes === true,
 		trustTemplate: values['trust-template'] === true,
 		skipInstall: values['skip-install'] === true,
+		withTests: values['with-tests'] === true,
 		dryRun: values['dry-run'] === true,
 		help: values.help === true,
 		version: values.version === true

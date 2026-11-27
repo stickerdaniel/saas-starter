@@ -12,7 +12,7 @@ Create a project with the CLI. It downloads a pinned template revision, runs `bu
 npm create saas-starter@latest my-app
 ```
 
-Alternatively, use `bun create saas-starter@latest my-app` or `npx create-saas-starter@latest my-app`. See the [CLI README](https://github.com/stickerdaniel/saas-starter/blob/main/packages/create-saas-starter/README.md) for options and requirements. When it finishes, run `bun run dev` inside `my-app`.
+Alternatively, use `bun create saas-starter@latest my-app` or `npx create-saas-starter@latest my-app`. See the [CLI README](https://github.com/stickerdaniel/saas-starter/blob/main/packages/create-saas-starter/README.md) for options and requirements. When it finishes, run `bun run dev` inside `my-app`. The project leaves out the starter's test suite unless you pass `--with-tests`.
 
 To create a GitHub template repository instead, run the commands below and then [rebrand it](#rebrand-the-template):
 
