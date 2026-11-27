@@ -18,6 +18,9 @@ export interface EnglishFinding {
 
 export type ProseKind = 'markdown' | 'text' | 'source' | 'json' | 'english-locale';
 
+/** A locale catalog of the product: the English source catalog or a target-language one. */
+export type LocaleCatalog = 'english' | 'target';
+
 interface SourceComment {
 	kind: 'line' | 'block';
 	start: number;
@@ -25,10 +28,13 @@ interface SourceComment {
 }
 
 const GENERATED_PR_METADATA_BUNDLE = 'scripts/english-policy/pr-metadata.bundle.mjs';
-const TARGET_LOCALE_FILES = new Set(
-	SUPPORTED_LANGUAGE_CODES.filter((code) => code !== 'en').map((code) => `src/i18n/${code}.json`)
-);
 const LOCALE_LABELS = new Set(SUPPORTED_LANGUAGE_CODES.filter((code) => code !== 'en'));
+
+/** The catalog of a supported language code, or `undefined` for any other name. */
+export function localeCatalogOf(code: string): LocaleCatalog | undefined {
+	if (code === 'en') return 'english';
+	return LOCALE_LABELS.has(code) ? 'target' : undefined;
+}
 
 export function normalizePolicyIdentity(file: string): string {
 	return file.replace(/\\/g, '/').replace(/^\.\/+/, '');
@@ -335,17 +341,21 @@ export function isJavaScriptSourceFile(file: string): boolean {
 	return /\.(?:[cm]?[jt]s|[jt]sx|svelte)$/iu.test(normalizePolicyIdentity(file));
 }
 
-export function isEnglishPolicyFile(file: string): boolean {
+/** Whether the policy reads `file`, given the locale catalog the file is, if any. */
+export function isEnglishPolicyFile(file: string, catalog: LocaleCatalog | undefined): boolean {
 	const identity = normalizePolicyIdentity(file);
-	if (identity === GENERATED_PR_METADATA_BUNDLE || TARGET_LOCALE_FILES.has(identity)) return false;
-	if (identity === 'src/i18n/en.json') return true;
+	if (identity === GENERATED_PR_METADATA_BUNDLE || catalog === 'target') return false;
+	if (catalog === 'english') return true;
 	return /\.(?:md|markdown|txt|json|jsonc)$/iu.test(identity) || isJavaScriptSourceFile(identity);
 }
 
-export function proseKindForFile(file: string): ProseKind | null {
+export function proseKindForFile(
+	file: string,
+	catalog: LocaleCatalog | undefined
+): ProseKind | null {
 	const identity = normalizePolicyIdentity(file);
-	if (!isEnglishPolicyFile(identity)) return null;
-	if (identity === 'src/i18n/en.json') return 'english-locale';
+	if (!isEnglishPolicyFile(identity, catalog)) return null;
+	if (catalog === 'english') return 'english-locale';
 	if (/\.(?:md|markdown)$/iu.test(identity)) return 'markdown';
 	if (/\.txt$/iu.test(identity)) return 'text';
 	if (isJavaScriptSourceFile(identity)) return 'source';
@@ -353,22 +363,16 @@ export function proseKindForFile(file: string): ProseKind | null {
 	return null;
 }
 
-export function proseWindows(file: string, text: string, forcedKind?: ProseKind): TextWindow[] {
-	const kind = forcedKind ?? proseKindForFile(file);
-	if (kind === null) return [];
+export function proseWindows(file: string, text: string, kind: ProseKind): TextWindow[] {
 	if (kind === 'markdown') return markdownBlocks(text);
 	if (kind === 'text') return splitTextWindows(text);
 	if (kind === 'source') return sourceCommentWindows(file, text);
 	return jsonStrings(text, file, kind === 'english-locale');
 }
 
-export function checkEnglishText(
-	label: string,
-	text: string,
-	forcedKind?: ProseKind
-): EnglishFinding[] {
+export function checkEnglishText(label: string, text: string, kind: ProseKind): EnglishFinding[] {
 	const findings: EnglishFinding[] = [];
-	for (const window of proseWindows(label, text, forcedKind)) {
+	for (const window of proseWindows(label, text, kind)) {
 		const classification = classifyEnglish(window.text);
 		if (classification.outcome !== 'violation') continue;
 		findings.push({

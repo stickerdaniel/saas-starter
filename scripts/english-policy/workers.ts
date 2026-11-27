@@ -3,20 +3,39 @@
  * the files and posts one outcome per file as it finishes it; `findings()` turns those into
  * what the inline loop over the same files returns or throws.
  */
-import { checkEnglishText, type EnglishFinding } from './content';
+import path from 'node:path';
+import { checkEnglishText, type EnglishFinding, type ProseKind } from './content';
+
+/** A file the prose check reads, with the kind of prose the caller determined for it. */
+export type ProseFile = readonly [file: string, kind: ProseKind];
 
 /** The files a worker checks, each with its position in the full list. */
-export type ProseShard = Array<[index: number, file: string]>;
+export type ProseShard = Array<[index: number, file: string, kind: ProseKind]>;
+
+/** What a worker receives: its shard, and the directory the shard's file names are relative to. */
+export interface ProseJob {
+	readonly directory: string;
+	readonly shard: ProseShard;
+}
 
 export type ProseOutcome = { index: number } & ({ findings: EnglishFinding[] } | { error: string });
 
 /** What a worker posts: one outcome per file of its shard, then `done`. */
 export type ProseMessage = ProseOutcome | { done: true };
 
-/** Read a file once and check it, recording a thrown error as the file's outcome. */
-export async function checkProseFile(index: number, file: string): Promise<ProseOutcome> {
+/**
+ * Read a file once, relative to `directory`, and check it as `kind` under its given name,
+ * recording a thrown error as the file's outcome.
+ */
+export async function checkProseFile(
+	index: number,
+	file: string,
+	kind: ProseKind,
+	directory: string
+): Promise<ProseOutcome> {
 	try {
-		return { index, findings: checkEnglishText(file, await Bun.file(file).text()) };
+		const text = await Bun.file(path.resolve(directory, file)).text();
+		return { index, findings: checkEnglishText(file, text, kind) };
 	} catch (error) {
 		return { index, error: error instanceof Error ? error.message : String(error) };
 	}
@@ -24,7 +43,7 @@ export async function checkProseFile(index: number, file: string): Promise<Prose
 
 function runShard(
 	entry: URL,
-	shard: ProseShard,
+	job: ProseJob,
 	started: Worker[],
 	outcomes: Map<number, ProseOutcome>
 ): Promise<void> {
@@ -44,30 +63,33 @@ function runShard(
 		});
 		// Also fires after the terminate above, when the promise has already settled.
 		worker.addEventListener('close', () => reject(new Error('Worker closed before it was done')));
-		worker.postMessage(shard);
+		worker.postMessage(job);
 	});
 }
 
 /**
- * Start checking `files` on up to `count` workers. A worker that fails to load, throws or
- * closes before it is done stops the others; `findings()` keeps every outcome already
- * received and checks only the remaining files itself. Workers end once done, after a
- * failure, and when this process exits.
+ * Start checking `files`, named relative to `directory`, on up to `count` workers. A worker
+ * that fails to load, throws or closes before it is done stops the others; `findings()` keeps
+ * every outcome already received and checks only the remaining files itself. Workers end once
+ * done, after a failure, and when this process exits.
  */
 export function startProseWorkers(
-	files: string[],
+	files: readonly ProseFile[],
 	count: number,
+	directory: string,
 	entry = new URL('./worker.ts', import.meta.url)
 ): { findings(): Promise<EnglishFinding[]> } {
 	const shards: ProseShard[] = Array.from({ length: Math.min(count, files.length) }, () => []);
-	files.forEach((file, index) => shards[index % shards.length]!.push([index, file]));
+	files.forEach(([file, kind], index) => shards[index % shards.length]!.push([index, file, kind]));
 	const started: Worker[] = [];
 	const terminate = (): void => {
 		for (const worker of started) worker.terminate();
 	};
 	process.once('exit', terminate);
 	const outcomes = new Map<number, ProseOutcome>();
-	const settled = Promise.all(shards.map((shard) => runShard(entry, shard, started, outcomes)))
+	const settled = Promise.all(
+		shards.map((shard) => runShard(entry, { directory, shard }, started, outcomes))
+	)
 		.catch(() => undefined)
 		.finally(terminate);
 
@@ -76,8 +98,8 @@ export function startProseWorkers(
 			await settled;
 			// The inline loop throws at the first failing file and returns no findings.
 			const findings: EnglishFinding[] = [];
-			for (const [index, file] of files.entries()) {
-				const outcome = outcomes.get(index) ?? (await checkProseFile(index, file));
+			for (const [index, [file, kind]] of files.entries()) {
+				const outcome = outcomes.get(index) ?? (await checkProseFile(index, file, kind, directory));
 				if ('error' in outcome) throw new Error(outcome.error);
 				findings.push(...outcome.findings);
 			}
