@@ -430,9 +430,9 @@ jobs:
             sed -n -E 's#^Preview URL: (https://[A-Za-z0-9.-]+)/?$#\1#p'
           }
           if [ "$EVENT" = workflow_dispatch ]; then
-            urls=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs?per_page=100" \
+            urls=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs?filter=all&per_page=100" \
               --jq '.check_runs[] | select(.app.slug == "cloudflare-workers-and-pages" and .conclusion == "success") | .output.summary // ""' | version_urls)
-            if ! printf '%s\n' "$urls" | grep -Fxq -- "${DISPATCHED_URL%/}"; then
+            if ! grep -Fxq -- "${DISPATCHED_URL%/}" <<< "$urls"; then
               echo "::warning::The dispatch input ${DISPATCHED_URL} is no per-version Preview URL of a successful Cloudflare check on ${HEAD_SHA}."
               exit 0
             fi
