@@ -26,6 +26,10 @@ import { sanitizedGitEnv } from './git-context';
 
 const TEMP_ROOT = realpathSync.native(tmpdir());
 const POSIX = process.platform !== 'win32';
+const ISOLATED_PACKAGES = [
+	['@scope/pkg', '@scope+pkg@1.0.0'],
+	['plain', 'plain@1.0.0']
+] as const;
 
 function git(cwd: string, args: string[]): string {
 	const result = spawnSync(
@@ -96,6 +100,13 @@ function createSource(directory: string): string {
 	write(source, 'node_modules/.bin/fake', '#!/bin/sh\n');
 	write(source, 'node_modules/$app/marker', 'source app\n');
 	write(source, 'node_modules/.vite/marker', 'source cache\n');
+	for (const [name, entry] of ISOLATED_PACKAGES) {
+		const store = path.join('node_modules', '.bun', entry, 'node_modules', name);
+		const link = path.join(source, 'node_modules', name);
+		write(source, path.join(store, 'index.js'), `export default '${name}';\n`);
+		mkdirSync(path.dirname(link), { recursive: true });
+		symlinkSync(path.relative(path.dirname(link), path.join(source, store)), link, 'dir');
+	}
 	commitAll(source, 'Initial');
 
 	write(source, 'added.txt', 'added\n');
@@ -251,6 +262,19 @@ describe('private checkout', () => {
 		writeFileSync(path.join(modules, '$app', 'tsconfig.json'), '{}\n');
 		expect(readdirSync(path.join(sourceModules, '$app'))).toEqual(['marker']);
 		expect(readFileSync(path.join(sourceModules, '$app', 'marker'), 'utf8')).toBe('source app\n');
+	});
+
+	it('links each isolated-linker package to its store directory, resolved from the private link', () => {
+		const { repository } = allocate('private-checkout-isolated-');
+		for (const [name, entry] of ISOLATED_PACKAGES) {
+			const link = path.join(repository, 'node_modules', name);
+			const store = path.join(source, 'node_modules', '.bun', entry, 'node_modules', name);
+
+			expect(path.resolve(path.dirname(link), readlinkSync(link)), name).toBe(
+				realpathSync.native(store)
+			);
+			expect(readFileSync(path.join(link, 'index.js'), 'utf8')).toBe(`export default '${name}';\n`);
+		}
 	});
 
 	it.skipIf(!POSIX)('refuses to read a tracked path through a linked source ancestor', () => {

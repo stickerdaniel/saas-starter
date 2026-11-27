@@ -14,6 +14,7 @@ on:
       - 'package.json'
       - 'packages/eslint-plugin/package.json'
       - 'bun.lock'
+      - 'bunfig.toml'
       - 'patches/**'
       - '*config*'
       - '.env*.schema'

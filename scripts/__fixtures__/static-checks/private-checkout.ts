@@ -207,12 +207,23 @@ function overlay(source: string, repository: string): string[] {
 	return written;
 }
 
+function linkPhysical(entry: string, link: string): void {
+	const target = realpathSync.native(entry);
+	const type = statSync(target).isDirectory()
+		? process.platform === 'win32'
+			? 'junction'
+			: 'dir'
+		: 'file';
+	symlinkSync(target, link, type);
+}
+
 /**
- * Builds a real `node_modules` in `repository` that links every top-level package of the
- * source's `node_modules`. `source` is a physical path. `$app` and dot entries other than `.bin`
- * stay out: SvelteKit sync writes `$app/types` and `$app/tsconfig.json` relative to
- * the project root, and Vite, Vitest and jiti write `.vite`, `.vite-temp`, `.vitest-cache` and
- * `.cache` there, so linking them would send a private run's output into the shared tree.
+ * Builds a real `node_modules` in `repository` that links every package of the source's
+ * `node_modules` to its physical directory, inside a real directory per scope. `source` is a
+ * physical path. `$app` and dot entries other than `.bin` stay out: SvelteKit sync writes
+ * `$app/types` and `$app/tsconfig.json` relative to the project root, and Vite, Vitest and
+ * jiti write `.vite`, `.vite-temp`, `.vitest-cache` and `.cache` there, so linking them would
+ * send a private run's output into the shared tree.
  */
 export function linkDependencies(source: string, repository: string): void {
 	const sourceModules = path.join(source, 'node_modules');
@@ -221,13 +232,15 @@ export function linkDependencies(source: string, repository: string): void {
 	mkdirSync(privateModules);
 	for (const name of readdirSync(sourceModules)) {
 		if (name === '$app' || (name.startsWith('.') && name !== '.bin')) continue;
-		const target = path.join(sourceModules, name);
-		const type = statSync(target).isDirectory()
-			? process.platform === 'win32'
-				? 'junction'
-				: 'dir'
-			: 'file';
-		symlinkSync(target, path.join(privateModules, name), type);
+		const entry = path.join(sourceModules, name);
+		if (!name.startsWith('@')) {
+			linkPhysical(entry, path.join(privateModules, name));
+			continue;
+		}
+		mkdirSync(path.join(privateModules, name));
+		for (const scoped of readdirSync(entry)) {
+			linkPhysical(path.join(entry, scoped), path.join(privateModules, name, scoped));
+		}
 	}
 }
 
