@@ -4,7 +4,7 @@
 	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import EyeIcon from '@lucide/svelte/icons/eye';
 	import EyeOffIcon from '@lucide/svelte/icons/eye-off';
-	import IconSwap from '#lib/components/motion/icon-swap.svelte';
+	import IconSwap from '#lib/components/ui/icon-swap/icon-swap.svelte';
 	import { usePasswordToggleVisibility } from './password.svelte.ts';
 	import type { PasswordToggleVisibilityProps } from './types.js';
 	import { cn } from '#lib/utils.js';

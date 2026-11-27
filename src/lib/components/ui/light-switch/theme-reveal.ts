@@ -12,7 +12,7 @@
 
 import { flushSync } from 'svelte';
 
-/** Scopes the circular reveal in `layout.css` to the toggle, not to navigation. */
+/** Scopes the circular reveal in `tokens.css` to the toggle, not to navigation. */
 const MARKER = 'data-theme-transition';
 
 /**

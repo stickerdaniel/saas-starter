@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/env';
+	import { afterNavigate } from '$app/navigation';
 	import * as Sidebar from '#lib/components/ui/sidebar/index.js';
 	import AuthenticatedSidebar from './authenticated-sidebar.svelte';
 	import SidebarPasskeyOffer from '#lib/components/auth/sidebar-passkey-offer.svelte';
@@ -67,6 +68,7 @@
 	<div class="h-svh-below-notices">
 		<Sidebar.Provider
 			open={sidebarOpen}
+			{afterNavigate}
 			style="--sidebar-width: calc(var(--spacing) * 72); --header-height: calc(var(--spacing) * 12);"
 			class="h-full overflow-hidden"
 		>

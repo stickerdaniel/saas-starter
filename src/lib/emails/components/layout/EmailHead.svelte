@@ -32,7 +32,7 @@
 	// its selector on purpose, matching what the compiler emits for dark:
 	// utilities: Outlook ignores CSS nesting and keeps its own inversion, where a
 	// flat @media block flattens the layout into one surface. Colours mirror the
-	// .dark block in src/routes/layout.css (zinc-950 page, zinc-50 foreground).
+	// .dark block in src/lib/components/ui/tokens.css (zinc-950 page, zinc-50 foreground).
 	const colorSchemeStyle = `<meta name="color-scheme" content="light dark">
 <meta name="supported-color-schemes" content="light dark">
 <style>

@@ -8,7 +8,7 @@
 <script lang="ts">
 	import { Checkbox } from '#lib/components/ui/checkbox/index.js';
 	import { Skeleton } from '#lib/components/ui/skeleton/index.js';
-	import type { DataTableSkeleton } from './skeleton.ts';
+	import type { DataTableSkeleton } from '#lib/components/ui/data-table/skeleton.ts';
 
 	let {
 		skeleton = { kind: 'text' },

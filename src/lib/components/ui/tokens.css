@@ -1,0 +1,845 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+	/* Width of the styled scrollbar below. Bottom fades inset by it, so a blur
+	   never reaches the thumb. */
+	--scrollbar-w: 6px;
+	--scrollbar-thumb: color-mix(in oklab, var(--foreground) 15%, transparent);
+	--scrollbar-thumb-hover: color-mix(in oklab, var(--foreground) 25%, transparent);
+	--radius: 0.625rem;
+	/* Dialog padding and section spacing. The footer bleeds to the card edge with
+	   negative margins of exactly --dialog-inset, so both sides must read the same
+	   value. Change these here, never in the dialog components. */
+	--dialog-inset: 1rem;
+	--dialog-gap: 1rem;
+	--background: oklch(1 0 0);
+	--foreground: oklch(0.141 0.005 285.823);
+	--card: oklch(1 0 0);
+	--card-foreground: oklch(0.141 0.005 285.823);
+	--popover: oklch(1 0 0);
+	--popover-foreground: oklch(0.141 0.005 285.823);
+	--primary: oklch(0.21 0.006 285.885);
+	--primary-foreground: oklch(0.985 0 0);
+	--secondary: oklch(0.967 0.001 286.375);
+	--secondary-foreground: oklch(0.21 0.006 285.885);
+	--muted: oklch(0.967 0.001 286.375);
+	--muted-foreground: oklch(0.54 0.016 285.938);
+	--accent: oklch(0.967 0.001 286.375);
+	--accent-foreground: oklch(0.21 0.006 285.885);
+	--destructive: oklch(0.577 0.245 27.325);
+	--border: oklch(0.92 0.004 286.32);
+	--input: oklch(0.92 0.004 286.32);
+	--ring: oklch(0.705 0.015 286.067);
+	--chart-1: oklch(0.646 0.222 41.116);
+	--chart-2: oklch(0.6 0.118 184.704);
+	--chart-3: oklch(0.398 0.07 227.392);
+	--chart-4: oklch(0.828 0.189 84.429);
+	--chart-5: oklch(0.769 0.188 70.08);
+	--sidebar: oklch(0.985 0 0);
+	--sidebar-foreground: oklch(0.141 0.005 285.823);
+	--sidebar-primary: oklch(0.21 0.006 285.885);
+	--sidebar-primary-foreground: oklch(0.985 0 0);
+	--sidebar-accent: oklch(0.967 0.001 286.375);
+	--sidebar-accent-foreground: oklch(0.21 0.006 285.885);
+	/* Opaque match for the row hover background, used by the shortcut/timestamp
+	   reveal overlay. Flatten the /65 hover to an opaque colour so the overlay matches the row.
+	   Flattening mixes interpolate in srgb. Measured in Chrome, it was the only space that
+	   ever reproduced the composited pixel: exact for these greys, and within 1/255 for
+	   every in-gamut colour tried, where oklab and oklch were far off even for plain red
+	   (41 and 45 of 255 at /65 over --sidebar). Wide-gamut sources were not uniform:
+	   srgb matched display-p3 green over black exactly and missed display-p3 red over
+	   white by about 30, so a theme that reaches outside the output gamut wants its
+	   flattened value checked by eye whichever space it names. */
+	--sidebar-accent-hover: color-mix(in srgb, var(--sidebar-accent) 65%, var(--sidebar));
+	--sidebar-border: oklch(0.92 0.004 286.32);
+	--sidebar-ring: oklch(0.705 0.015 286.067);
+	/* Status tokens are mode-aware like --destructive: dark 600/700 shades here keep
+	   text-success/warning/info readable on light backgrounds; .dark uses the
+	   brighter 500 shades. */
+	--success: oklch(0.527 0.154 150.069);
+	--success-foreground: oklch(1 0 0);
+	--warning: oklch(0.554 0.135 66.442);
+	--warning-foreground: oklch(1 0 0);
+	--info: oklch(0.546 0.245 262.881);
+	--info-foreground: oklch(1 0 0);
+	/* Premium tier colors are theme-invariant, so .dark does not override them. */
+	--premium: oklch(62.7% 0.265 303.9);
+	--premium-foreground: oklch(71.4% 0.203 305.504);
+	--premium-accent: oklch(87.9% 0.169 91.605);
+	--premium-accent-foreground: oklch(27.9% 0.077 45.635);
+	--premium-ring: oklch(13% 0.028 261.692);
+}
+
+.dark {
+	--scrollbar-thumb: color-mix(in oklab, var(--foreground) 8%, transparent);
+	--scrollbar-thumb-hover: color-mix(in oklab, var(--foreground) 12%, transparent);
+	--background: oklch(0.141 0.005 285.823);
+	--foreground: oklch(0.985 0 0);
+	--card: oklch(0.21 0.006 285.885);
+	--card-foreground: oklch(0.985 0 0);
+	--popover: oklch(0.21 0.006 285.885);
+	--popover-foreground: oklch(0.985 0 0);
+	--primary: oklch(0.92 0.004 286.32);
+	--primary-foreground: oklch(0.21 0.006 285.885);
+	--secondary: oklch(0.274 0.006 286.033);
+	--secondary-foreground: oklch(0.985 0 0);
+	--muted: oklch(0.274 0.006 286.033);
+	--muted-foreground: oklch(0.705 0.015 286.067);
+	--accent: oklch(0.274 0.006 286.033);
+	--accent-foreground: oklch(0.985 0 0);
+	--destructive: oklch(0.704 0.191 22.216);
+	--border: oklch(1 0 0 / 10%);
+	--input: oklch(1 0 0 / 15%);
+	--ring: oklch(0.552 0.016 285.938);
+	--chart-1: oklch(0.488 0.243 264.376);
+	--chart-2: oklch(0.696 0.17 162.48);
+	--chart-3: oklch(0.769 0.188 70.08);
+	--chart-4: oklch(0.627 0.265 303.9);
+	--chart-5: oklch(0.645 0.246 16.439);
+	--sidebar: oklch(0.21 0.006 285.885);
+	--sidebar-foreground: oklch(0.985 0 0);
+	--sidebar-primary: oklch(0.488 0.243 264.376);
+	--sidebar-primary-foreground: oklch(0.985 0 0);
+	--sidebar-accent: oklch(0.274 0.006 286.033);
+	--sidebar-accent-foreground: oklch(0.985 0 0);
+	/* Dark hover is bg-sidebar-accent/65 over the sidebar; flatten it to an opaque
+	   colour in srgb (the space the browser composites the /65 layer in) so the
+	   reveal overlay matches the row exactly. */
+	--sidebar-accent-hover: color-mix(in srgb, var(--sidebar-accent) 65%, var(--sidebar));
+	--sidebar-border: oklch(1 0 0 / 10%);
+	--sidebar-ring: oklch(0.552 0.016 285.938);
+	--success: oklch(0.723 0.191 149.579);
+	--success-foreground: oklch(1 0 0);
+	--warning: oklch(0.795 0.184 86.047);
+	--warning-foreground: oklch(0.21 0.006 285.885);
+	--info: oklch(0.623 0.214 259.815);
+	--info-foreground: oklch(1 0 0);
+}
+
+@theme inline {
+	--font-sans:
+		'Outfit', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+		'Segoe UI Symbol', 'Noto Color Emoji';
+	--radius-sm: calc(var(--radius) - 4px);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+	--color-chart-1: var(--chart-1);
+	--color-chart-2: var(--chart-2);
+	--color-chart-3: var(--chart-3);
+	--color-chart-4: var(--chart-4);
+	--color-chart-5: var(--chart-5);
+	--color-sidebar: var(--sidebar);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-accent-hover: var(--sidebar-accent-hover);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-ring: var(--sidebar-ring);
+	--color-success: var(--success);
+	--color-success-foreground: var(--success-foreground);
+	--color-warning: var(--warning);
+	--color-warning-foreground: var(--warning-foreground);
+	--color-info: var(--info);
+	--color-info-foreground: var(--info-foreground);
+	--color-premium: var(--premium);
+	--color-premium-foreground: var(--premium-foreground);
+	--color-premium-accent: var(--premium-accent);
+	--color-premium-accent-foreground: var(--premium-accent-foreground);
+	--color-premium-ring: var(--premium-ring);
+
+	/* Stock auto-animate add: hold at scale(.98)/opacity:0 for first half, then ease in */
+	@keyframes chip-in {
+		0% {
+			transform: scale(0.98);
+			opacity: 0;
+		}
+
+		50% {
+			transform: scale(0.98);
+			opacity: 0;
+		}
+
+		100% {
+			transform: scale(1);
+			opacity: 1;
+		}
+	}
+
+	/* Chip recipe over the keyframes above. Phase offsets stay with each consumer
+	   through animation-delay-var. */
+	--animate-chip-in: chip-in 375ms ease-out both;
+
+	/* Micro labels: avatar initials, unread counts, and small badges. No line-height
+	   companion, so the element keeps the one it inherits. */
+	--text-2xs: 0.625rem;
+	/* Inline code in legal pages, relative to the surrounding text. No line-height
+	   companion, so the code keeps the line height of its paragraph. */
+	--text-code: 0.9em;
+	/* Line height of the full chat composers. */
+	--leading-composer: 1.3;
+
+	--radius-2xl: calc(var(--radius) * 1.8);
+
+	--radius-3xl: calc(var(--radius) * 2.2);
+
+	--radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* View Transitions - Respect reduced motion preference */
+@media (prefers-reduced-motion) {
+	::view-transition-group(*),
+	::view-transition-old(*),
+	::view-transition-new(*) {
+		animation: none !important;
+	}
+}
+
+/* Motion tokens - shared duration/easing scale for UI transitions */
+:root {
+	--motion-duration-fast: 120ms;
+	--motion-duration-base: 200ms;
+	--motion-duration-slow: 350ms;
+	--motion-ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+	--motion-ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
+}
+
+/* View Transitions - Theme toggle circular reveal */
+:root {
+	--view-transition-x: 50%;
+	--view-transition-y: 50%;
+}
+
+@media (prefers-reduced-motion: no-preference) and (min-width: 768px) {
+	:root[data-theme-transition]::view-transition-old(root) {
+		animation: none;
+		z-index: 1;
+		mix-blend-mode: normal;
+	}
+
+	:root[data-theme-transition]::view-transition-new(root) {
+		animation: reveal-circular 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+		z-index: 2;
+		mix-blend-mode: normal;
+	}
+
+	:root[data-theme-transition]::view-transition-image-pair(root) {
+		isolation: isolate;
+	}
+
+	@keyframes reveal-circular {
+		from {
+			clip-path: circle(0% at var(--view-transition-x) var(--view-transition-y));
+		}
+		to {
+			clip-path: circle(150% at var(--view-transition-x) var(--view-transition-y));
+		}
+	}
+}
+
+@utility no-scrollbar {
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+
+	&::-webkit-scrollbar {
+		display: none;
+	}
+}
+
+/* Opts a subtree back into text selection under the body default in the base layer.
+   twMergeConfig in utils.ts groups it with select-* so a caller's select-none wins. */
+@utility selectable {
+	-webkit-user-select: text;
+	user-select: text;
+}
+
+@utility ease-sidebar {
+	transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* The sticky top notices in src/routes/+layout.svelte publish their measured height
+   as --top-notices-height (unset or 0 when none shows). Viewport-sized shells
+   subtract it, so a notice pushes them down instead of pushing their bottom edge
+   below the viewport. Fixed chrome starts underneath it with
+   top-(--top-notices-height,0px). */
+@utility h-svh-below-notices {
+	height: calc(100svh - var(--top-notices-height, 0px));
+}
+
+@utility min-h-svh-below-notices {
+	min-height: calc(100svh - var(--top-notices-height, 0px));
+}
+
+@utility min-h-dvh-below-notices {
+	min-height: calc(100dvh - var(--top-notices-height, 0px));
+}
+
+/* A pill that turns square when the theme sets --radius: 0; sign() is 0 at a zero
+   radius and 1 otherwise. twMergeConfig in utils.ts registers it as a radius so a
+   caller's rounded-* replaces it and it replaces Button's rounded-md. */
+@utility rounded-theme-pill {
+	border-radius: calc(9999px * sign(var(--radius)));
+}
+
+/* Floating full text that refits to the live viewport. Either side of a trigger holds
+   at least half the viewport minus the trigger and its offset, so the height fits on
+   the side the popover flips to; longer text scrolls. */
+@utility toggletip-bounds {
+	max-width: min(var(--container-xs), calc(100dvw - 2rem));
+	max-height: calc(50dvh - 1.5rem);
+	overflow-y: auto;
+}
+
+/* Tooltip arrow nudges per placed side, which the translate scale has no steps for.
+   Each axis goes through Tailwind's --tw-translate-* variables so a caller's
+   translate-x-* or translate-y-* replaces only its own axis. */
+@utility tooltip-arrow-offset {
+	--tw-translate-x: 0;
+	--tw-translate-y: calc(-50% - 2px);
+	translate: var(--tw-translate-x) var(--tw-translate-y);
+
+	&[data-side='top'] {
+		--tw-translate-x: 50%;
+		--tw-translate-y: calc(-50% + 2px);
+	}
+
+	&[data-side='bottom'] {
+		--tw-translate-x: -50%;
+		--tw-translate-y: calc(50% - 1px);
+	}
+
+	&[data-side='right'] {
+		--tw-translate-x: calc(50% + 2px);
+		--tw-translate-y: 50%;
+	}
+
+	&[data-side='left'] {
+		--tw-translate-x: 0;
+		--tw-translate-y: calc(-50% + 3px);
+	}
+}
+
+/* Opaque half-strength secondary for a badge whose button is disabled. The button
+   fades itself with disabled:opacity-50, and the badge overlaps its edge, so a second
+   opacity layer would let that edge show through. Flattened against --card because
+   these badges sit on the auth card.
+
+   A utility rather than a pair of tokens: a custom property declared on :root computes
+   its color-mix() there and inherits the result, so it would keep the root theme even
+   where a card or shell scopes --secondary and --card. Measured in Chrome, a scoped
+   override moves the inline mix and leaves the root-declared token behind. Here the
+   var() lookups resolve on the badge itself. */
+@utility badge-secondary-disabled {
+	background-color: color-mix(in srgb, var(--secondary) 50%, var(--card));
+	color: color-mix(in srgb, var(--secondary-foreground) 50%, var(--card));
+}
+
+@utility enter-blur-up-wait {
+	opacity: 0;
+	transform: translateY(var(--enter-from-y, 6px));
+	filter: blur(var(--enter-from-blur, 6px));
+
+	@media (prefers-reduced-motion: reduce) {
+		opacity: 1;
+		transform: none;
+		filter: none;
+	}
+}
+
+@utility animate-enter-blur-up {
+	animation: enter-blur-up var(--enter-duration, 400ms) var(--enter-ease, ease-out) both;
+	animation-delay: var(--enter-delay, 0ms);
+
+	@media (prefers-reduced-motion: reduce) {
+		animation: none;
+		opacity: 1;
+		transform: none;
+		filter: none;
+	}
+}
+
+/* Button's lane from #803: colors and shadow ease, while the pixel press does not. */
+@utility transition-control-colors {
+	transition-property: color, background-color, border-color, box-shadow;
+	transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+	transition-duration: var(--tw-duration, var(--default-transition-duration));
+}
+
+/* Keep visual feedback without interpolating position or size. Duration stays with the owner. */
+@utility transition-non-spatial {
+	transition-property: opacity, color, background-color, border-color, box-shadow;
+}
+
+/* Form fields ease their text color and focus ring. */
+@utility transition-field-colors {
+	transition-property: color, box-shadow;
+	transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
+	transition-duration: var(--tw-duration, var(--default-transition-duration));
+}
+
+@keyframes enter-blur-up {
+	from {
+		opacity: 0;
+		transform: translateY(var(--enter-from-y, 6px));
+		filter: blur(var(--enter-from-blur, 6px));
+	}
+
+	to {
+		opacity: 1;
+		transform: translateY(0);
+		filter: blur(0);
+	}
+}
+
+@layer base {
+	* {
+		@apply border-border outline-ring/50;
+	}
+
+	/* Thin, quiet scrollbars. Iframe owners are excluded because parent scrollbar
+	   styles on them trigger WebKit resize loops: https://webkit.org/b/324485
+	   Chromium drops these rules on any element that sets scrollbar-width or
+	   scrollbar-color, so Tailwind's scrollbar-thin opts an element out of them. */
+	:where(:not(iframe))::-webkit-scrollbar {
+		width: var(--scrollbar-w);
+		height: var(--scrollbar-w);
+	}
+	:where(:not(iframe))::-webkit-scrollbar-track,
+	:where(:not(iframe))::-webkit-scrollbar-corner {
+		background: transparent;
+	}
+	:where(:not(iframe))::-webkit-scrollbar-thumb {
+		background: var(--scrollbar-thumb);
+		border-radius: calc(var(--scrollbar-w) / 2);
+	}
+	:where(:not(iframe))::-webkit-scrollbar-thumb:hover {
+		background: var(--scrollbar-thumb-hover);
+	}
+	/* Firefox has no ::-webkit-scrollbar; the standard properties come closest. */
+	@supports not selector(::-webkit-scrollbar) {
+		:where(:not(iframe)) {
+			scrollbar-width: thin;
+			scrollbar-color: var(--scrollbar-thumb) transparent;
+		}
+	}
+
+	/* Text is not selectable by default, so a drag, double-click or long press on app
+	   chrome selects nothing. Inputs, textareas and contenteditable stay selectable.
+	   Text people copy, such as messages, code and errors, opts back in with the
+	   selectable utility. */
+	body {
+		@apply bg-background text-foreground;
+		-webkit-user-select: none;
+		user-select: none;
+	}
+
+	html {
+		@apply font-sans;
+	}
+}
+
+@custom-variant data-open {
+	&:where([data-state='open']),
+	&:where([data-open]:not([data-open='false'])) {
+		@slot;
+	}
+}
+
+@custom-variant data-closed {
+	&:where([data-state='closed']),
+	&:where([data-closed]:not([data-closed='false'])) {
+		@slot;
+	}
+}
+
+@custom-variant data-checked {
+	&:where([data-state='checked']),
+	&:where([data-checked]:not([data-checked='false'])) {
+		@slot;
+	}
+}
+
+@custom-variant data-unchecked {
+	&:where([data-state='unchecked']),
+	&:where([data-unchecked]:not([data-unchecked='false'])) {
+		@slot;
+	}
+}
+
+@custom-variant data-selected {
+	&:where([data-selected]) {
+		@slot;
+	}
+}
+
+@custom-variant data-disabled {
+	&:where([data-disabled='true']),
+	&:where([data-disabled]:not([data-disabled='false'])) {
+		@slot;
+	}
+}
+
+@custom-variant data-active {
+	&:where([data-state='active']),
+	&:where([data-active]:not([data-active='false'])) {
+		@slot;
+	}
+}
+
+@custom-variant data-horizontal {
+	&:where([data-orientation='horizontal']) {
+		@slot;
+	}
+}
+
+@custom-variant data-vertical {
+	&:where([data-orientation='vertical']) {
+		@slot;
+	}
+}
+
+/* The shared motion vocabulary. Every `t-*` block keeps its tuned numbers here
+   rather than in a component, so a surface is restyled by one token and not by
+   editing markup. Colour comes from the palette tokens and duration from the
+   existing `--motion-*` scale, so motion inherits a theme change instead of
+   pinning greys and a second timing scale beside it. The rules stay outside
+   `@layer` on purpose: a Tailwind utility must not win against opacity or a
+   transform while that property is animating. */
+:root {
+	/* Notification badge */
+	--badge-slide-dur: 260ms;
+	--badge-pop-dur: 500ms;
+	--badge-pop-close-dur: 180ms;
+	--badge-fade-dur: 400ms;
+	--badge-fade-close-dur: 180ms;
+	--badge-blur: 2px;
+	--badge-offset-x: -8.2px;
+	--badge-offset-y: 12.4px;
+	--badge-slide-ease: cubic-bezier(0.22, 1, 0.36, 1);
+	--badge-pop-ease: cubic-bezier(0.34, 1.36, 0.64, 1);
+	--badge-close-ease: cubic-bezier(0.4, 0, 0.2, 1);
+	/* Icon swap */
+	--icon-swap-dur: 250ms;
+	--icon-swap-blur: 2px;
+	--icon-swap-start-scale: 0.25;
+	--icon-swap-ease: ease-in-out;
+	/* Avatar group hover */
+	--avatar-lift: -4px;
+	--avatar-dur: 320ms;
+	--avatar-scale: 1.05;
+	--avatar-falloff: 0.45;
+	--avatar-ease-in: cubic-bezier(0.22, 1, 0.36, 1);
+	--avatar-ease-out: cubic-bezier(0.34, 3.85, 0.64, 1);
+	/* Streaming text */
+	--stream-fade: 350ms;
+	--stream-blur: 1px;
+	/* The presentation scheduler applies the source demo's word cadence to each
+	   Convex batch, then compresses it when a backlog would fall too far behind. */
+	--stream-gap: 60ms;
+	--stream-ease: cubic-bezier(0.22, 1, 0.36, 1);
+	/* Learn more hover */
+	--learn-shift: 2px;
+	--learn-spread: 8deg;
+	--learn-in: 350ms;
+	--learn-out: 350ms;
+	--learn-ease: cubic-bezier(0.22, 1, 0.36, 1);
+	/* Toggle (switch thumb travel) */
+	--toggle-dur: 350ms;
+	--toggle-track: 150ms;
+	--toggle-ease: cubic-bezier(0.34, 1.35, 0.64, 1);
+	/* The source keyframes sampled at 5% intervals and expressed as one easing
+	   path. A transition follows this full overshoot, return and tiny undershoot
+	   while remaining interruptible from its current computed position. */
+	--toggle-path: linear(
+		0,
+		0.34686 5%,
+		0.61896 10%,
+		0.82181 15%,
+		0.96286 20%,
+		1.05118 25%,
+		1.09711 30%,
+		1.11164 35%,
+		1.10587 40%,
+		1.09042 45%,
+		1.07502 50%,
+		1.06821 55%,
+		1.02576 60%,
+		1.00411 65%,
+		0.9974 70%,
+		0.99837 75%,
+		1 80%,
+		1
+	);
+	/* Checkbox check */
+	--check-box: 150ms;
+	--check-draw: 350ms;
+	--check-delay: 0ms;
+	--check-uncheck: 150ms;
+	--check-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Notification badge: slide the badge onto its trigger and pop the dot,
+   without the trigger itself moving. */
+@keyframes t-badge-slide-in {
+	from {
+		transform: translate(var(--badge-offset-x), var(--badge-offset-y));
+	}
+	to {
+		transform: translate(0, 0);
+	}
+}
+
+.t-badge {
+	position: absolute;
+	pointer-events: none;
+}
+.t-badge[data-open='true'] {
+	animation: t-badge-slide-in var(--badge-slide-dur) var(--badge-slide-ease) backwards;
+	animation-delay: var(--badge-open-delay, 0ms);
+}
+.t-badge-dot {
+	/* No `display` here: the rule is unlayered and would beat the caller's
+	   layered Tailwind utility, which is what pushed the counted badge's number
+	   off centre by silently replacing its `grid` with `block`. */
+	transform-origin: center;
+	transform: scale(1);
+	opacity: 1;
+	filter: blur(0);
+	transition:
+		transform var(--badge-pop-dur) var(--badge-pop-ease),
+		opacity var(--badge-fade-dur) var(--badge-pop-ease),
+		filter var(--badge-pop-dur) var(--badge-pop-ease);
+	transition-delay: var(--badge-open-delay, 0ms);
+}
+.t-badge[data-open='false'] .t-badge-dot {
+	transform: scale(0);
+	opacity: 0;
+	filter: blur(var(--badge-blur));
+	transition:
+		transform var(--badge-pop-close-dur) var(--badge-close-ease),
+		opacity var(--badge-fade-close-dur) var(--badge-close-ease),
+		filter var(--badge-pop-close-dur) var(--badge-close-ease);
+	transition-delay: 0ms;
+}
+
+/* Icon swap: both icons stay mounted in one grid cell and cross-fade. */
+.t-icon-swap {
+	position: relative;
+	display: inline-grid;
+}
+.t-icon-swap .t-icon {
+	grid-area: 1 / 1;
+	transition:
+		opacity var(--icon-swap-dur) var(--icon-swap-ease),
+		filter var(--icon-swap-dur) var(--icon-swap-ease),
+		transform var(--icon-swap-dur) var(--icon-swap-ease);
+}
+.t-icon-swap[data-state='a'] .t-icon[data-icon='a'],
+.t-icon-swap[data-state='b'] .t-icon[data-icon='b'] {
+	opacity: 1;
+	filter: blur(0);
+	transform: scale(1);
+}
+.t-icon-swap[data-state='a'] .t-icon[data-icon='b'],
+.t-icon-swap[data-state='b'] .t-icon[data-icon='a'] {
+	opacity: 0;
+	filter: blur(var(--icon-swap-blur));
+	transform: scale(var(--icon-swap-start-scale));
+}
+
+/* Avatar group hover, a distance-falloff lift. The timing function is written
+   inline by the driving code before the variable writes, which is what gives
+   the return leg its bouncy ease without a second transition declaration. */
+.t-avatar {
+	transform-origin: center;
+	/* translateY before scale so scale does not amplify the lift offset. */
+	transform: translateY(var(--shift, 0px)) scale(var(--scale-active, 1));
+	transition: transform var(--avatar-dur) var(--avatar-ease-in);
+}
+
+/* Streaming text: each streamed word resolves through a soft cross-blur
+   rather than being typed.
+
+   svelte-streamdown already wraps every word in its own span and animates it,
+   so the recipe is applied by retuning that animation instead of adding a
+   second one: its 5px/500ms/ease-in entrance becomes the recipe's 1px over
+   `--stream-fade`. The library writes the animation as an inline style and
+   types `timingFunction` as a keyword union, so the recipe's cubic-bezier
+   cannot be passed as a prop, and `!important` is what outranks a non-important
+   inline declaration. The presentation scheduler reads `--stream-gap` and
+   applies that source cadence to each incoming Convex batch, compressing it
+   only when the queued reveals would otherwise fall too far behind. */
+@keyframes t-stream-in {
+	from {
+		opacity: 0;
+		filter: blur(var(--stream-blur));
+	}
+	to {
+		opacity: 1;
+		filter: blur(0);
+	}
+}
+.t-stream span[style*='animation-name: sd-'] {
+	animation-name: t-stream-in !important;
+	animation-duration: var(--stream-fade) !important;
+	animation-timing-function: var(--stream-ease) !important;
+	/* Streamdown specifies `forwards`; `both` also applies the hidden first frame
+	   during the scheduler's delay, so a token never flashes sharp before its turn. */
+	animation-fill-mode: both !important;
+}
+
+/* Learn more hover: the chevron slides along the reading direction while its
+   two arms spread apart into an arrow. */
+.t-learn-chevron {
+	transform: translateX(0);
+	transition: transform var(--learn-out) var(--learn-ease);
+}
+.t-learn-arm {
+	transform-box: view-box;
+	transform-origin: 10px 8px;
+	vector-effect: non-scaling-stroke;
+	transition: transform var(--learn-out) var(--learn-ease);
+}
+.t-learn:focus-visible .t-learn-chevron {
+	transform: translateX(var(--learn-shift));
+	transition-duration: var(--learn-in);
+}
+.t-learn:focus-visible .t-learn-arm {
+	transition-duration: var(--learn-in);
+}
+.t-learn:focus-visible .t-learn-arm-top {
+	transform: rotate(var(--learn-spread));
+}
+.t-learn:focus-visible .t-learn-arm-bot {
+	transform: rotate(calc(var(--learn-spread) * -1));
+}
+:where([dir='rtl']) .t-learn-chevron {
+	transform: scaleX(-1);
+}
+:where([dir='rtl']) .t-learn:focus-visible .t-learn-chevron {
+	transform: translateX(calc(var(--learn-shift) * -1)) scaleX(-1);
+}
+@media (hover: hover) and (pointer: fine) {
+	.t-learn:hover .t-learn-chevron {
+		transform: translateX(var(--learn-shift));
+		transition-duration: var(--learn-in);
+	}
+	.t-learn:hover .t-learn-arm {
+		transition-duration: var(--learn-in);
+	}
+	.t-learn:hover .t-learn-arm-top {
+		transform: rotate(var(--learn-spread));
+	}
+	.t-learn:hover .t-learn-arm-bot {
+		transform: rotate(calc(var(--learn-spread) * -1));
+	}
+	:where([dir='rtl']) .t-learn:hover .t-learn-chevron {
+		transform: translateX(calc(var(--learn-shift) * -1)) scaleX(-1);
+	}
+}
+/* Checkbox check: the box fills, then the tick draws itself. `--check-len`
+   is the path's own getTotalLength() rounded up, so the stroke neither
+   pre-reveals nor over-draws.
+
+   The hidden offset is negative, which reveals the stroke from the path's end
+   rather than its start. Lucide's `check` runs from the long arm's top tip to
+   the short arm, the reverse of how the mark is written, so a positive offset
+   drew the long stroke downwards first and set the short arm last. Flip this
+   sign together with the icon: a path already written in stroke order wants
+   the positive offset back. */
+.t-check {
+	transition:
+		background-color var(--check-box) var(--check-ease),
+		border-color var(--check-box) var(--check-ease),
+		box-shadow var(--check-box) var(--check-ease);
+}
+.t-check .t-check-tick path {
+	stroke-dasharray: var(--check-len, 15);
+	stroke-dashoffset: calc(var(--check-len, 15) * -1);
+	transition: stroke-dashoffset var(--check-uncheck) var(--check-ease);
+}
+.t-check[data-state='checked'] .t-check-tick path {
+	stroke-dashoffset: 0;
+	transition: stroke-dashoffset var(--check-draw) var(--check-ease) var(--check-delay);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.t-badge,
+	.t-badge-dot {
+		animation: none !important;
+		transition: none !important;
+	}
+	.t-icon-swap .t-icon {
+		transition: none !important;
+	}
+	.t-avatar {
+		transition: none !important;
+		transform: none !important;
+	}
+	.t-stream span[style*='animation-name: sd-'] {
+		animation: none !important;
+		filter: none !important;
+		opacity: 1 !important;
+	}
+	.t-learn-chevron,
+	.t-learn-arm {
+		transition: none !important;
+	}
+	.t-check,
+	.t-check .t-check-tick path {
+		transition: none !important;
+	}
+}
+
+/* Toggle: preserve the source's full overshoot and return as a sampled easing
+   path on an interruptible transition. Source keyframes restart from their own
+   first frame, so reversing mid-travel snapped the thumb to the far end before
+   animating back. A transition starts wherever the thumb currently is. The
+   shadcn track keeps its subtler 150ms color fade on the source easing. */
+.t-switch {
+	transition-duration: var(--toggle-track);
+	transition-timing-function: var(--toggle-ease);
+}
+.t-switch-thumb {
+	translate: 0 0;
+	transition: translate var(--toggle-dur) var(--toggle-path);
+}
+.t-switch-thumb[data-state='checked'] {
+	translate: calc(100% - 2px) 0;
+}
+:where([dir='rtl']) .t-switch-thumb[data-state='checked'] {
+	/* The track's one-pixel borders leave two pixels less travel than the
+	   thumb's width in either direction. Keeping both endpoints here avoids the
+	   positive Tailwind variant winning over a separate RTL variant. */
+	translate: calc(-100% + 2px) 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.t-switch,
+	.t-switch-thumb {
+		/* The thumb also carries Tailwind's `transition-transform`, which covers
+		   the individual `translate` property the checked utilities set, so the
+		   rule above is not the only one that has to go. */
+		transition: none !important;
+	}
+}

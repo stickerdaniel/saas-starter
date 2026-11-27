@@ -22,14 +22,6 @@ const KNOWN_EDGES: readonly EdgePair[] = [
 	],
 	['src/lib/components/ui/confirm-dialog/confirm-dialog.svelte.test.ts', 'src/i18n/en.json'],
 	[
-		'src/lib/components/ui/data-table/data-table.svelte.ts',
-		'src/lib/components/tables/skeleton.ts'
-	],
-	[
-		'src/lib/components/ui/data-table/data-table.svelte.ts',
-		'src/lib/components/truncated-text.svelte'
-	],
-	[
 		'src/lib/components/ui/data-table/data-table.test.ts',
 		'node_modules/svelte/src/index-client.js'
 	],
@@ -49,24 +41,14 @@ const KNOWN_EDGES: readonly EdgePair[] = [
 		'src/lib/components/ui/loading-bar/loading-bar.test.ts',
 		'node_modules/svelte/src/index-client.js'
 	],
-	[
-		'src/lib/components/ui/password/password-toggle-visibility.svelte',
-		'src/lib/components/motion/icon-swap.svelte'
-	],
 	['src/lib/components/ui/password/password.test.ts', 'node_modules/svelte/src/index-client.js'],
 	['src/lib/components/ui/password/test-fixtures/PasswordHarness.svelte', 'src/i18n/en.json'],
-	['src/lib/components/ui/sidebar/sidebar-provider.svelte', '$app/navigation'],
-	[
-		'src/lib/components/ui/sliding-header/sliding-header.svelte',
-		'src/lib/components/customer-support/avatar-heading.svelte'
-	],
-	[
-		'src/lib/components/ui/sliding-header/sliding-header.svelte',
-		'src/lib/components/customer-support/navigation-button.svelte'
-	],
 	['src/lib/components/ui/sonner/lazy-toaster.test.ts', 'node_modules/svelte/src/index-client.js'],
 	['src/lib/components/ui/sonner/sonner.test.ts', 'node_modules/svelte/src/index-client.js'],
-	['src/lib/components/ui/tooltip/tooltip-content.test.ts', 'src/routes/layout.css'],
+	[
+		'src/lib/components/ui/truncated-text/truncated-text.svelte.test.ts',
+		'node_modules/svelte/src/index-client.js'
+	],
 	[
 		'src/lib/confect/__goldens__/_generated/apiTypes.ts',
 		'node_modules/@useautumn/convex/dist/client/helpers/utils'
@@ -198,10 +180,7 @@ const KNOWN_EDGES: readonly EdgePair[] = [
 		'node_modules/@convex-dev/rate-limiter/dist/component/schema.js'
 	],
 	['src/lib/emails/__tests__/email-rendering.test.ts', 'src/lib/confect/emails/templates.ts'],
-	['src/lib/emails/__tests__/email-rendering.test.ts', 'src/lib/confect/env.ts'],
-	['src/lib/emails/renderer.ts', 'src/routes/layout.css'],
-	['src/lib/hooks/use-haptic.svelte.test.ts', '$app/env'],
-	['src/lib/hooks/use-haptic.svelte.ts', '$app/env']
+	['src/lib/emails/__tests__/email-rendering.test.ts', 'src/lib/confect/env.ts']
 ];
 
 const pairs = (edges: ReadonlyArray<{ from: string; target: string }>) => [

@@ -350,7 +350,7 @@ function getClasses(): string { return 'mt-4'; }
 		60_000
 	);
 
-	it('knows the arbitrary-value replacement tokens and utilities from layout.css', async () => {
+	it('knows the arbitrary-value replacement tokens and utilities from layout.css and tokens.css', async () => {
 		expect(
 			await productionMessages(
 				'<div class="text-2xs animate-chip-in leading-composer transition-control-colors transition-field-colors auth-card-transition composer-scroll-mask sidebar-shortcut-mask thread-timestamp-mask marketing-footer-mask rounded-theme-pill tooltip-arrow-offset"></div>'

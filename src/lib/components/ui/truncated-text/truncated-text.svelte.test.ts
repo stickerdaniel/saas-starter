@@ -4,7 +4,7 @@ import type * as Svelte from 'svelte';
 
 // Vitest resolves Svelte's server entry by default; use its real client runtime for mounting.
 vi.mock('svelte', () =>
-	vi.importActual<typeof Svelte>('../../../node_modules/svelte/src/index-client.js')
+	vi.importActual<typeof Svelte>('../../../../../node_modules/svelte/src/index-client.js')
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
 

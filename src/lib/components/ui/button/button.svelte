@@ -56,7 +56,7 @@
 					center: '',
 					start: 'justify-start'
 				},
-				// layout.css animates the chevron of a t-learn button on hover and focus.
+				// tokens.css animates the chevron of a t-learn button on hover and focus.
 				affordance: {
 					none: '',
 					'learn-more': 't-learn'

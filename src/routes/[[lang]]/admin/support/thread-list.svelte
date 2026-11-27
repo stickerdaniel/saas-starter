@@ -11,7 +11,7 @@
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import InboxIcon from '@lucide/svelte/icons/inbox';
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
-	import IconSwap from '#lib/components/motion/icon-swap.svelte';
+	import IconSwap from '#lib/components/ui/icon-swap/icon-swap.svelte';
 	import Loader2Icon from '@lucide/svelte/icons/loader-2';
 	import { formatDistanceToNow } from 'date-fns';
 	import { untrack } from 'svelte';

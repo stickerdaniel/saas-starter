@@ -25,7 +25,7 @@ function blockBody(source: string, marker: string, from = 0): string {
 	throw new Error(`Missing closing brace for ${marker}`);
 }
 
-const css = readFileSync(join(root, 'src/routes/layout.css'), 'utf8');
+const css = readFileSync(join(root, 'src/lib/components/ui/tokens.css'), 'utf8');
 
 describe('learn-more interaction parity', () => {
 	const learnMoreStart = css.indexOf('/* Learn more hover:');
