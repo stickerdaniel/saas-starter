@@ -254,12 +254,11 @@
 	});
 
 	// Sticky: once shown, the handoff button stays for the session
-	let handoffButtonShownIn = $state<number | null>(null);
-	const hasShownHandoffButton = $derived(handoffButtonShownIn === ctx.sessionEnds);
+	let hasShownHandoffButton = $state(false);
 
 	$effect(() => {
 		if (lastAssistantComplete && !hasShownHandoffButton) {
-			handoffButtonShownIn = ctx.sessionEnds;
+			hasShownHandoffButton = true;
 		}
 	});
 

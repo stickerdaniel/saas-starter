@@ -23,9 +23,7 @@ import {
 
 /** A mounted view of the composer: the session it shows and what its uploads use. */
 export interface ComposerView extends AttachmentView {
-	readonly core: Pick<ChatSessionPort, 'conversation'>;
-	/** Drop what the view shows of the ended session and reset the session it shows. */
-	forgetChatSession(): void;
+	readonly core: Pick<ChatSessionPort, 'conversation' | 'forgetChatSession'>;
 }
 
 export type ComposerSendOutcome = 'accepted' | 'refused';
@@ -130,8 +128,7 @@ export class ChatComposer implements PersistedChatHolder {
 	private readonly returning = new SvelteMap<ConversationKey, SvelteSet<ComposerView>>();
 	private mounts = 0;
 	private unregister: (() => void) | null = null;
-	/** The session whose end this composer last let go of, or the one it was made in. */
-	private sessionEpoch = getChatSessionEpoch();
+	#session = $state(getChatSessionEpoch());
 
 	constructor(options: ChatComposerOptions = {}) {
 		this.drafts = options.surface ? new ChatDraftManager(options.surface) : undefined;
@@ -140,6 +137,15 @@ export class ChatComposer implements PersistedChatHolder {
 			(key) => this.returning.delete(key)
 		);
 		this.saveWhileTyping = (options.saveDrafts ?? 'while-typing') === 'while-typing';
+	}
+
+	/**
+	 * The session whose end this composer last let go of, or the one it was made
+	 * in. A surface keys its views by it, so every view of an ended session
+	 * remounts with nothing it showed or held for that session.
+	 */
+	get session(): number {
+		return this.#session;
 	}
 
 	/**
@@ -407,13 +413,14 @@ export class ChatComposer implements PersistedChatHolder {
 	/**
 	 * Let go of everything the ended session left here: abandon its sends, which
 	 * keep what their files are owed, drop every text and file, empty both stores
-	 * before the sweep reaches storage, and reset the session of every view, which
-	 * stays mounted on this same composer. Runs once per session end.
+	 * before the sweep reaches storage, and reset the session every view shows.
+	 * `session` moves on, so the surface remounts its views on this same
+	 * composer. Runs once per session end.
 	 */
 	forgetPersistedState(): void {
 		untrack(() => {
-			if (isChatSessionCurrent(this.sessionEpoch)) return;
-			this.sessionEpoch = getChatSessionEpoch();
+			if (isChatSessionCurrent(this.#session)) return;
+			this.#session = getChatSessionEpoch();
 			for (const unsubscribe of this.assignments.values()) unsubscribe();
 			this.assignments.clear();
 			this.refusedWithoutId.clear();
@@ -423,7 +430,7 @@ export class ChatComposer implements PersistedChatHolder {
 			this.texts.clear();
 			this.drafts?.clear();
 			this.draftWrites.clear();
-			for (const view of this.views.keys()) view.forgetChatSession();
+			for (const view of this.views.keys()) view.core.forgetChatSession();
 		});
 	}
 
@@ -707,7 +714,8 @@ const surfaceComposers = new SvelteMap<string, ChatComposer>();
  * A page that is left and entered again gets the same composer back, which
  * still knows the stored draft an open send carries and puts a refusal into
  * the view now on screen, in order with sends started since. A session end
- * empties it in place, so a surface that stays mounted keeps its views.
+ * empties it in place; a surface that stays mounted keys its views by
+ * `session` and remounts them on it.
  */
 export function chatComposerFor(
 	surface: string,

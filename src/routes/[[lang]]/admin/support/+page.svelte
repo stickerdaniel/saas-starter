@@ -35,7 +35,7 @@
 	// and a reply refused after its thread was left survive thread switches, and
 	// outside this page, so a reply still open when the page is left settles into
 	// the next visit. A session that ends while the page stays open empties it in
-	// place.
+	// place, and the thread view remounts on it below.
 	const composer = chatComposerFor('admin-support', { storeFiles: true });
 
 	// Filter state schema (thread managed separately to avoid reload on selection)
@@ -199,14 +199,16 @@
 
 			<Pane defaultSize={50} minSize={30}>
 				{#if threadId}
-					{#key threadId}
-						<ThreadChat
-							{threadId}
-							initialThread={selectedThread}
-							{canImpersonate}
-							viewerId={adminUserId}
-							{composer}
-						/>
+					{#key composer.session}
+						{#key threadId}
+							<ThreadChat
+								{threadId}
+								initialThread={selectedThread}
+								{canImpersonate}
+								viewerId={adminUserId}
+								{composer}
+							/>
+						{/key}
 					{/key}
 				{:else}
 					<div
@@ -263,14 +265,16 @@
 
 			<Pane defaultSize={70} minSize={50}>
 				{#if threadId}
-					{#key threadId}
-						<ThreadChat
-							{threadId}
-							initialThread={selectedThread}
-							{canImpersonate}
-							viewerId={adminUserId}
-							{composer}
-						/>
+					{#key composer.session}
+						{#key threadId}
+							<ThreadChat
+								{threadId}
+								initialThread={selectedThread}
+								{canImpersonate}
+								viewerId={adminUserId}
+								{composer}
+							/>
+						{/key}
 					{/key}
 				{:else}
 					<div
@@ -307,15 +311,17 @@
 			<!-- Chat (slides over thread list from right) -->
 			<SlidingPanel open={!!threadId} surface="background">
 				{#if threadId}
-					{#key threadId}
-						<ThreadChat
-							{threadId}
-							initialThread={selectedThread}
-							{canImpersonate}
-							viewerId={adminUserId}
-							onBackClick={clearThread}
-							{composer}
-						/>
+					{#key composer.session}
+						{#key threadId}
+							<ThreadChat
+								{threadId}
+								initialThread={selectedThread}
+								{canImpersonate}
+								viewerId={adminUserId}
+								onBackClick={clearThread}
+								{composer}
+							/>
+						{/key}
 					{/key}
 				{/if}
 			</SlidingPanel>

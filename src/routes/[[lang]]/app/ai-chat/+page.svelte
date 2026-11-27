@@ -46,7 +46,7 @@
 	// Outlives ThreadChat, which unmounts while a thread is being resolved, and
 	// this page, so a send still open when the page is left settles into the
 	// next visit. A session that ends while the page stays open (signed out in
-	// another tab) empties it in place.
+	// another tab) empties it in place, and ThreadChat remounts on it below.
 	const composer = chatComposerFor('ai-chat', { storeFiles: true });
 
 	// Thread from URL param
@@ -124,17 +124,19 @@
 				</p>
 			</div>
 		{:else if threadId}
-			<ThreadChat
-				{threadId}
-				{isPro}
-				{hasMessagesAvailable}
-				{remainingMessages}
-				{totalMessages}
-				onUpgrade={handleUpgrade}
-				isUpgrading={billingCheckout.isLoading}
-				onMessageSent={() => autumn.refetch()}
-				{composer}
-			/>
+			{#key composer.session}
+				<ThreadChat
+					{threadId}
+					{isPro}
+					{hasMessagesAvailable}
+					{remainingMessages}
+					{totalMessages}
+					onUpgrade={handleUpgrade}
+					isUpgrading={billingCheckout.isLoading}
+					onMessageSent={() => autumn.refetch()}
+					{composer}
+				/>
+			{/key}
 		{:else}
 			<!-- Direct navigation without ?thread=: resolving a warm thread above.
 			     ChatInput has no createThread configured, so it must not mount (and

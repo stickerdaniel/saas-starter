@@ -132,13 +132,30 @@
 	// are reported to the app, so a navigation that would kill one asks first. The
 	// registry is absent outside the app shell (isolated tests, the standalone
 	// example), where no layout asks.
-	const chatUIContext = new ChatUIContext(
-		conversation,
-		client,
-		support.composer,
-		uploadConfig,
-		'right',
-		activeUploadsContext.getOr(null)
+	const activeUploads = activeUploadsContext.getOr(null);
+	function createChatUIContext(): ChatUIContext {
+		return new ChatUIContext(
+			conversation,
+			client,
+			support.composer,
+			uploadConfig,
+			'right',
+			activeUploads
+		);
+	}
+	let chatUIContext = $state.raw(createChatUIContext());
+
+	// A session end remounts the widget below on a new view of the same composer.
+	// The new view registers before the old one goes, so the old one lets go of
+	// nothing the new view shows.
+	watch.pre(
+		() => support.composer.session,
+		() => {
+			const previous = chatUIContext;
+			chatUIContext = createChatUIContext();
+			previous.dispose();
+		},
+		{ lazy: true }
 	);
 
 	// Revokes the blob preview URLs of unsent attachments
@@ -329,13 +346,15 @@
 {#if isSupportAiEnabled() && aiUsable}
 	<AIChatbar isFeedbackOpen={!shouldShowAIChatbar} />
 {/if}
-<FeedbackButton
-	{isFeedbackOpen}
-	disabled={!capabilitiesResolved}
-	onToggle={setWidgetOpen}
-	bind:isScreenshotMode
-	{chatUIContext}
-/>
+{#key chatUIContext}
+	<FeedbackButton
+		{isFeedbackOpen}
+		disabled={!capabilitiesResolved}
+		onToggle={setWidgetOpen}
+		bind:isScreenshotMode
+		{chatUIContext}
+	/>
+{/key}
 
 <!--
 	The editor is loaded on demand. A deploy can delete its chunk under a page

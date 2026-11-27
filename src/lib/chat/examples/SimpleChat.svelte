@@ -29,5 +29,7 @@
 		<h2 class="font-semibold">{title}</h2>
 	</div>
 
-	<SimpleChatThread {threadId} {greeting} {composer} />
+	{#key composer.session}
+		<SimpleChatThread {threadId} {greeting} {composer} />
+	{/key}
 </div>

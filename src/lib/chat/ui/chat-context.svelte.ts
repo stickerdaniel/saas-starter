@@ -66,17 +66,6 @@ export class ChatUIContext implements ComposerView {
 
 	readonly messagesFade = new FadeOnLoad<DisplayMessage[]>();
 
-	#sessionEnds = $state(0);
-
-	/** The messages ChatRoot last handed over, shown unless a session ended since. */
-	private lastRender: DisplayMessage[] = [];
-
-	/** The render of the ended session, ignored until ChatRoot hands over another. */
-	private staleRender: DisplayMessage[] | null = null;
-
-	/** Whether the messages query has resolved, as ChatRoot last reported it. */
-	private queryReady = false;
-
 	private disposed = false;
 	private readonly composer: ChatComposer;
 	private readonly detachFromComposer: () => void;
@@ -121,32 +110,6 @@ export class ChatUIContext implements ComposerView {
 			this.messagesFade.reset();
 			this._hasEverDisplayedMessages = false;
 		}
-	}
-
-	/**
-	 * How many session ends this view stayed mounted through. A component that
-	 * keeps state for one session starts it over when this changes.
-	 */
-	get sessionEnds(): number {
-		return this.#sessionEnds;
-	}
-
-	/**
-	 * Stop showing what the ended session displayed: its messages, reasoning and
-	 * fade state, until ChatRoot hands over messages read after the end. Then
-	 * reset the session itself.
-	 */
-	forgetChatSession(): void {
-		this.staleRender = this.lastRender;
-		this.displayMessages = [];
-		this.messagesReady = false;
-		this.reasoningOpenState.clear();
-		this.autoOpenedMessages.clear();
-		this.userToggledMessages.clear();
-		this.messagesFade.reset();
-		this._hasEverDisplayedMessages = false;
-		this.#sessionEnds++;
-		this.core.forgetChatSession();
 	}
 
 	/** User messages use userAlignment, every other role the opposite side. */
@@ -202,12 +165,6 @@ export class ChatUIContext implements ComposerView {
 	}
 
 	setDisplayMessages(messages: DisplayMessage[]): void {
-		if (messages === this.staleRender) return;
-		if (this.staleRender !== null) {
-			this.staleRender = null;
-			this.messagesReady = this.queryReady;
-		}
-		this.lastRender = messages;
 		this.displayMessages = messages;
 
 		// Animate only the first display of messages
@@ -234,8 +191,7 @@ export class ChatUIContext implements ComposerView {
 
 	/** True once the query has resolved */
 	setMessagesReady(ready: boolean): void {
-		this.queryReady = ready;
-		if (this.staleRender === null) this.messagesReady = ready;
+		this.messagesReady = ready;
 	}
 
 	registerComposerFocus(handler: () => void): void {
