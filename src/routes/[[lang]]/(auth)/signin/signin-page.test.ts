@@ -18,6 +18,7 @@
 
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConvexClient } from 'convex/browser';
+import { cleanStores } from 'nanostores';
 import { mount, tick, unmount } from 'svelte';
 import type * as Svelte from 'svelte';
 import type * as SvelteReactivity from 'svelte/reactivity';
@@ -357,6 +358,7 @@ afterEach(async () => {
 });
 
 afterAll(() => {
+	cleanStores(state.sharedAuth.useSession());
 	if (originalMatchMedia) Object.defineProperty(window, 'matchMedia', originalMatchMedia);
 	else Reflect.deleteProperty(window, 'matchMedia');
 });

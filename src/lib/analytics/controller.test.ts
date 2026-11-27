@@ -6,7 +6,8 @@
  * session storage is not modelled.
  */
 import type { PostHog } from 'posthog-js/dist/module.slim';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished } from 'vitest';
+import { cleanStores } from 'nanostores';
 import { createAuthClient } from 'better-auth/svelte';
 import { duringAuthChange, setAnalyticsController } from './client';
 import { resolveAnalyticsConfig } from './config';
@@ -867,6 +868,7 @@ describe('following the Better Auth session store', () => {
 					})
 			}
 		});
+		onTestFinished(() => cleanStores(client.useSession()));
 		return { client, requests };
 	}
 	const signedIn = (userId: string) => ({
