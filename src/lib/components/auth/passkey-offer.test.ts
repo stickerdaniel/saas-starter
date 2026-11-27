@@ -48,9 +48,11 @@ vi.mock('#lib/auth-client.js', () => ({
 				listener({ data: { session: { id: 'session-a' } } });
 				return () => {};
 			}
-		}),
-		passkey: { addPasskey: calls.create }
+		})
 	}
+}));
+vi.mock('#lib/auth-client-oauth.js', () => ({
+	oauthAuthClient: { passkey: { addPasskey: calls.create } }
 }));
 vi.mock('convex-svelte', () => ({ useConvexClient: () => ({ mutation: calls.defer }) }));
 vi.mock('svelte-sonner', () => ({ toast: { success: calls.toast } }));

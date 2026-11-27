@@ -71,7 +71,21 @@ const state = await vi.hoisted(async () => {
 	);
 	// Reactive like the real hook, so the page sees the session reach Convex.
 	const auth = new SvelteMap([['isAuthenticated', false]]);
+	const signIn = {
+		email: vi.fn<EmailSignIn>(),
+		social: vi.fn<SocialSignIn>(),
+		passkey: vi.fn<() => Promise<AuthResult>>()
+	};
+	const { createAuthClient } = await import('better-auth/svelte');
+	/** What the auth server's get-session answers; null while signed out. */
+	const server = { session: null as unknown };
 	return {
+		server,
+		/** A real Better Auth client in place of the app's shared one, for its session store. */
+		sharedAuth: createAuthClient({
+			baseURL: 'https://example.com',
+			fetchOptions: { customFetchImpl: async () => Response.json(server.session) }
+		}),
 		SvelteURL,
 		page: {
 			url: new SvelteURL('https://example.com/de/signin'),
@@ -98,12 +112,13 @@ const state = await vi.hoisted(async () => {
 		enrolled: vi.fn<(destination: string) => Promise<void>>(),
 		/** Overrides what `useSearchParams` reports; otherwise it mirrors the URL. */
 		cachedDestination: null as string | null,
-		signIn: {
-			email: vi.fn<EmailSignIn>(),
-			social: vi.fn<SocialSignIn>(),
-			passkey: vi.fn<() => Promise<AuthResult>>()
-		},
-		oauthClientImport: Promise.withResolvers<void>()
+		signIn,
+		oauthClient: () => ({
+			oauthAuthClient: {
+				signIn,
+				passkey: { addPasskey: async () => ({ data: { id: 'registered' }, error: null }) }
+			}
+		})
 	};
 });
 
@@ -117,7 +132,7 @@ vi.mock('#lib/auth-client.js', () => ({
 	authClient: {
 		signIn: state.signIn,
 		getSession: async () => ({ data: { session: { id: 'session-a' } }, error: null }),
-		passkey: { addPasskey: async () => ({ data: { id: 'registered' }, error: null }) },
+		$store: state.sharedAuth.$store,
 		// The offer checks that it still belongs to the signed-in session.
 		useSession: () => ({
 			subscribe: (listener: (snapshot: unknown) => void) => {
@@ -128,10 +143,7 @@ vi.mock('#lib/auth-client.js', () => ({
 	}
 }));
 vi.mock('@mmailaender/convex-better-auth-svelte/svelte', () => ({ useAuth: () => state.auth }));
-vi.mock('#lib/auth-client-oauth.js', async () => {
-	await state.oauthClientImport.promise;
-	return { oauthAuthClient: { signIn: state.signIn } };
-});
+vi.mock('#lib/auth-client-oauth.js', () => state.oauthClient());
 vi.mock('#lib/hooks/auth-flow.svelte.ts', () => ({
 	authFlowContext: { get: () => ({ email: '' }), set: () => {} }
 }));
@@ -331,6 +343,7 @@ afterEach(async () => {
 		clearPendingOAuthProvider();
 		state.cachedDestination = null;
 		state.sessionReachesConvex = true;
+		state.server.session = null;
 		vi.clearAllMocks();
 		vi.useRealTimers();
 	} finally {
@@ -638,6 +651,57 @@ describe('sign-in page holding a signed-in visitor', () => {
 	});
 });
 
+describe('sign-in page passkey sign-in', () => {
+	// Better Auth 1.7.26 answers verify-authentication and get-session with the same pair.
+	const SIGNED_IN = {
+		session: {
+			id: 'session-passkey',
+			token: 'session-passkey-token',
+			userId: 'user-a',
+			expiresAt: '2026-12-04T08:00:00.000Z',
+			createdAt: '2026-11-27T08:00:00.000Z',
+			updatedAt: '2026-11-27T08:00:00.000Z',
+			ipAddress: '',
+			userAgent: 'Mozilla/5.0',
+			impersonatedBy: null
+		},
+		user: {
+			id: 'user-a',
+			name: 'Ada Example',
+			email: 'ada@example.com',
+			emailVerified: true,
+			image: null,
+			createdAt: '2026-11-01T08:00:00.000Z',
+			updatedAt: '2026-11-01T08:00:00.000Z',
+			role: 'user',
+			banned: false,
+			banReason: null,
+			banExpires: null
+		}
+	};
+
+	it("brings the shared session up to the passkey's new session", async () => {
+		const session = state.sharedAuth.useSession();
+		const unsubscribe = session.subscribe(() => {});
+		try {
+			await vi.waitFor(() => expect(session.get().isPending).toBe(false));
+			expect(session.get().data).toBeNull();
+			state.signIn.passkey.mockImplementation(async () => {
+				state.server.session = SIGNED_IN;
+				return { data: SIGNED_IN, error: null };
+			});
+			await renderSignIn(withDestination(DESTINATION));
+
+			button(en.auth.signin.passkey_button).click();
+
+			await vi.waitFor(() => expect(session.get().data?.session.id).toBe('session-passkey'));
+			expect(navigations).toEqual([DESTINATION]);
+		} finally {
+			unsubscribe();
+		}
+	});
+});
+
 describe('sign-in page once hydrated', () => {
 	it('enables the form and drops the fallback that stood in for it', async () => {
 		await renderSignIn('');
@@ -750,13 +814,18 @@ describe('sign-in page OAuth start', () => {
 	});
 
 	it('stores no pending provider when the visitor leaves while the resume client loads', async () => {
+		const load = Promise.withResolvers<void>();
+		vi.doMock('#lib/auth-client-oauth.js', async () => {
+			await load.promise;
+			return state.oauthClient();
+		});
 		await renderSignIn('?client_id=client-a&sig=signed');
 		button(en.auth.signin.oauth_google).click();
 		await tick();
 		await unmount(component!);
 		component = undefined;
 
-		state.oauthClientImport.resolve();
+		load.resolve();
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		await tick();
 
@@ -767,7 +836,6 @@ describe('sign-in page OAuth start', () => {
 	it('drops an abandoned provider when a password sign-in resumes the authorization', async () => {
 		pendingOAuthProvider.current = 'google';
 		setLastSuccessfulAuthMethod('google');
-		state.oauthClientImport.resolve();
 		await renderSignIn('?client_id=client-a&sig=signed');
 
 		await submitPassword();
@@ -780,7 +848,6 @@ describe('sign-in page OAuth start', () => {
 	it('records the passkey when a passkey sign-in resumes the authorization', async () => {
 		pendingOAuthProvider.current = 'google';
 		state.signIn.passkey.mockResolvedValue({ data: { url: '/de/oauth/consent' }, error: null });
-		state.oauthClientImport.resolve();
 		await renderSignIn('?client_id=client-a&sig=signed');
 
 		button(en.auth.signin.passkey_button).click();

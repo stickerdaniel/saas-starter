@@ -491,10 +491,12 @@
 		}
 
 		try {
-			const result = await authClient.signIn.passkey();
+			const { oauthAuthClient } = await import('#lib/auth-client-oauth.js');
+			const result = await oauthAuthClient.signIn.passkey();
 			if (result.error) {
 				formError = getAuthErrorKey(result.error, 'auth.messages.passkey_failed');
 			} else {
+				authClient.$store.notify('$sessionSignal');
 				setLastSuccessfulAuthMethod('passkey');
 				clearPendingOAuthProvider();
 				// Explicitly, the way password sign-in does. The effect above will
