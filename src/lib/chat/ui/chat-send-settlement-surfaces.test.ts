@@ -153,6 +153,30 @@ describe('AI chat across a remount', () => {
 		expect(storedDrafts('ai-chat')).toEqual({ 'thread-a': 'same' });
 	});
 
+	it('keeps a draft another tab stored before the send when the send is accepted', async () => {
+		const reply = Promise.withResolvers<Record<string, never>>();
+		vi.spyOn(client, 'mutation').mockReturnValue(reply.promise);
+		const sendOwner = pageOwner();
+		await mountChat(sendOwner);
+		await type('send this');
+		const stored = JSON.stringify({ 'thread-a': 'typed in another tab' });
+		localStorage.setItem('drafts:ai-chat', stored);
+		window.dispatchEvent(new StorageEvent('storage', { key: 'drafts:ai-chat', newValue: stored }));
+		await tick();
+		expect(textarea().value).toBe('send this');
+		sendButton().click();
+		await tick();
+
+		await unmountComponent();
+		await mountChat(sendOwner);
+		expect(textarea().value).toBe('typed in another tab');
+		reply.resolve({});
+		await settleWork();
+
+		expect(storedDrafts('ai-chat')).toEqual({ 'thread-a': 'typed in another tab' });
+		expect(textarea().value).toBe('typed in another tab');
+	});
+
 	it('keeps a draft with the same text typed after the remount when the send is accepted', async () => {
 		const reply = Promise.withResolvers<Record<string, never>>();
 		vi.spyOn(client, 'mutation').mockReturnValue(reply.promise);

@@ -429,6 +429,37 @@ describe('composers that come and go', () => {
 		expect(reopened.attachments()).toEqual(['a']);
 	});
 
+	it.each(['on-switch', 'while-typing'] as const)(
+		'keeps the follow-up of a new conversation left before its send assigned the id, saving %s',
+		async (saveDrafts) => {
+			const name = `settlement-${crypto.randomUUID()}`;
+			const chat = chatSurface({
+				name,
+				owner: () => new ChatComposer({ surface: name, saveDrafts })
+			});
+			const core = new ChatCore({ threadId: null });
+			const composer = await chat.open(null, core);
+			await composer.send('first words');
+			await composer.type('follow-up');
+			const { conversation } = core;
+			core.setThread('thread-b');
+			await tick();
+			expect(composer.text()).toBe('');
+
+			conversation.assign('thread-created');
+			await settleWork();
+			expect(chat.drafts!.getDraft('thread-created')).toBe('follow-up');
+			core.setThread('thread-created');
+			await tick();
+			expect(composer.text()).toBe('follow-up');
+
+			chat.sends[0]!.resolve();
+			await settleWork();
+			expect(composer.text()).toBe('follow-up');
+			expect(chat.drafts!.getDraft('thread-created')).toBe('follow-up');
+		}
+	);
+
 	it('stores a refusal that arrived before its new conversation got an id', async () => {
 		const chat = chatSurface();
 		const core = new ChatCore({ threadId: null });
@@ -586,6 +617,22 @@ describe('surface lifetime', () => {
 
 		expect(left.chat.drafts!.getDraft('thread-created')).toBe('held words');
 		expect(keys(left.chat.store!.readThread('thread-created'))).toEqual(['a']);
+		const entered = leasedSurface(name);
+		expect(entered.chat.owner).not.toBe(left.chat.owner);
+		entered.lease.release();
+	});
+
+	it('retires a released surface owner once a send accepted before its id arrived settles', async () => {
+		const name = `settlement-${crypto.randomUUID()}`;
+		const left = leasedSurface(name);
+		const composer = await left.chat.open(null, new ChatCore({ threadId: null }));
+		await composer.send('first words');
+		await composer.type('follow-up');
+		await composer.close();
+		left.lease.release();
+		left.chat.sends[0]!.resolve();
+		await settleWork();
+
 		const entered = leasedSurface(name);
 		expect(entered.chat.owner).not.toBe(left.chat.owner);
 		entered.lease.release();

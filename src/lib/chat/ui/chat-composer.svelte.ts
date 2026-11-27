@@ -260,7 +260,8 @@ export class ChatComposer implements PersistedChatHolder {
 			this.abandon((candidate) => !isChatSessionCurrent(candidate.sessionEpoch));
 			return;
 		}
-		const threadId = send.snapshot.conversation.threadId;
+		const { conversation } = send.snapshot;
+		const threadId = conversation.threadId;
 		if (outcome === 'accepted' && threadId !== null && this.draftCaptured(threadId, [send])) {
 			this.writeDraft(threadId, '');
 		}
@@ -268,7 +269,7 @@ export class ChatComposer implements PersistedChatHolder {
 		const group = [...this.liveEntries()].filter(
 			({ send: candidate }) =>
 				candidate.sessionEpoch === send.sessionEpoch &&
-				sameConversation(candidate.snapshot.conversation, send.snapshot.conversation)
+				sameConversation(candidate.snapshot.conversation, conversation)
 		);
 		if (group.some(SendEntry.$is('Open'))) return;
 		for (const { send: candidate } of group) this.entries.delete(candidate.id);
@@ -280,6 +281,7 @@ export class ChatComposer implements PersistedChatHolder {
 				group.map((candidate) => candidate.send),
 				refused
 			);
+		else if (threadId === null) this.forgetIdle(conversation);
 		this.dropSurfaceIfIdle();
 	}
 
@@ -346,14 +348,21 @@ export class ChatComposer implements PersistedChatHolder {
 		);
 	}
 
-	/** Let go of a conversation a view stopped showing, unless another view still shows it. */
+	/**
+	 * Let go of a conversation a view stopped showing, unless another view still
+	 * shows it. A conversation without a thread id keeps its text while one of
+	 * its sends is open, so the text moves to the id the send may still assign.
+	 */
 	private leave(conversation: ChatConversation, save: boolean): void {
 		const key = keyOf(conversation);
 		if (this.isShown(key)) return;
+		if (typeof key !== 'string') {
+			this.forgetIdle(key);
+			return;
+		}
 		const text = this.texts.get(key) ?? '';
-		if (save && typeof key === 'string' && text.trim()) this.writeDraft(key, text);
+		if (save && text.trim()) this.writeDraft(key, text);
 		this.texts.delete(key);
-		if (typeof key !== 'string') this.unwatchIfIdle(key);
 	}
 
 	private show(conversation: ChatConversation, view: ComposerSendTarget): void {
@@ -378,14 +387,18 @@ export class ChatComposer implements PersistedChatHolder {
 		);
 	}
 
-	private unwatchIfIdle(conversation: ChatConversation): void {
-		if (
-			this.texts.has(conversation) ||
-			this.isShown(conversation) ||
-			this.held.some((held) => held.conversation === conversation)
-		) {
-			return;
-		}
+	private hasLiveSend(conversation: ChatConversation): boolean {
+		return [...this.liveEntries()].some(({ send }) => send.snapshot.conversation === conversation);
+	}
+
+	/**
+	 * Drop the text of a conversation without a thread id that no view shows and
+	 * no send holds, and stop waiting for its id unless refused files still do.
+	 */
+	private forgetIdle(conversation: ChatConversation): void {
+		if (this.isShown(conversation) || this.hasLiveSend(conversation)) return;
+		this.texts.delete(conversation);
+		if (this.held.some((held) => held.conversation === conversation)) return;
 		this.assignments.get(conversation)?.();
 		this.assignments.delete(conversation);
 	}
@@ -425,16 +438,21 @@ export class ChatComposer implements PersistedChatHolder {
 		return this.draftCaptured(threadId, sends);
 	}
 
-	/** Whether nothing wrote the stored draft of `threadId` since one of `sends` began. */
+	/**
+	 * Whether the stored draft of `threadId` is the copy one of `sends` took:
+	 * nothing wrote it since the send began, and where drafts are stored while
+	 * typing it holds the sent text, not a draft another tab stored meanwhile.
+	 */
 	private draftCaptured(threadId: string, sends: PendingSend[]): boolean {
 		const drafts = this.drafts;
 		if (!drafts) return false;
 		const writes = this.draftWrites.get(threadId) ?? 0;
 		const stored = drafts.getDraft(threadId);
-		return sends.some(({ draft }) => {
+		return sends.some(({ draft, snapshot }) => {
 			// A conversation created by the send was empty under its new id.
-			const before = draft.threadId === threadId ? draft : { writes: 0, stored: '' };
-			return before.writes === writes && before.stored === stored;
+			if (draft.threadId !== threadId) return writes === 0 && stored === '';
+			if (this.saveWhileTyping && stored !== snapshot.inputValue) return false;
+			return draft.writes === writes && draft.stored === stored;
 		});
 	}
 
