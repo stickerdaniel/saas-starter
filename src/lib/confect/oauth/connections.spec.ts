@@ -35,6 +35,7 @@ export default GroupSpec.make()
 	.addFunction(
 		FunctionSpec.publicQuery({
 			name: 'endpoint',
+			args: () => ({}),
 			returns: () => Schema.Struct({ url: Schema.String })
 		}).middleware(RequireUser)
 	)
