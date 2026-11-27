@@ -15,6 +15,16 @@ export const runClientEffect = <A, E>(
 	return fiber.pollUnsafe() ?? new Promise((resolve) => fiber.addObserver(resolve));
 };
 
+export const observeClientEffect = <A, E>(
+	effect: Effect.Effect<A, E>,
+	onExit: (exit: Exit.Exit<A, E>) => void
+): void => {
+	const fiber = Effect.runFork(effect);
+	const exit = fiber.pollUnsafe();
+	if (exit) onExit(exit);
+	else fiber.addObserver(onExit);
+};
+
 export class LatestFiber<A> {
 	#current: Fiber.Fiber<unknown, unknown> | undefined;
 	#version = 0;
