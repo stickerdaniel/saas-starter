@@ -10,12 +10,11 @@
 	import { SupportContext, supportContext } from './support-context.svelte.ts';
 	import { ChatAttachmentStore } from '#lib/chat/core/chat-attachment-store.svelte.ts';
 	import { ChatUIContext, type UploadConfig } from '#lib/chat/ui/chat-context.svelte.ts';
-	import { ChatDraftManager } from '#lib/chat/core/chat-draft-manager.svelte.ts';
+	import type { ChatComposer } from '#lib/chat/ui/chat-composer.svelte.ts';
 	import {
-		ComposerSendCoordinator,
-		acquireComposerSendCoordinator,
+		acquireChatComposer,
 		type ComposerSendLease
-	} from '#lib/chat/ui/composer-send-coordinator.ts';
+	} from '#lib/chat/ui/chat-composer.svelte.ts';
 	import { browser } from '$app/env';
 	import { generateAnonymousUserId, isAnonymousUser } from '#lib/confect/utils/anonymousUser.js';
 	import { supportUserId } from './support-user-id.svelte.ts';
@@ -50,16 +49,16 @@
 
 	let shouldShowAIChatbar = $derived(!isScreenshotMode && !isFeedbackOpen);
 
-	// Initialize the customer-support composition root. Its send owner outlives
+	// Initialize the customer-support composition root. Its composer outlives
 	// this component while one of its sends is open: the page it sits on can be
 	// left and entered again before a reply settles. A session that ends while
-	// the widget stays mounted hands over the next session's owner; the composer
-	// is rebuilt around it, and the selected thread and open widget stay.
-	let sendLease = acquireComposerSendCoordinator(
-		'support',
-		() => new ComposerSendCoordinator({ drafts: new ChatDraftManager('support') }),
-		(next) => renewSendOwner(next)
-	);
+	// the widget stays mounted hands over the next session's composer; the view
+	// is rebuilt around it, and the selected thread and open widget stay. The
+	// widget stores a draft when its thread is left, not on every keystroke.
+	let sendLease = acquireChatComposer('support', {
+		saveDrafts: 'on-switch',
+		renewed: (next) => renewSendOwner(next)
+	});
 	onDestroy(() => sendLease.release());
 	const support = new SupportContext(() => aiUsable, sendLease.owner);
 	supportContext.set(support);
@@ -143,7 +142,7 @@
 	// registry is absent outside the app shell (isolated tests, the standalone
 	// example), where no layout asks.
 	const activeUploads = activeUploadsContext.getOr(null);
-	function createChatUIContext(sendOwner: ComposerSendCoordinator): ChatUIContext {
+	function createChatUIContext(sendOwner: ChatComposer): ChatUIContext {
 		return new ChatUIContext(conversation, client, uploadConfig, 'right', activeUploads, {
 			forgetSession: () => conversation.forgetChatSession(),
 			sendOwner

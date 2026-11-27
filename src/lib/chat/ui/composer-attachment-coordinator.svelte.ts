@@ -14,7 +14,7 @@ import {
 	type ChatVisitorArgs
 } from '../core/file-uploader.js';
 import { DEFAULT_ATTACHMENT_PROFILE, type Attachment } from '../core/types.js';
-import type { ComposerSendResources } from './composer-send-coordinator.js';
+import type { ComposerSendResources } from './chat-composer.svelte.ts';
 import { checkUploadPayload, type UploadProfile } from '../../uploads/profiles.js';
 import { UploadError, type UploadErrorCode } from '../../uploads/transfer.js';
 import { logSafeDiagnostic } from '../../monitoring/safe-diagnostic.js';

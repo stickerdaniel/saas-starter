@@ -6,11 +6,7 @@
 -->
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { ChatDraftManager } from '#lib/chat/index.js';
-	import {
-		ComposerSendCoordinator,
-		acquireComposerSendCoordinator
-	} from '#lib/chat/ui/composer-send-coordinator.ts';
+	import { acquireChatComposer } from '#lib/chat/ui/chat-composer.svelte.ts';
 	import SimpleChatThread from './SimpleChatThread.svelte';
 
 	let {
@@ -27,11 +23,7 @@
 	} = $props();
 
 	let sendLease = $state.raw(
-		acquireComposerSendCoordinator(
-			'simple-chat',
-			() => new ComposerSendCoordinator({ drafts: new ChatDraftManager('simple-chat') }),
-			(next) => (sendLease = next)
-		)
+		acquireChatComposer('simple-chat', { renewed: (next) => (sendLease = next) })
 	);
 	onDestroy(() => sendLease.release());
 </script>

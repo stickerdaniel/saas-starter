@@ -169,23 +169,15 @@
 		() => void markVisibleReplyRead()
 	);
 
-	// Sync drafts and attachments when the selected conversation changes. Runs
-	// before the chat shows the new thread, which would otherwise take the
-	// attachments it finds and mix them with the ones this clears.
+	// Sync attachments when the selected conversation changes. Runs before the
+	// chat shows the new thread, which would otherwise take the attachments it
+	// finds and mix them with the ones this clears.
 	watch.pre(
 		() => [conversation.conversation, conversation.threadId] as const,
 		([currentConversation, currentThreadId], previous) => {
 			const [previousConversation, previousThreadId] = previous ?? [undefined, undefined];
 			const conversationChanged = currentConversation !== previousConversation;
-			if (!conversationChanged && previousThreadId === null && currentThreadId !== null) {
-				conversation.setDraft(currentThreadId, chatUIContext.inputValue);
-				return;
-			}
-
-			if (previousThreadId && chatUIContext.inputValue.trim()) {
-				conversation.setDraft(previousThreadId, chatUIContext.inputValue);
-			}
-			chatUIContext.loadDraft(currentThreadId);
+			if (!conversationChanged && previousThreadId === null && currentThreadId !== null) return;
 
 			// An existing thread brings back its own files, such as those of a send
 			// refused while it was not on screen; the conversation left keeps none.

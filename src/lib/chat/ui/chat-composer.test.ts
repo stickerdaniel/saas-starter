@@ -2,8 +2,8 @@
  * Send settlement through the real composer.
  *
  * Every composer here is a real ChatInput over a real ChatUIContext. A remount
- * disposes the context and builds a new one on the same settlement owner, the
- * way a keyed surface does, and reads the draft the way surfaces do on mount.
+ * disposes the context and builds a new one on the same composer, the way a
+ * keyed surface does.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -21,11 +21,11 @@ import { DEFAULT_ATTACHMENT_PROFILE, MAX_MESSAGE_LENGTH, type Attachment } from 
 import type { UploadProfile } from '../../uploads/profiles.js';
 import { ChatUIContext, type ChatSendSnapshot, type UploadConfig } from './chat-context.svelte.ts';
 import {
-	ComposerSendCoordinator,
-	acquireComposerSendCoordinator,
+	ChatComposer,
+	acquireChatComposer,
 	type ComposerSendLease,
 	type ComposerSendTarget
-} from './composer-send-coordinator.ts';
+} from './chat-composer.svelte.ts';
 import ChatTestProvider from './test-fixtures/ChatTestProvider.svelte';
 import ChatInputHarness from './test-fixtures/ChatInputHarness.svelte';
 import en from '../../../i18n/en.json';
@@ -33,6 +33,7 @@ import en from '../../../i18n/en.json';
 vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../node_modules/svelte/src/index-client.js')
 );
+vi.mock('svelte/reactivity', () => import('./test-fixtures/client-reactivity.ts'));
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
 vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
 vi.mock('./ChatAttachments.svelte', () => ({ default: () => {} }));
@@ -64,11 +65,13 @@ async function settleWork(): Promise<void> {
 }
 
 /**
- * One chat surface: a settlement owner shared by every composer it mounts.
+ * One chat surface: a composer shared by every view it mounts.
  *
  * `persistent` surfaces have a draft store and upload directly to storage with an
- * attachment store. The other kind uses its own transport with `release` and
- * keeps nothing.
+ * attachment store. They store typing only when a view moves to another
+ * conversation, as the support widget does, so a stored draft here is one a send
+ * or a refusal wrote. The other kind uses its own transport with `release` and
+ * keeps nothing. `drafts` reads the surface's stored drafts.
  */
 function chatSurface({
 	persistent = true,
@@ -81,7 +84,7 @@ function chatSurface({
 	profile?: UploadProfile;
 	name?: string;
 	showFileButton?: boolean;
-	owner?: (drafts: ChatDraftManager | undefined) => ComposerSendCoordinator;
+	owner?: () => ChatComposer;
 } = {}) {
 	const drafts = persistent ? new ChatDraftManager(name) : undefined;
 	const store = persistent ? new ChatAttachmentStore(name) : undefined;
@@ -93,7 +96,9 @@ function chatSurface({
 				profile
 			}
 		: { upload: vi.fn(), release, profile };
-	const owner = givenOwner?.(drafts) ?? new ComposerSendCoordinator({ drafts });
+	const owner =
+		givenOwner?.() ??
+		new ChatComposer({ surface: persistent ? name : undefined, saveDrafts: 'on-switch' });
 	const sends: Send[] = [];
 	const onSend = vi.fn((prompt: string): Promise<void> => {
 		const send = Object.assign(Promise.withResolvers<void>(), { prompt });
@@ -106,7 +111,6 @@ function chatSurface({
 			sendOwner: owner
 		});
 		context.setDisplayMessages([]);
-		context.loadDraft(threadId);
 		const target = document.body.appendChild(document.createElement('div'));
 		const contentProps = { context, onSend, showFileButton };
 		const component = mount(ChatTestProvider<typeof contentProps>, {
@@ -160,14 +164,14 @@ function chatSurface({
 	return { owner, drafts, store, release, sends, onSend, open: openComposer };
 }
 
-/** A surface whose owner comes from the session's registry, the way a page gets it. */
+/** A surface whose composer comes from the session's registry, the way a page gets it. */
 function leasedSurface(name: string, options: { persistent?: boolean } = {}) {
 	let lease!: ComposerSendLease;
 	const chat = chatSurface({
 		...options,
 		name,
-		owner: (drafts) => {
-			lease = acquireComposerSendCoordinator(name, () => new ComposerSendCoordinator({ drafts }));
+		owner: () => {
+			lease = acquireChatComposer(name);
 			return lease.owner;
 		}
 	});
@@ -445,6 +449,71 @@ describe('composers that come and go', () => {
 	});
 });
 
+describe('text of a thread across views', () => {
+	it('shows the text a surface composer holds to a view mounted later, and follows it', async () => {
+		const { chat, lease } = leasedSurface(`settlement-${crypto.randomUUID()}`);
+		const first = await chat.open('thread-a');
+		await first.type('typed before');
+
+		const later = await chat.open('thread-a');
+		expect(later.text()).toBe('typed before');
+		await first.type('typed after');
+		expect(later.text()).toBe('typed after');
+		lease.release();
+	});
+
+	it('shows the draft another tab stored while the thread was off screen', async () => {
+		const name = `settlement-${crypto.randomUUID()}`;
+		const chat = chatSurface({ name, owner: () => new ChatComposer({ surface: name }) });
+		const core = new ChatCore({ threadId: 'thread-a' });
+		const composer = await chat.open('thread-a', core);
+		await composer.type('typed here');
+		expect(chat.drafts!.getDraft('thread-a')).toBe('typed here');
+		core.setThread('thread-b');
+		await tick();
+
+		const stored = JSON.stringify({ 'thread-a': 'typed in another tab' });
+		localStorage.setItem(`drafts:${name}`, stored);
+		window.dispatchEvent(new StorageEvent('storage', { key: `drafts:${name}`, newValue: stored }));
+		core.setThread('thread-a');
+		await tick();
+
+		expect(composer.text()).toBe('typed in another tab');
+	});
+
+	describe.each([
+		{ opened: 'on the thread', start: 'thread-a' },
+		{ opened: 'on another thread and moved to it', start: 'thread-b' }
+	])('a second support view opened $opened', ({ start }) => {
+		it.each(['first', 'second'] as const)(
+			'shows the unsaved text of the first view and keeps it after the %s view closes',
+			async (closing) => {
+				const chat = chatSurface({ name: `support-${crypto.randomUUID()}` });
+				chat.drafts!.setDraft('thread-a', 'stored earlier');
+				const first = await chat.open('thread-a');
+				expect(first.text()).toBe('stored earlier');
+				await first.type('unsaved');
+
+				const core = new ChatCore({ threadId: start });
+				const second = await chat.open(start, core);
+				if (start !== 'thread-a') {
+					core.setThread('thread-a');
+					await tick();
+				}
+				expect(second.text()).toBe('unsaved');
+				expect(first.text()).toBe('unsaved');
+				expect(chat.drafts!.getDraft('thread-a')).toBe('stored earlier');
+
+				const [closed, kept] = closing === 'first' ? [first, second] : [second, first];
+				await closed.close();
+				expect(kept.text()).toBe('unsaved');
+				await kept.type('unsaved, then more');
+				expect(kept.text()).toBe('unsaved, then more');
+			}
+		);
+	});
+});
+
 describe('surface lifetime', () => {
 	it('persists a refusal that arrives after the surface unmounted', async () => {
 		const name = `settlement-${crypto.randomUUID()}`;
@@ -601,23 +670,22 @@ describe('surface lifetime', () => {
 
 	it('hands a surface that stays mounted the next owner, which outlives the session end and old leases', () => {
 		const name = `settlement-${crypto.randomUUID()}`;
-		const create = () => new ComposerSendCoordinator();
 		const renewals: ComposerSendLease[] = [];
-		const mounted = acquireComposerSendCoordinator(name, create, (next) => renewals.push(next));
-		const kept = acquireComposerSendCoordinator(name, create);
+		const mounted = acquireChatComposer(name, { renewed: (next) => renewals.push(next) });
+		const kept = acquireChatComposer(name);
 
 		clearPersistedChatState();
 		expect(renewals).toHaveLength(1);
 		expect(renewals[0]!.owner).not.toBe(mounted.owner);
 		kept.release();
-		const entered = acquireComposerSendCoordinator(name, create);
+		const entered = acquireChatComposer(name);
 		expect(entered.owner).toBe(renewals[0]!.owner);
 
 		clearPersistedChatState();
 		expect(renewals).toHaveLength(2);
 		expect(renewals[1]!.owner).not.toBe(entered.owner);
 		entered.release();
-		const later = acquireComposerSendCoordinator(name, create);
+		const later = acquireChatComposer(name);
 		expect(later.owner).toBe(renewals[1]!.owner);
 		later.release();
 		renewals[1]!.release();
@@ -945,23 +1013,22 @@ describe('sent attachments', () => {
 });
 
 describe('settlement notices', () => {
-	it('tells the composers about each settled send before the group restores its refusals', () => {
-		const owner = new ComposerSendCoordinator();
+	it('tells the views about each settled send before the group restores its refusals', () => {
+		const owner = new ChatComposer();
 		const conversation = new ChatConversation('thread-a');
 		const calls: string[] = [];
 		const target: ComposerSendTarget = {
 			core: { conversation },
-			inputValue: '',
-			restoreFailedSend: (text) => calls.push(`restore ${text}`),
+			restoreAttachments: () => calls.push(`restore ${owner.textOf(conversation)}`),
 			sendResources: () => ({ release: () => calls.push('release') }),
 			pendingSendsChanged: () => calls.push('changed')
 		};
 		owner.attachTarget(target);
+		owner.activate(target);
 		const snapshot = (inputValue: string): ChatSendSnapshot => ({
 			sessionEpoch: getChatSessionEpoch(),
 			conversation,
 			inputValue,
-			inputRevision: 1,
 			attachments: { attachments: [] }
 		});
 		const first = owner.begin(target, snapshot('A'));

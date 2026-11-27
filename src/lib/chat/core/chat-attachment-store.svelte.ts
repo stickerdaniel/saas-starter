@@ -120,7 +120,7 @@ export class ChatAttachmentStore {
 	 *
 	 * The record can go and come back while the attachment does not: sending clears
 	 * the composer, and a failed send puts the same attachments back
-	 * (`ComposerSendCoordinator`). Re-stamping them then would give an hours-old
+	 * (`ChatComposer`). Re-stamping them then would give an hours-old
 	 * file another twelve, past the point the vacuum collects it.
 	 *
 	 * Keyed by transfer and not by file: the agent component returns the existing

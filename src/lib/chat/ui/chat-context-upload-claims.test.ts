@@ -9,7 +9,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { ConvexClient } from 'convex/browser';
-import type { ChatCore } from '../core/chat-core.svelte.ts';
+import { ChatCore } from '../core/chat-core.svelte.ts';
 
 const uploadFileWithProgress = vi.fn();
 
@@ -27,7 +27,13 @@ const uploadConfig = {
 } satisfies NonNullable<ConstructorParameters<typeof ChatUIContext>[2]>;
 
 function context(uploads: InstanceType<typeof ActiveUploads> | null = null) {
-	return new ChatUIContext({} as ChatCore, {} as ConvexClient, uploadConfig, 'right', uploads);
+	return new ChatUIContext(
+		new ChatCore({ threadId: null }),
+		{} as ConvexClient,
+		uploadConfig,
+		'right',
+		uploads
+	);
 }
 
 /** A transfer the test decides the outcome of. */

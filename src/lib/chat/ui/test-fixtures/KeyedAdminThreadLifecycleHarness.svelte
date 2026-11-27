@@ -5,15 +5,14 @@
 </script>
 
 <script lang="ts">
-	import { ChatDraftManager } from '../../core/chat-draft-manager.svelte.ts';
-	import { ComposerSendCoordinator } from '../composer-send-coordinator.ts';
+	import { ChatComposer } from '../chat-composer.svelte.ts';
 	import AdminThreadChat from '../../../../routes/[[lang]]/admin/support/thread-chat.svelte';
 
 	let { initialThreadId }: { initialThreadId: string } = $props();
 	// Initial seed for the fixture's own keyed thread state.
 	// svelte-ignore state_referenced_locally
 	let threadId = $state(initialThreadId);
-	const sendOwner = new ComposerSendCoordinator({ drafts: new ChatDraftManager('admin-support') });
+	const sendOwner = new ChatComposer({ surface: 'admin-support' });
 	keyedAdminThreadLifecycle.setThreadId = (next) => (threadId = next);
 </script>
 

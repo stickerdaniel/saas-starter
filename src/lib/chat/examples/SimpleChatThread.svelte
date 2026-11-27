@@ -1,10 +1,9 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { useConvexClient } from 'convex-svelte';
-	import { watch } from 'runed';
 	import { api } from '#lib/convex/_generated/api.js';
 	import { ChatRoot, ChatMessages, ChatInput, ChatCore, ChatUIContext } from '#lib/chat/index.js';
-	import type { ComposerSendCoordinator } from '#lib/chat/ui/composer-send-coordinator.ts';
+	import type { ChatComposer } from '#lib/chat/ui/chat-composer.svelte.ts';
 	import { Avatar, AvatarImage } from '#lib/components/ui/avatar/index.js';
 	import memberFour from '#blocks/team/avatars/member-four.webp';
 	import memberTwo from '#blocks/team/avatars/member-two.webp';
@@ -17,7 +16,7 @@
 	}: {
 		threadId: string;
 		greeting: string;
-		sendOwner: ComposerSendCoordinator;
+		sendOwner: ChatComposer;
 	} = $props();
 
 	const chatApi = {
@@ -32,29 +31,11 @@
 	});
 
 	// svelte-ignore state_referenced_locally
-	const owner = sendOwner;
 	const chatUIContext = new ChatUIContext(chatCore, client, undefined, 'right', null, {
 		forgetSession: () => chatCore.forgetChatSession(),
-		sendOwner: owner
+		sendOwner
 	});
 	onDestroy(() => chatUIContext.dispose());
-
-	watch(
-		() => threadId,
-		(current, previous) => {
-			if (previous && chatUIContext.inputValue.trim()) {
-				owner.drafts?.setDraft(previous, chatUIContext.inputValue);
-			}
-			chatUIContext.loadDraft(current);
-		}
-	);
-	watch(
-		() => [chatUIContext.inputValue, threadId] as const,
-		([value, id]) => {
-			if (!value.trim() && owner.holdsDraft(id)) return;
-			owner.drafts?.setDraft(id, value);
-		}
-	);
 
 	async function handleSend(prompt: string) {
 		await chatCore.sendMessage(client, prompt);

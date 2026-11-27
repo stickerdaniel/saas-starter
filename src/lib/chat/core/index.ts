@@ -75,7 +75,6 @@ export { ChatCommandError } from './chat-command-error.js';
 
 // Composer persistence
 export { ChatDraftManager } from './chat-draft-manager.svelte.ts';
-export type { ChatDraftCheckpoint } from './chat-draft-manager.svelte.ts';
 export { ChatAttachmentStore } from './chat-attachment-store.svelte.ts';
 export type { AttachmentsByThread } from './chat-attachment-store.svelte.ts';
 export { clearPersistedChatState } from './chat-persisted-state.ts';

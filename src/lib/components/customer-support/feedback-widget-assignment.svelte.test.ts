@@ -58,7 +58,6 @@ function mountWidget(cached?: Assignment) {
 					displayMessages: [],
 					inputValue: '',
 					setInputValue() {},
-					loadDraft() {},
 					clearAttachments() {},
 					enterSelectedThread() {}
 				} as unknown as ChatUIContext

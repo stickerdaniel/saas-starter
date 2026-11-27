@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { useConvexClient } from 'convex-svelte';
 	import { toast } from 'svelte-sonner';
-	import { watch } from 'runed';
 	import { api } from '#lib/convex/_generated/api.js';
 	import ChatRoot from '#lib/chat/ui/ChatRoot.svelte';
 	import ChatMessages from '#lib/chat/ui/ChatMessages.svelte';
@@ -9,8 +8,7 @@
 	import { PromptSuggestion } from '#lib/components/prompt-kit/prompt-suggestion/index.js';
 	import { ChatUIContext, type UploadConfig } from '#lib/chat/ui/chat-context.svelte.ts';
 	import { ChatCore } from '#lib/chat/core/chat-core.svelte.ts';
-	import { ChatDraftManager } from '#lib/chat/core/chat-draft-manager.svelte.ts';
-	import { ComposerSendCoordinator } from '#lib/chat/ui/composer-send-coordinator.ts';
+	import { ChatComposer } from '#lib/chat/ui/chat-composer.svelte.ts';
 	import { ChatAttachmentStore } from '#lib/chat/core/chat-attachment-store.svelte.ts';
 	import MessageQuotaBanner from '#lib/components/message-quota-banner.svelte';
 	import { getTranslate } from '@tolgee/svelte';
@@ -43,8 +41,8 @@
 		onUpgrade?: () => void;
 		isUpgrading?: boolean;
 		onMessageSent?: () => void;
-		/** Settles sends past this component; the page owns it so a remount keeps it. */
-		sendOwner?: ComposerSendCoordinator;
+		/** Holds text and settles sends past this component; the page owns it so a remount keeps it. */
+		sendOwner?: ChatComposer;
 	} = $props();
 
 	const client = useConvexClient();
@@ -80,13 +78,11 @@
 		}
 	});
 
-	// Draft persistence across thread switches and page refreshes
-	const draftManager = new ChatDraftManager('ai-chat');
 	// The owner is fixed for this component's lifetime; one made here is mounted here.
 	// svelte-ignore state_referenced_locally
 	const ownsSendOwner = !sendOwner;
 	// svelte-ignore state_referenced_locally
-	const owner = sendOwner ?? new ComposerSendCoordinator({ drafts: draftManager });
+	const owner = sendOwner ?? new ChatComposer({ surface: 'ai-chat' });
 	if (ownsSendOwner) onDestroy(owner.mount());
 
 	// Report transfers to the app so a navigation that would kill one asks first.
@@ -106,28 +102,6 @@
 
 	// Revoke blob preview URLs of unsent attachments when this thread view unmounts
 	onDestroy(() => chatUIContext.dispose());
-
-	// Save draft on leave, restore on enter
-	watch(
-		() => threadId,
-		(current, previous) => {
-			if (previous && chatUIContext.inputValue.trim()) {
-				draftManager.setDraft(previous, chatUIContext.inputValue);
-			}
-			chatUIContext.loadDraft(current);
-		}
-	);
-
-	// Continuous save for refresh persistence — watch untracks the callback,
-	// avoiding a reactive loop with PersistedState's Proxy set trap. A composer
-	// emptied by a send keeps the stored copy, which that send still owns.
-	watch(
-		() => [chatUIContext.inputValue, threadId] as const,
-		([value, id]) => {
-			if (!value.trim() && owner.holdsDraft(id)) return;
-			draftManager.setDraft(id, value);
-		}
-	);
 
 	// Auto-focus input when thread changes
 	let chatContainer: HTMLDivElement | undefined = $state();
