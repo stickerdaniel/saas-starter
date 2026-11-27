@@ -95,7 +95,6 @@ function chatSurface({
 		: { upload: vi.fn(), release, profile };
 	const owner = givenOwner?.(drafts) ?? new ComposerSendCoordinator({ drafts });
 	const sends: Send[] = [];
-	const restorations: string[] = [];
 	const onSend = vi.fn((prompt: string): Promise<void> => {
 		const send = Object.assign(Promise.withResolvers<void>(), { prompt });
 		sends.push(send);
@@ -104,9 +103,6 @@ function chatSurface({
 
 	async function openComposer(threadId: string | null, core = new ChatCore({ threadId })) {
 		const context = new ChatUIContext(core, client, uploadConfig, 'right', null, {
-			projectInput: (projection) => {
-				if (projection.reason === 'send-restore') restorations.push(projection.value);
-			},
 			sendOwner: owner
 		});
 		context.setDisplayMessages([]);
@@ -161,7 +157,7 @@ function chatSurface({
 		};
 	}
 
-	return { owner, drafts, store, release, sends, restorations, onSend, open: openComposer };
+	return { owner, drafts, store, release, sends, onSend, open: openComposer };
 }
 
 /** A surface whose owner comes from the session's registry, the way a page gets it. */
@@ -232,7 +228,6 @@ describe('overlapping refusals', () => {
 		await settleWork();
 		expect(composer.text()).toBe('first\n\nsecond');
 		expect(composer.attachments()).toEqual(['a', 'b']);
-		expect(chat.restorations).toEqual(['first\n\nsecond']);
 	});
 
 	it('holds an earlier refusal until the later send settles, ahead of newer typing', async () => {
@@ -246,13 +241,11 @@ describe('overlapping refusals', () => {
 		await settleWork();
 		expect(composer.text()).toBe('newer');
 		expect(composer.attachments()).toEqual([]);
-		expect(chat.restorations).toEqual([]);
 
 		chat.sends[1]!.reject(new Error('refused'));
 		await settleWork();
 		expect(composer.text()).toBe('A\n\nB\n\nnewer');
 		expect(composer.attachments()).toEqual(['a', 'b']);
-		expect(chat.restorations).toEqual(['A\n\nB\n\nnewer']);
 	});
 
 	it('restores the whole group into a composer remounted between the refusals', async () => {
@@ -271,7 +264,6 @@ describe('overlapping refusals', () => {
 
 		expect(remounted.text()).toBe('A\n\nB\n\nnewer');
 		expect(remounted.attachments()).toEqual(['a', 'b']);
-		expect(chat.restorations).toEqual(['A\n\nB\n\nnewer']);
 		expect(first.context.inputValue).toBe('');
 	});
 
@@ -295,7 +287,6 @@ describe('overlapping refusals', () => {
 
 		expect(composer.text()).toBe(refused);
 		expect(composer.attachments()).toEqual([refused.toLowerCase()]);
-		expect(chat.restorations).toEqual([refused]);
 	});
 
 	it('counts only the first outcome of a send', async () => {
@@ -312,7 +303,6 @@ describe('overlapping refusals', () => {
 		await tick();
 
 		expect(composer.text()).toBe('once');
-		expect(chat.restorations).toEqual(['once']);
 		expect(chat.drafts!.getDraft('thread-a')).toBe('once');
 	});
 });
@@ -607,7 +597,6 @@ describe('surface lifetime', () => {
 		expect(before.chat.release).toHaveBeenCalledExactlyOnceWith(fileA);
 		expect(reopened.text()).toBe('');
 		expect(reopened.attachments()).toEqual([]);
-		expect([...before.chat.restorations, ...after.chat.restorations]).toEqual([]);
 	});
 
 	it('hands a surface that stays mounted the next owner, which outlives the session end and old leases', () => {
@@ -666,9 +655,11 @@ describe.each([
 		const chat = chatSurface({ persistent: false });
 		const unmountSurface = chat.owner.mount();
 		const composer = await chat.open('thread-a');
+		let onScreen = composer;
 		return {
 			chat,
 			composer,
+			onScreen: () => onScreen,
 			async endSession() {
 				if (!registered) {
 					await composer.close();
@@ -676,12 +667,13 @@ describe.each([
 				}
 				clearPersistedChatState();
 				await tick();
+				if (!registered) onScreen = await chat.open('thread-a');
 			}
 		};
 	}
 
 	it('releases the files of a late refusal once and restores nothing', async () => {
-		const { chat, composer, endSession } = await surfaceAcrossSessionEnd();
+		const { chat, composer, onScreen, endSession } = await surfaceAcrossSessionEnd();
 		await composer.send('old session', 'a');
 		await endSession();
 
@@ -689,13 +681,14 @@ describe.each([
 		await settleWork();
 
 		expect(chat.release).toHaveBeenCalledExactlyOnceWith(fileA);
-		expect(chat.restorations).toEqual([]);
+		expect(onScreen().text()).toBe('');
+		expect(onScreen().attachments()).toEqual([]);
 		expect(composer.context.inputValue).toBe('');
 		expect(composer.context.attachments).toEqual([]);
 	});
 
 	it('releases nothing and restores nothing for a late acceptance', async () => {
-		const { chat, composer, endSession } = await surfaceAcrossSessionEnd();
+		const { chat, composer, onScreen, endSession } = await surfaceAcrossSessionEnd();
 		await composer.send('old session', 'a');
 		await endSession();
 
@@ -703,12 +696,13 @@ describe.each([
 		await settleWork();
 
 		expect(chat.release).not.toHaveBeenCalled();
-		expect(chat.restorations).toEqual([]);
+		expect(onScreen().text()).toBe('');
+		expect(onScreen().attachments()).toEqual([]);
 		expect(composer.context.inputValue).toBe('');
 	});
 
 	it('releases a refusal that was waiting for its group once, and the accepted send nothing', async () => {
-		const { chat, composer, endSession } = await surfaceAcrossSessionEnd();
+		const { chat, composer, onScreen, endSession } = await surfaceAcrossSessionEnd();
 		await composer.send('A', 'a');
 		await composer.send('B', 'b');
 		chat.sends[0]!.reject(new Error('refused'));
@@ -720,12 +714,13 @@ describe.each([
 		await settleWork();
 
 		expect(chat.release).toHaveBeenCalledExactlyOnceWith(fileA);
-		expect(chat.restorations).toEqual([]);
+		expect(onScreen().text()).toBe('');
+		expect(onScreen().attachments()).toEqual([]);
 		expect(composer.context.attachments).toEqual([]);
 	});
 
 	it('ignores a repeated outcome after the cleanup', async () => {
-		const { chat, composer, endSession } = await surfaceAcrossSessionEnd();
+		const { chat, composer, onScreen, endSession } = await surfaceAcrossSessionEnd();
 		await composer.type('once');
 		composer.context.addAttachments([file('a')]);
 		const snapshot = composer.context.captureSendSnapshot();
@@ -740,7 +735,8 @@ describe.each([
 		await settleWork();
 
 		expect(chat.release).toHaveBeenCalledExactlyOnceWith(fileA);
-		expect(chat.restorations).toEqual([]);
+		expect(onScreen().text()).toBe('');
+		expect(onScreen().attachments()).toEqual([]);
 	});
 });
 
@@ -777,7 +773,8 @@ describe.each(['accepted', 'refused'] as const)(
 
 			const released = outcome === 'refused' ? [[fileA], [fileB]] : [[fileA]];
 			expect(chat.release.mock.calls).toEqual(released);
-			expect(chat.restorations).toEqual([]);
+			expect(composer.text()).toBe('');
+			expect(composer.attachments()).toEqual([]);
 			lease.release();
 		});
 	}
@@ -806,8 +803,8 @@ describe.each(['accepted', 'refused'] as const)(
 			await settleWork();
 
 			expect(chat.release.mock.calls).toEqual(outcome === 'refused' ? [[fileA]] : []);
-			expect(chat.restorations).toEqual([]);
 			expect(composer.text()).toBe('');
+			expect(composer.attachments()).toEqual([]);
 		});
 	}
 );
@@ -826,7 +823,6 @@ describe('an owner kept past its session end with a send still open', () => {
 		chat.sends[1]!.reject(new Error('refused'));
 		await settleWork();
 		expect(composer.text()).toBe('next session');
-		expect(chat.restorations).toEqual(['next session']);
 
 		chat.sends[0]!.reject(new Error('refused'));
 		await settleWork();
@@ -855,7 +851,6 @@ describe('sent attachments', () => {
 		await settleWork();
 		expect(composer.text()).toBe('A\n\nB');
 		expect(composer.attachments()).toEqual(['a', 'b']);
-		expect(chat.restorations).toEqual(['A\n\nB']);
 		expect(chat.release).not.toHaveBeenCalled();
 
 		composer.context.removeAttachment(1);

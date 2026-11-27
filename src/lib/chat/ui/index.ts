@@ -6,12 +6,7 @@
  */
 
 // Context
-export type {
-	ChatInputProjection,
-	ChatInputProjectionReason,
-	ChatUIContextOptions,
-	UploadConfig
-} from './chat-context.svelte.ts';
+export type { ChatUIContextOptions, UploadConfig } from './chat-context.svelte.ts';
 
 export {
 	ChatUIContext,
