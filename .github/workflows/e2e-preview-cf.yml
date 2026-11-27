@@ -30,7 +30,7 @@ on:
 # and every other event get a group of their own, so they never cancel the
 # head's run.
 concurrency:
-  group: ${{ github.workflow }}-${{ (github.event.check_run.app.slug == 'cloudflare-workers-and-pages' && github.run_attempt == 1 && github.event.check_run.pull_requests[0].head.sha == github.event.check_run.head_sha) && github.event.check_run.check_suite.head_branch || github.run_id }}
+  group: ${{ github.workflow }}-${{ (github.event.check_run.app.slug == 'cloudflare-workers-and-pages' && github.run_attempt == 1 && github.event.check_run.pull_requests[0].head.sha == github.event.check_run.head_sha) && (github.event.check_run.check_suite.head_branch || github.event.check_run.pull_requests[0].head.ref) || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -56,6 +56,40 @@ jobs:
             -f context="E2E Tests" \
             -f description="Skipped (production build, no preview)"
 
+  # A build that published a Preview URL or a Preview Alias URL gets its
+  # Lighthouse verdict from the lighthouse job instead. A null head branch counts as
+  # not the default branch.
+  lighthouse-no-preview:
+    name: Lighthouse No Preview Status
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      statuses: write
+    if: |
+      github.event.check_run.app.slug == 'cloudflare-workers-and-pages' &&
+      github.event.check_run.conclusion == 'success' &&
+      !contains(github.event.check_run.output.summary || '', 'Preview URL') &&
+      !contains(github.event.check_run.output.summary || '', 'Preview Alias URL') &&
+      (github.event.check_run.pull_requests[0] ||
+      github.event.check_run.check_suite.head_branch != github.event.repository.default_branch)
+    steps:
+      - name: Report Lighthouse status of a build without a preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.check_run.head_sha }}
+          HEAD_BRANCH: ${{ github.event.check_run.check_suite.head_branch }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if [ "$HEAD_BRANCH" = "$DEFAULT_BRANCH" ]; then
+            state=success description="Skipped (production build, no preview)"
+          else
+            state=failure description="Build published no preview to audit"
+          fi
+          gh api "repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
+            -f state="$state" \
+            -f context=Lighthouse \
+            -f description="$description"
+
   # Resolve the required E2E status when the CF preview build does not succeed.
   # Without this, the required status would never arrive and would block
   # merging on this SHA.
@@ -66,10 +100,13 @@ jobs:
     permissions:
       statuses: write
     # conclusion is always terminal here because the trigger is check_run: [completed]
+    # A preview build whose check names no pull request yet still gets its
+    # Lighthouse verdict by SHA.
     if: |
       github.event.check_run.app.slug == 'cloudflare-workers-and-pages' &&
       github.event.check_run.conclusion != 'success' &&
-      github.event.check_run.pull_requests[0]
+      (github.event.check_run.pull_requests[0] ||
+      github.event.check_run.check_suite.head_branch != github.event.repository.default_branch)
     steps:
       - name: Report build failure to PR
         env:
@@ -77,19 +114,26 @@ jobs:
           HEAD_SHA: ${{ github.event.check_run.head_sha || inputs.sha }}
           CONCLUSION: ${{ github.event.check_run.conclusion }}
           TARGET_URL: ${{ github.event.check_run.html_url }}
+          HAS_PR: ${{ github.event.check_run.pull_requests[0] && 'true' || 'false' }}
         run: |
-          for i in 1 2 3; do
-            gh api "repos/${{ github.repository }}/statuses/${HEAD_SHA}" \
-              -f state=failure \
-              -f context="E2E Tests" \
-              -f description="CF preview build ${CONCLUSION}, E2E skipped" \
-              -f target_url="$TARGET_URL" \
-              && exit 0
-            echo "Attempt $i failed, retrying in 5s..."
-            sleep 5
-          done
-          echo "::warning::Failed to report status after 3 attempts"
-          exit 1
+          report() {
+            for i in 1 2 3; do
+              gh api "repos/${{ github.repository }}/statuses/${HEAD_SHA}" \
+                -f state=failure \
+                -f context="$1" \
+                -f description="CF preview build ${CONCLUSION}, $2 skipped" \
+                -f target_url="$TARGET_URL" \
+                && return 0
+              echo "Attempt $i failed, retrying in 5s..."
+              sleep 5
+            done
+            echo "::warning::Failed to report the $1 status after 3 attempts"
+            return 1
+          }
+          rc=0
+          if [ "$HAS_PR" = true ]; then report "E2E Tests" E2E || rc=1; fi
+          report Lighthouse Lighthouse || rc=1
+          exit "$rc"
 
   prepare:
     outputs:
@@ -137,7 +181,7 @@ jobs:
         env: &supersession-env
           GH_TOKEN: ${{ github.token }}
           E2E_EXPECTED_SHA: ${{ github.event.check_run.head_sha || inputs.sha }}
-          E2E_BRANCH: ${{ github.event.check_run.check_suite.head_branch }}
+          E2E_BRANCH: ${{ github.event.check_run.check_suite.head_branch || github.event.check_run.pull_requests[0].head.ref }}
         # Inline, because the checkout holds the tested commit's scripts, which
         # may predate this step.
         run: &cancel-if-superseded |
@@ -303,6 +347,147 @@ jobs:
           count: ${{ needs.prepare.outputs.count }}
           cf-access-client-id: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           cf-access-client-secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+
+  lighthouse:
+    name: Lighthouse budget
+    needs: prepare
+    # Like aggregate: a cancelled run publishes nothing, a failed prepare
+    # publishes failure unless the change cannot alter /en. A build with a
+    # per-version Preview URL and no alias skips prepare and is audited directly.
+    if: |
+      !cancelled() && (needs.prepare.result != 'skipped' ||
+      (github.event.check_run.app.slug == 'cloudflare-workers-and-pages' &&
+      github.event.check_run.conclusion == 'success' &&
+      contains(github.event.check_run.output.summary || '', 'Preview URL') &&
+      !contains(github.event.check_run.output.summary || '', 'Preview Alias URL')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      actions: write
+      checks: read
+      contents: read
+      pull-requests: read
+      statuses: write
+    steps:
+      # The workflow's own commit supplies the audit script and budget, so a
+      # pull request head that predates them is audited too.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      # Leaves the output unset, so the audit runs, whenever the complete file
+      # list of the tested head is unknown.
+      - name: List the files the pull request changes
+        id: changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.check_run.pull_requests[0].number }}
+          HEAD_SHA: ${{ github.event.check_run.head_sha }}
+        run: |
+          [ -n "$PR" ] || exit 0
+          read_pr() {
+            gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}" --jq '"\(.head.sha) \(.base.sha) \(.changed_files)"'
+          }
+          if ! before=$(read_pr); then
+            echo "::warning::Could not read pull request ${PR}; auditing."
+            exit 0
+          fi
+          read -r head _ count <<< "$before"
+          if [ "$head" != "$HEAD_SHA" ]; then
+            echo "::warning::Pull request ${PR} moved past ${HEAD_SHA}; auditing."
+            exit 0
+          fi
+          pages="$RUNNER_TEMP/pr-files.json"
+          if ! gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/pulls/${PR}/files?per_page=100" > "$pages"; then
+            echo "::warning::Could not list the files of pull request ${PR}; auditing."
+            exit 0
+          fi
+          if ! after=$(read_pr) || [ "$after" != "$before" ]; then
+            echo "::warning::Pull request ${PR} changed while its files were listed; auditing."
+            exit 0
+          fi
+          listed=$(jq '[.[][]] | length' "$pages")
+          if [ "$listed" != "$count" ]; then
+            echo "::warning::Listed ${listed} of ${count} changed files; auditing."
+            exit 0
+          fi
+          jq '[.[][] | .filename, (.previous_filename // empty)]' "$pages" > "$RUNNER_TEMP/changed-files.json"
+          echo "files=$RUNNER_TEMP/changed-files.json" >> "$GITHUB_OUTPUT"
+      # The branch alias can move to another build during the audit, and the
+      # tested commit's own scripts choose it in prepare. The per-version URL
+      # comes from the Cloudflare check of the audited commit. A dispatch input
+      # must name that same URL.
+      - name: Resolve the per-version preview URL
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          DISPATCHED_URL: ${{ inputs.preview_url }}
+          HEAD_SHA: ${{ github.event.check_run.head_sha || inputs.sha }}
+          SUMMARY: ${{ github.event.check_run.output.summary }}
+        run: |
+          version_urls() {
+            sed -n -E 's#^Preview URL: (https://[A-Za-z0-9.-]+)/?$#\1#p'
+          }
+          if [ "$EVENT" = workflow_dispatch ]; then
+            urls=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs?filter=all&per_page=100" \
+              --jq '.check_runs[] | select(.app.slug == "cloudflare-workers-and-pages" and .conclusion == "success") | .output.summary // ""' | version_urls)
+            if ! grep -Fxq -- "${DISPATCHED_URL%/}" <<< "$urls"; then
+              echo "::warning::The dispatch input ${DISPATCHED_URL} is no per-version Preview URL of a successful Cloudflare check on ${HEAD_SHA}."
+              exit 0
+            fi
+            url=${DISPATCHED_URL%/}
+          else
+            url=$(printf '%s\n' "$SUMMARY" | version_urls)
+          fi
+          [ -n "$url" ] && [ "$(printf '%s\n' "$url" | wc -l)" -eq 1 ] || exit 0
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+      # Skips before it needs a target, so a change that cannot alter /en
+      # passes without a preview.
+      - name: Audit the landing page
+        id: audit
+        timeout-minutes: 15
+        env:
+          PREPARE: ${{ needs.prepare.result }}
+          URL: ${{ steps.target.outputs.url }}
+          HEAD_SHA: ${{ github.event.check_run.head_sha || inputs.sha }}
+          CHANGED_FILES: ${{ steps.changes.outputs.files }}
+        run: |
+          reason=
+          if [ "$PREPARE" != success ] && [ "$PREPARE" != skipped ]; then
+            reason="preview preparation ended with $PREPARE"
+          elif [ -z "$URL" ]; then
+            reason="the build published no single per-version Preview URL"
+          fi
+          bun scripts/lighthouse-budget.ts --expect-sha "$HEAD_SHA" --deadline-minutes 13 --out lighthouse-reports \
+            ${URL:+--url "$URL"} ${reason:+--unavailable "$reason"} ${CHANGED_FILES:+--changed-files "$CHANGED_FILES"}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: ${{ !cancelled() }}
+        with:
+          name: lighthouse-${{ github.run_id }}-${{ github.run_attempt }}
+          path: lighthouse-reports
+          if-no-files-found: ignore
+      - name: Cancel a failed audit that a newer push superseded
+        if: failure()
+        env: *supersession-env
+        run: *cancel-if-superseded
+      - name: Report the Lighthouse status
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.check_run.head_sha || inputs.sha }}
+          STATE: ${{ job.status == 'success' && 'success' || 'failure' }}
+          DESCRIPTION: ${{ steps.audit.outputs.description || 'Lighthouse audit did not finish' }}
+        run: |
+          for attempt in 1 2 3; do
+            if gh api "repos/${GITHUB_REPOSITORY}/statuses/$HEAD_SHA" \
+              -f state="$STATE" -f context=Lighthouse \
+              -f description="$DESCRIPTION" \
+              -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"; then exit 0; fi
+            echo "Status reporting attempt $attempt failed"
+            sleep 5
+          done
+          exit 1
 
   aggregate:
     name: Complete preview verdict
