@@ -35,7 +35,7 @@ export default {
 		schema: [],
 		messages: {
 			missingCleanup:
-				'Unmount the session store before the file ends, with `cleanStores(client.useSession())` in `afterAll` or `onTestFinished`, because the store cleanup runs one second after the last unsubscribe.'
+				'Unmount the session store before the file ends: pass it to `cleanStores` in `afterAll` or `onTestFinished`, because the store cleanup runs one second after the last unsubscribe.'
 		}
 	},
 	create(context) {
