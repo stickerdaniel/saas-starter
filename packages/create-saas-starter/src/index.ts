@@ -4,7 +4,7 @@ import { realpathSync } from 'node:fs';
 import { rm, rmdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { templateProfiles, validateTemplateArchive } from './archive.js';
+import { validateTemplateArchive } from './archive.js';
 import {
 	CLI_VERSION,
 	HELP_TEXT,
@@ -167,10 +167,10 @@ export async function runCli(
 		const resolved = await resolveTemplateRef(options.ref, controller.signal);
 		const compressed = await downloadTemplateArchive(resolved.sha, controller.signal);
 		throwIfAborted(controller.signal);
-		const archive = await validateTemplateArchive(compressed);
+		const archive = await validateTemplateArchive(compressed, resolved.sha);
 		throwIfAborted(controller.signal);
-		const profiles = templateProfiles(archive, resolved.sha);
-		if (options.withoutTests && !profiles.includes('tests')) {
+		const { version } = archive.tree;
+		if (options.withoutTests && !archive.profiles.includes('tests')) {
 			throw new Error(
 				`Template revision ${resolved.sha} cannot leave out the test suite: its package.json has no "tests" in templateProfiles.`
 			);
@@ -210,7 +210,7 @@ export async function runCli(
 				? 'To repeat setup without the test suite, run these commands:'
 				: 'To repeat setup, run these commands:',
 			navigation(staging),
-			commandLine('bun', setupArguments(options, archiveList))
+			commandLine('bun', setupArguments(options, version, archiveList))
 		];
 
 		const state = await runtime.runSetupAndInstall({
@@ -218,6 +218,7 @@ export async function runCli(
 			environment: bun.environment,
 			target: staging,
 			options,
+			version,
 			archiveList,
 			signal: controller.signal,
 			onSetupComplete: async () => {
@@ -230,7 +231,7 @@ export async function runCli(
 						? 'Setup left out the test suite. To install the dependencies, run these commands:'
 						: 'To install the dependencies, run these commands:',
 					navigation(staging),
-					...installSteps(options.withoutTests).map((args) => commandLine('bun', args))
+					...installSteps(version, options.withoutTests).map((args) => commandLine('bun', args))
 				];
 				phase = 'install';
 				marker = await runtime.updateMarker(staging, marker!, 'incomplete', phase);
@@ -252,7 +253,7 @@ export async function runCli(
 		io.stdout(`Created ${options.brand} at ${target.path}`);
 		io.stdout(navigation(target.path));
 		if (state === 'needs-install') {
-			const [first, ...checks] = installSteps(options.withoutTests);
+			const [first, ...checks] = installSteps(version, options.withoutTests);
 			io.stdout(`Run bun ${first.join(' ')} before starting the app.`);
 			for (const check of checks)
 				io.stdout(`Then run bun ${check.join(' ')} to check the lockfile.`);

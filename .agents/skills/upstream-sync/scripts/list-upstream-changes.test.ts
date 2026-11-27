@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { categoriesFor, classify, isExcluded } from './list-upstream-changes';
+import {
+	categoriesFor,
+	changeSide,
+	changeSides,
+	classify,
+	isExcluded,
+	isOmittedOnly
+} from './list-upstream-changes';
+
+const flat = (...paths: string[]) => paths.map((path) => changeSide(path, 'flat'));
 
 describe('classify', () => {
 	it('tags explicit security signals', () => {
@@ -49,31 +58,68 @@ describe('classify', () => {
 
 describe('categoriesFor', () => {
 	it('maps paths to divergence categories', () => {
-		expect(categoriesFor(['src/i18n/en.json'])).toEqual(['i18n']);
-		expect(categoriesFor(['src/routes/layout.css'])).toEqual(['theme']);
-		expect(categoriesFor(['.github/workflows/ci.yml'])).toEqual(['env/deploy']);
-		expect(categoriesFor(['src/lib/convex/schema.ts'])).toEqual(['backend']);
-		expect(categoriesFor(['src/lib/confect/functions.ts'])).toEqual(['backend']);
-		expect(categoriesFor(['src/lib/convex-components/betterAuth/adapter.ts'])).toEqual(['backend']);
-		expect(categoriesFor(['e2e/login.spec.ts'])).toEqual(['tests']);
-		expect(categoriesFor(['package.json'])).toEqual(['config']);
-		expect(categoriesFor(['src/lib/config/legal.ts'])).toEqual(['branding']);
+		expect(categoriesFor(flat('src/i18n/en.json'))).toEqual(['i18n']);
+		expect(categoriesFor(flat('src/routes/layout.css'))).toEqual(['theme']);
+		expect(categoriesFor(flat('.github/workflows/ci.yml'))).toEqual(['env/deploy']);
+		expect(categoriesFor(flat('src/lib/convex/schema.ts'))).toEqual(['backend']);
+		expect(categoriesFor(flat('src/lib/confect/functions.ts'))).toEqual(['backend']);
+		expect(categoriesFor(flat('src/lib/convex-components/betterAuth/adapter.ts'))).toEqual([
+			'backend'
+		]);
+		expect(categoriesFor(flat('e2e/login.spec.ts'))).toEqual(['tests']);
+		expect(categoriesFor(flat('package.json'))).toEqual(['config']);
+		expect(categoriesFor(flat('src/lib/config/legal.ts'))).toEqual(['branding']);
 	});
 
 	it('labels a Confect declaration as backend and a Confect test as a test', () => {
-		expect(categoriesFor(['src/lib/confect/admin/auditLog/queries.spec.ts'])).toEqual(['backend']);
-		expect(categoriesFor(['src/lib/confect/admin/auditLog/queries.test.ts'])).toEqual([
+		expect(categoriesFor(flat('src/lib/confect/admin/auditLog/queries.spec.ts'))).toEqual([
+			'backend'
+		]);
+		expect(categoriesFor(flat('src/lib/confect/admin/auditLog/queries.test.ts'))).toEqual([
 			'backend',
 			'tests'
 		]);
 	});
 
 	it('returns multiple distinct categories and none for unrelated files', () => {
-		const cats = categoriesFor(['src/i18n/de.json', 'src/lib/convex/auth.ts', 'README.md']);
+		const cats = categoriesFor(flat('src/i18n/de.json', 'src/lib/convex/auth.ts', 'README.md'));
 		expect(cats).toContain('i18n');
 		expect(cats).toContain('backend');
 		expect(cats).toHaveLength(2);
-		expect(categoriesFor(['src/lib/components/Button.svelte'])).toEqual([]);
+		expect(categoriesFor(flat('src/lib/components/Button.svelte'))).toEqual([]);
+	});
+});
+
+describe('a change across the move', () => {
+	const layouts = { parent: 'flat', commit: 'workspace' } as const;
+	const renamed = (from: string, to: string) =>
+		changeSides({ status: 'R100', paths: [from, to] }, layouts);
+
+	it('keeps a renamed Confect declaration out of the tests on both sides', () => {
+		const sides = renamed('src/lib/confect/x.spec.ts', 'packages/backend/confect/x.spec.ts');
+
+		expect(sides.map(({ path, layout, owner }) => [path, layout, owner])).toEqual([
+			['src/lib/confect/x.spec.ts', 'flat', 'root'],
+			['packages/backend/confect/x.spec.ts', 'workspace', 'backend']
+		]);
+		expect(sides.map((side) => categoriesFor([side]))).toEqual([['backend'], ['backend']]);
+		expect(isOmittedOnly(sides, ['tests'])).toBe(false);
+	});
+
+	it('counts a renamed test as a test on both sides', () => {
+		const sides = renamed('src/lib/x.test.ts', 'apps/web/src/lib/x.test.ts');
+
+		expect(sides.map((side) => categoriesFor([side]))).toEqual([['tests'], ['tests']]);
+		expect(isOmittedOnly(sides, ['tests'])).toBe(true);
+	});
+
+	it('reads an added path at the commit and a deleted path at the parent', () => {
+		expect(changeSides({ status: 'A', paths: ['packages/ui/x.spec.ts'] }, layouts)).toEqual([
+			changeSide('packages/ui/x.spec.ts', 'workspace')
+		]);
+		expect(changeSides({ status: 'D', paths: ['src/lib/confect/x.spec.ts'] }, layouts)).toEqual([
+			changeSide('src/lib/confect/x.spec.ts', 'flat')
+		]);
 	});
 });
 

@@ -1,5 +1,6 @@
 import { gzipSync } from 'node:zlib';
 import { Header, Pax, type HeaderData } from 'tar';
+import { ARCHIVE_CONTRACTS } from '../src/archive.ts';
 
 export interface TarFixtureEntry {
 	path: string;
@@ -121,4 +122,72 @@ export function validTemplateEntries(): TarFixtureEntry[] {
 		},
 		{ path: 'root/scripts/executable.ts', data: 'export {};', mode: 0o755 }
 	];
+}
+
+/** The members of the version 3 fixture, each with the names it declares as `workspace:*`. */
+export const WORKSPACE_MEMBERS = {
+	'apps/web': {
+		name: '@repo/web',
+		dependencies: ['@repo/backend', '@repo/ui', '@repo/emails', '@repo/product-config']
+	},
+	'packages/backend': {
+		name: '@repo/backend',
+		dependencies: ['@repo/emails', '@repo/product-config']
+	},
+	'packages/ui': { name: '@repo/ui', dependencies: [] },
+	'packages/emails': { name: '@repo/emails', dependencies: ['@repo/ui', '@repo/product-config'] },
+	'packages/product-config': { name: '@repo/product-config', dependencies: [] },
+	'packages/tooling': { name: '@repo/tooling', dependencies: [] },
+	'packages/eslint-plugin': { name: 'eslint-plugin-saas-starter', dependencies: [] },
+	'packages/create-saas-starter': { name: 'create-saas-starter', dependencies: [] }
+} as const satisfies Record<string, { name: string; dependencies: readonly string[] }>;
+
+/** A manifest at `<member>/package.json` for each workspace member. */
+function memberManifests(): TarFixtureEntry[] {
+	return Object.entries(WORKSPACE_MEMBERS).map(([member, { name, dependencies }]) => ({
+		path: `root/${member}/package.json`,
+		data: JSON.stringify({
+			name,
+			dependencies: Object.fromEntries(
+				dependencies.map((dependency) => [dependency, 'workspace:*'])
+			)
+		})
+	}));
+}
+
+/** The valid version 3 template: each file its contract requires, and a manifest per member. */
+export function workspaceTemplateEntries(): TarFixtureEntry[] {
+	const required = ARCHIVE_CONTRACTS[3].requiredFiles.map((path) => ({
+		path: `root/${path}`,
+		data: path === 'package.json' ? workspaceManifest({}) : `fixture ${path}\n`
+	}));
+	return [...required, ...memberManifests()];
+}
+
+/** `entries` with the file at each path of `changes` replaced, removed for `undefined`, or added. */
+export function changedEntries(
+	entries: TarFixtureEntry[],
+	changes: Record<string, string | undefined>
+): TarFixtureEntry[] {
+	const kept = entries.flatMap((entry) => {
+		const path = entry.path.slice('root/'.length);
+		if (!Object.hasOwn(changes, path)) return [entry];
+		const data = changes[path];
+		return data === undefined ? [] : [{ ...entry, data }];
+	});
+	const present = new Set(kept.map(({ path }) => path.slice('root/'.length)));
+	const added = Object.entries(changes).flatMap(([path, data]) =>
+		data === undefined || present.has(path) ? [] : [{ path: `root/${path}`, data }]
+	);
+	return [...kept, ...added];
+}
+
+/** The root manifest of the version 3 fixture with `fields` replaced. */
+export function workspaceManifest(fields: Record<string, unknown>): string {
+	return JSON.stringify({
+		templateSetupVersion: 3,
+		scripts: { setup: 'bun scripts/template-setup.ts' },
+		workspaces: ['apps/*', 'packages/*'],
+		...fields
+	});
 }

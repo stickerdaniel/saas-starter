@@ -1,49 +1,140 @@
+export type Layout = 'flat' | 'workspace';
+
+/** A workspace directory with its trailing slash; the repository root is `''`. */
+export type WorkspaceRoot = '' | `${string}/`;
+
+/** How a set reads the repository paths of one tree. */
+export type Tree =
+	| { readonly layout: 'flat' }
+	| { readonly layout: 'workspace'; readonly workspaces: readonly WorkspaceRoot[] };
+
+export const FLAT_TREE: Tree = { layout: 'flat' };
+
 interface PathSet {
-	readonly includes: (path: string) => boolean;
+	readonly includes: (layout: Layout, workspace: WorkspaceRoot, relativePath: string) => boolean;
 	readonly removedScripts: readonly string[];
 	readonly replacedScripts: Readonly<Record<string, string>>;
 	readonly devDependencies: readonly string[];
 }
 
-const confectDeclaration = /^src\/lib\/confect\/.+\.spec\.ts$/;
+interface Suite {
+	readonly roots?: readonly string[];
+	readonly files?: readonly string[];
+	readonly kept?: readonly string[];
+	readonly declarations?: RegExp;
+}
+
 const suiteFile = /\.(?:test|spec)\.[^/]+$|\.fixtures\.ts$/;
 const suiteDirectory = /(?:^|\/)(?:__fixtures__|__tests__|__snapshots__|test-fixtures)\//;
-const suiteRoots = ['e2e/', '.github/actions/e2e-run/', 'packages/create-saas-starter/test/'];
-const suiteFiles = new Set([
-	'.github/workflows/e2e-preview-cf.yml',
-	'.github/workflows/e2e-preview-vercel.yml',
-	'.github/workflows/reduced-export.yml',
-	'.github/workflows/supersede-preview-e2e.yml',
-	'.github/workflows/template-setup-windows.yml',
-	'.github/workflows/windows-process-lifecycle.yml',
-	'packages/eslint-plugin/src/rules/effect-rule-harness.ts',
-	'playwright.config.ts',
-	'scripts/check-docs-fixture.ts',
-	'scripts/check-reduced-export.ts',
-	'scripts/docs-fixture.ts',
-	'scripts/docs-fixture.vite.config.ts',
-	'scripts/e2e-ci.ts',
-	'scripts/test-executable.ts',
-	'src/lib/analytics/testing/sdk-harness.ts',
-	'src/lib/components/ui/loading-bar/loading-bar-motion.ts',
-	'src/lib/components/ui/loading-bar/loading-bar-test-fixture.svelte',
-	'src/lib/uploads/consumers.ts',
-	'src/lib/uploads/model-capabilities.ts'
+
+function suiteRule({ roots = [], files = [], kept = [], declarations }: Suite) {
+	const suiteFiles = new Set(files);
+	const keptFiles = new Set(kept);
+	return (path: string): boolean =>
+		!declarations?.test(path) &&
+		!keptFiles.has(path) &&
+		(suiteFiles.has(path) ||
+			roots.some((root) => path.startsWith(root)) ||
+			suiteFile.test(path) ||
+			suiteDirectory.test(path));
+}
+
+const flatTests = suiteRule({
+	roots: ['e2e/', '.github/actions/e2e-run/', 'packages/create-saas-starter/test/'],
+	files: [
+		'.github/workflows/e2e-preview-cf.yml',
+		'.github/workflows/e2e-preview-vercel.yml',
+		'.github/workflows/reduced-export.yml',
+		'.github/workflows/supersede-preview-e2e.yml',
+		'.github/workflows/template-setup-windows.yml',
+		'.github/workflows/windows-process-lifecycle.yml',
+		'packages/eslint-plugin/src/rules/effect-rule-harness.ts',
+		'playwright.config.ts',
+		'scripts/check-docs-fixture.ts',
+		'scripts/check-reduced-export.ts',
+		'scripts/docs-fixture.ts',
+		'scripts/docs-fixture.vite.config.ts',
+		'scripts/e2e-ci.ts',
+		'scripts/test-executable.ts',
+		'src/lib/analytics/testing/sdk-harness.ts',
+		'src/lib/components/ui/loading-bar/loading-bar-motion.ts',
+		'src/lib/components/ui/loading-bar/loading-bar-test-fixture.svelte',
+		'src/lib/uploads/consumers.ts',
+		'src/lib/uploads/model-capabilities.ts'
+	],
+	kept: [
+		'src/lib/components/tables/test-fixtures/TableScrollHarness.svelte',
+		'src/lib/components/test-fixtures/StreamdownOverlayHarness.svelte'
+	],
+	declarations: /^src\/lib\/confect\/.+\.spec\.ts$/
+});
+
+const workspaceTests = new Map<WorkspaceRoot, (path: string) => boolean>([
+	[
+		'',
+		suiteRule({
+			roots: ['.github/actions/e2e-run/'],
+			files: [
+				'.github/workflows/e2e-preview-cf.yml',
+				'.github/workflows/e2e-preview-vercel.yml',
+				'.github/workflows/reduced-export.yml',
+				'.github/workflows/supersede-preview-e2e.yml',
+				'.github/workflows/template-setup-windows.yml',
+				'.github/workflows/windows-process-lifecycle.yml',
+				'scripts/check-reduced-export.ts'
+			]
+		})
+	],
+	[
+		'apps/web/',
+		suiteRule({
+			roots: ['e2e/'],
+			files: [
+				'playwright.config.ts',
+				'scripts/check-docs-fixture.ts',
+				'scripts/docs-fixture.ts',
+				'scripts/docs-fixture.vite.config.ts',
+				'scripts/e2e-ci.ts',
+				'src/lib/analytics/testing/sdk-harness.ts'
+			],
+			kept: [
+				'src/lib/components/tables/test-fixtures/TableScrollHarness.svelte',
+				'src/lib/components/test-fixtures/StreamdownOverlayHarness.svelte'
+			]
+		})
+	],
+	[
+		'packages/backend/',
+		suiteRule({
+			files: ['shared/uploads/consumers.ts', 'shared/uploads/model-capabilities.ts'],
+			declarations: /^confect\/.+\.spec\.ts$/
+		})
+	],
+	[
+		'packages/ui/',
+		suiteRule({
+			files: [
+				'src/components/ui/loading-bar/loading-bar-motion.ts',
+				'src/components/ui/loading-bar/loading-bar-test-fixture.svelte'
+			]
+		})
+	],
+	[
+		'packages/tooling/',
+		suiteRule({ files: ['src/private-checkout.ts', 'src/test-executable.ts'] })
+	],
+	['packages/eslint-plugin/', suiteRule({ files: ['src/rules/effect-rule-harness.ts'] })],
+	['packages/create-saas-starter/', suiteRule({ roots: ['test/'] })]
 ]);
-const browserFixtureHarnesses = new Set([
-	'src/lib/components/tables/test-fixtures/TableScrollHarness.svelte',
-	'src/lib/components/test-fixtures/StreamdownOverlayHarness.svelte'
-]);
+
+const productWorkspaceTests = suiteRule({});
 
 export const pathSets = {
 	tests: {
-		includes: (path) =>
-			!confectDeclaration.test(path) &&
-			!browserFixtureHarnesses.has(path) &&
-			(suiteFiles.has(path) ||
-				suiteRoots.some((root) => path.startsWith(root)) ||
-				suiteFile.test(path) ||
-				suiteDirectory.test(path)),
+		includes: (layout, workspace, relativePath) =>
+			layout === 'flat'
+				? flatTests(workspace + relativePath)
+				: (workspaceTests.get(workspace) ?? productWorkspaceTests)(relativePath),
 		removedScripts: [
 			'check:docs-fixture',
 			'check:reduced-export',
@@ -78,7 +169,20 @@ export function isPathSetNameList(value: unknown): value is PathSetName[] {
 	);
 }
 
-export function inPathSets(path: string, names: Iterable<PathSetName>): boolean {
-	for (const name of names) if (pathSets[name].includes(path)) return true;
+/** The workspace of `tree` whose directory holds the repository path `path`, and the path inside it. */
+export function locate(tree: Tree, path: string): [WorkspaceRoot, string] {
+	if (tree.layout === 'flat') return ['', path];
+	const workspace = tree.workspaces.reduce<WorkspaceRoot>(
+		(longest, root) => (root.length > longest.length && path.startsWith(root) ? root : longest),
+		''
+	);
+	return [workspace, path.slice(workspace.length)];
+}
+
+export function inPathSets(tree: Tree, path: string, names: Iterable<PathSetName>): boolean {
+	const [workspace, relativePath] = locate(tree, path);
+	for (const name of names) {
+		if (pathSets[name].includes(tree.layout, workspace, relativePath)) return true;
+	}
 	return false;
 }

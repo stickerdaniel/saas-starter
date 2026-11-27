@@ -45,7 +45,7 @@ import {
 	PathSetDeletionError,
 	reduceManifest
 } from './export-profile';
-import { inPathSets, isPathSetNameList, type PathSetName } from './path-sets';
+import { inPathSets, isPathSetNameList, type PathSetName, type Tree } from './path-sets';
 
 const ROOT = join(import.meta.dirname, '..');
 
@@ -284,8 +284,127 @@ function errorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
 
-const CREATOR_WORKFLOW = '.github/workflows/create-saas-starter.yml';
-const CREATOR_PACKAGE = 'packages/create-saas-starter';
+const MANIFEST = 'package.json';
+const UPSTREAM_SYNC_MARKER = '.upstream-sync.json';
+const SCAFFOLD_MARKER = '.saas-starter-scaffold.json';
+
+/** The tree of one `templateSetupVersion`: every path setup writes or names in its summary. */
+export interface SetupLayout {
+	readonly tree: Tree;
+	/** The `workspaces` entries the root manifest may hold. */
+	readonly workspacePattern: RegExp;
+	readonly files: {
+		readonly manifest: typeof MANIFEST;
+		readonly lock: string;
+		readonly readme: string;
+		readonly wrangler: string;
+		readonly site: string;
+		readonly legal: string;
+		readonly legalDates: string;
+		readonly webManifest: string;
+		readonly appHtml: string;
+		readonly syncMarker: typeof UPSTREAM_SYNC_MARKER;
+	};
+	readonly creator: { readonly workflow: string; readonly package: string };
+	readonly guidance: {
+		readonly logo: string;
+		readonly catalogs: string;
+		readonly legalCopy: string;
+		readonly llms: string;
+		readonly supportInstructions: string;
+	};
+}
+
+const ROOT_FILES = {
+	manifest: MANIFEST,
+	lock: 'bun.lock',
+	readme: 'README.md',
+	syncMarker: UPSTREAM_SYNC_MARKER
+} as const;
+
+const CREATOR = {
+	workflow: '.github/workflows/create-saas-starter.yml',
+	package: 'packages/create-saas-starter'
+} as const;
+
+const LITERAL_WORKSPACE = /^[\w.-]+(?:\/[\w.-]+)*$/;
+
+export const SETUP_LAYOUTS = {
+	2: {
+		tree: { layout: 'flat' },
+		workspacePattern: LITERAL_WORKSPACE,
+		files: {
+			...ROOT_FILES,
+			wrangler: 'wrangler.toml',
+			site: 'src/lib/config/site.ts',
+			legal: 'src/lib/config/legal.ts',
+			legalDates: 'src/lib/content/legal-content-dates.ts',
+			webManifest: 'static/manifest.webmanifest',
+			appHtml: 'src/app.html'
+		},
+		creator: CREATOR,
+		guidance: {
+			logo: 'static/logo.svg',
+			catalogs: 'src/i18n/*.json',
+			legalCopy: 'src/lib/content/legal/*.md',
+			llms: 'src/lib/content/llms.txt',
+			supportInstructions: 'src/lib/confect/support/instructions.txt'
+		}
+	},
+	3: {
+		tree: {
+			layout: 'workspace',
+			workspaces: [
+				'apps/web/',
+				'packages/backend/',
+				'packages/ui/',
+				'packages/emails/',
+				'packages/product-config/',
+				'packages/tooling/',
+				'packages/eslint-plugin/',
+				'packages/create-saas-starter/'
+			]
+		},
+		workspacePattern: /^[\w.-]+(?:\/[\w.-]+)*(?:\/\*)?$/,
+		files: {
+			...ROOT_FILES,
+			wrangler: 'apps/web/wrangler.toml',
+			site: 'packages/product-config/src/config/site.ts',
+			legal: 'packages/product-config/src/config/legal.ts',
+			legalDates: 'apps/web/src/lib/content/legal-content-dates.ts',
+			webManifest: 'apps/web/static/manifest.webmanifest',
+			appHtml: 'apps/web/src/app.html'
+		},
+		creator: CREATOR,
+		guidance: {
+			logo: 'apps/web/static/logo.svg',
+			catalogs: 'packages/product-config/src/i18n/*.json',
+			legalCopy: 'apps/web/src/lib/content/legal/*.md',
+			llms: 'apps/web/src/lib/content/llms.txt',
+			supportInstructions: 'packages/backend/confect/support/instructions.txt'
+		}
+	}
+} as const satisfies Record<number, SetupLayout>;
+
+export type TemplateSetupVersion = keyof typeof SETUP_LAYOUTS;
+
+function isTemplateSetupVersion(value: unknown): value is TemplateSetupVersion {
+	return typeof value === 'number' && Object.hasOwn(SETUP_LAYOUTS, value);
+}
+
+/** The layout the manifest's `templateSetupVersion` names; any other version throws. */
+export function setupLayoutOf(manifest: unknown): SetupLayout {
+	const version =
+		manifest && typeof manifest === 'object' && !Array.isArray(manifest)
+			? (manifest as Record<string, unknown>).templateSetupVersion
+			: undefined;
+	if (!isTemplateSetupVersion(version)) {
+		throw new Error(
+			`${MANIFEST} declares templateSetupVersion ${JSON.stringify(version)}, and this setup reads only ${Object.keys(SETUP_LAYOUTS).join(' and ')}`
+		);
+	}
+	return SETUP_LAYOUTS[version];
+}
 
 function inspectRemovalTarget(rel: string, kind: 'file' | 'directory'): boolean {
 	let parent = REAL_ROOT;
@@ -376,35 +495,41 @@ export function referencesMaintainerCli(command: string): boolean {
 }
 
 /**
- * Setup removes the creator package, so a root workspace may name only literal directories outside
- * it: a glob such as `packages/*` or the creator path would leave the lockfile listing a removed
- * workspace.
+ * Setup removes the creator package, so no root workspace may name it. A version 2 lockfile is
+ * installed frozen, so a glob such as `packages/*` would leave it listing a removed workspace; a
+ * version 3 project reconciles its lockfile after setup, and its patterns need no edit.
  */
-function assertWorkspacesOutsideCreator(workspaces: unknown): void {
+function assertWorkspacesOutsideCreator(workspaces: unknown, layout: SetupLayout): void {
+	const creator = layout.creator.package;
 	if (!Array.isArray(workspaces)) {
 		throw new Error('Invalid package.json: workspaces must be an array of paths');
 	}
 	for (const workspace of workspaces) {
 		if (
 			typeof workspace !== 'string' ||
-			!/^[\w.-]+(?:\/[\w.-]+)*$/.test(workspace) ||
+			!layout.workspacePattern.test(workspace) ||
 			workspace.split('/').some((segment) => segment === '.' || segment === '..') ||
-			workspace === CREATOR_PACKAGE ||
-			workspace.startsWith(`${CREATOR_PACKAGE}/`)
+			workspace === creator ||
+			workspace.startsWith(`${creator}/`)
 		) {
 			throw new Error(
-				`Invalid package.json: workspace ${JSON.stringify(workspace)} must be a literal directory outside ${CREATOR_PACKAGE}`
+				`Invalid package.json: workspace ${JSON.stringify(workspace)} must match ${layout.workspacePattern} and lie outside ${creator}`
 			);
 		}
 	}
 }
 
-export function removeMaintainerCliScripts(value: unknown): Record<string, unknown> {
+export function removeMaintainerCliScripts(
+	value: unknown,
+	layout: SetupLayout
+): Record<string, unknown> {
 	if (!value || typeof value !== 'object' || Array.isArray(value)) {
 		throw new Error('Invalid package.json: expected a manifest object');
 	}
 	const manifest = value as Record<string, unknown>;
-	if (Object.hasOwn(manifest, 'workspaces')) assertWorkspacesOutsideCreator(manifest.workspaces);
+	if (Object.hasOwn(manifest, 'workspaces')) {
+		assertWorkspacesOutsideCreator(manifest.workspaces, layout);
+	}
 	const original = manifest.scripts;
 	if (!original || typeof original !== 'object' || Array.isArray(original)) {
 		throw new Error('Invalid package.json: expected a scripts object');
@@ -444,17 +569,15 @@ export function removeMaintainerCliScripts(value: unknown): Record<string, unkno
 	return { ...manifest, scripts: nextScripts };
 }
 
-function removeMaintainerCliFiles(): void {
-	if (inspectRemovalTarget(CREATOR_WORKFLOW, 'file')) {
-		unlinkSync(join(ROOT, CREATOR_WORKFLOW));
+function removeMaintainerCliFiles({ creator }: SetupLayout): void {
+	if (inspectRemovalTarget(creator.workflow, 'file')) {
+		unlinkSync(join(ROOT, creator.workflow));
 	}
-	if (inspectRemovalTarget(CREATOR_PACKAGE, 'directory')) {
-		rmSync(join(ROOT, CREATOR_PACKAGE), { recursive: true });
+	if (inspectRemovalTarget(creator.package, 'directory')) {
+		rmSync(join(ROOT, creator.package), { recursive: true });
 	}
 }
 
-const UPSTREAM_SYNC_MARKER = '.upstream-sync.json';
-const SCAFFOLD_MARKER = '.saas-starter-scaffold.json';
 const FULL_COMMIT_SHA = /^[0-9a-f]{40}$/;
 
 function gitAtRoot(args: string[]): string | undefined {
@@ -555,6 +678,7 @@ const LISTED_PATHS_SHOWN = 20;
 type SyncMarker = Record<string, unknown> & { omitted?: PathSetName[] };
 
 interface TestRemoval {
+	tree: Tree;
 	files: string[];
 	holder: string;
 	manifest: string;
@@ -601,7 +725,10 @@ function readArchiveList(file: string | undefined): string[] {
 	}
 }
 
-function stagedTestFiles(archiveList: string | undefined): { files: string[]; holder: string } {
+function stagedTestFiles(
+	archiveList: string | undefined,
+	tree: Tree
+): { files: string[]; holder: string } {
 	if (lstatSync(join(ROOT, '.git'), { throwIfNoEntry: false }) || isGitTopLevel()) {
 		fail(`${STAGING_ONLY} This directory is a Git repository, so setup deleted nothing.`);
 	}
@@ -625,7 +752,7 @@ function stagedTestFiles(archiveList: string | undefined): { files: string[]; ho
 	const extracted = new Set(readArchiveList(archiveList));
 	let files: string[];
 	try {
-		files = archiveFiles(ROOT).filter((path) => inPathSets(path, TESTS));
+		files = archiveFiles(ROOT).filter((path) => inPathSets(tree, path, TESTS));
 	} catch (error) {
 		fail(`${errorMessage(error)}. Setup deleted nothing.`);
 	}
@@ -675,13 +802,14 @@ function markerOmitsTests(): boolean {
  */
 async function planTestRemoval(
 	packageFile: CanonicalFile,
-	archiveList: string | undefined
+	archiveList: string | undefined,
+	{ tree }: SetupLayout
 ): Promise<TestRemoval> {
 	const profiles: unknown = JSON.parse(packageFile.source).templateProfiles;
 	if (!isPathSetNameList(profiles) || !profiles.includes('tests')) {
 		fail('--without-tests needs "tests" in templateProfiles of package.json');
 	}
-	const { files, holder } = stagedTestFiles(archiveList);
+	const { files, holder } = stagedTestFiles(archiveList, tree);
 	let manifest: string;
 	try {
 		manifest = reduceManifest(packageFile.source, TESTS);
@@ -697,6 +825,7 @@ async function planTestRemoval(
 	const omitted = [...new Set([...(marker.value?.omitted ?? []), ...TESTS])];
 	if (marker.value) {
 		return {
+			tree,
 			files,
 			holder,
 			manifest,
@@ -705,12 +834,18 @@ async function planTestRemoval(
 		};
 	}
 	const forkPoint = await creationForkPoint().catch(() => undefined);
-	return { files, holder, manifest, nextMarker: { ...(forkPoint && { forkPoint }), omitted } };
+	return {
+		tree,
+		files,
+		holder,
+		manifest,
+		nextMarker: { ...(forkPoint && { forkPoint }), omitted }
+	};
 }
 
 function deleteTestFiles(removal: TestRemoval): string[] {
 	try {
-		return deletePathSets(ROOT, removal.files, TESTS);
+		return deletePathSets(ROOT, removal.files, TESTS, removal.tree);
 	} catch (error) {
 		if (!(error instanceof PathSetDeletionError)) throw error;
 		if (error.deleted.length === 0) fail(`${error.message}, so setup deleted nothing.`);
@@ -1355,12 +1490,12 @@ async function readLegalConfig(file: CanonicalFile): Promise<Record<string, unkn
 	assertOriginalBytes(file);
 	const config = imported.LEGAL_CONFIG;
 	if (config === null || typeof config !== 'object' || Array.isArray(config)) {
-		throw new Error('Could not read LEGAL_CONFIG from src/lib/config/legal.ts');
+		throw new Error(`Could not read LEGAL_CONFIG from ${file.rel}`);
 	}
 	// Setup rewrites only the initializer, so a module from before structured addresses stays incomplete.
 	if (typeof imported.formatPostalAddress !== 'function') {
 		throw new Error(
-			'src/lib/config/legal.ts does not export formatPostalAddress. Copy LegalPostalAddress and formatPostalAddress from the template legal.ts, then rerun setup.'
+			`${file.rel} does not export formatPostalAddress. Copy LegalPostalAddress and formatPostalAddress from the template legal.ts, then rerun setup.`
 		);
 	}
 	// Validate before structuredClone can normalize class instances or null-prototype objects.
@@ -2118,6 +2253,7 @@ async function main() {
 		archiveFiles: archiveList
 	} = readFlags();
 
+	let layout: SetupLayout;
 	let packageFile: CanonicalFile;
 	let lockFile: CanonicalFile | undefined;
 	let wranglerFile: CanonicalFile;
@@ -2128,22 +2264,26 @@ async function main() {
 	let webManifestFile: CanonicalFile;
 	let appHtmlFile: CanonicalFile;
 	try {
-		packageFile = inspectCanonicalFile('package.json');
-		lockFile = inspectOptionalCanonicalFile('bun.lock');
-		wranglerFile = inspectCanonicalFile('wrangler.toml');
-		readmeFile = inspectCanonicalFile('README.md');
-		siteFile = inspectCanonicalFile('src/lib/config/site.ts');
-		legalConfigFile = inspectCanonicalFile('src/lib/config/legal.ts');
-		legalDatesFile = inspectCanonicalFile('src/lib/content/legal-content-dates.ts');
-		webManifestFile = inspectCanonicalFile('static/manifest.webmanifest');
-		appHtmlFile = inspectCanonicalFile('src/app.html');
-		inspectRemovalTarget(CREATOR_WORKFLOW, 'file');
-		inspectRemovalTarget(CREATOR_PACKAGE, 'directory');
+		packageFile = inspectCanonicalFile(MANIFEST);
+		layout = setupLayoutOf(JSON.parse(packageFile.source));
+		const { files, creator } = layout;
+		lockFile = inspectOptionalCanonicalFile(files.lock);
+		wranglerFile = inspectCanonicalFile(files.wrangler);
+		readmeFile = inspectCanonicalFile(files.readme);
+		siteFile = inspectCanonicalFile(files.site);
+		legalConfigFile = inspectCanonicalFile(files.legal);
+		legalDatesFile = inspectCanonicalFile(files.legalDates);
+		webManifestFile = inspectCanonicalFile(files.webManifest);
+		appHtmlFile = inspectCanonicalFile(files.appHtml);
+		inspectRemovalTarget(creator.workflow, 'file');
+		inspectRemovalTarget(creator.package, 'directory');
 	} catch (error) {
 		fail(errorMessage(error));
 	}
 
-	const removal = withoutTests ? await planTestRemoval(packageFile, archiveList) : undefined;
+	const removal = withoutTests
+		? await planTestRemoval(packageFile, archiveList, layout)
+		: undefined;
 
 	const legalConfig = await readLegalConfig(legalConfigFile).catch((error: unknown) =>
 		fail(errorMessage(error))
@@ -2294,7 +2434,10 @@ async function main() {
 	let nextWebManifest: string;
 	let nextAppHtml: string;
 	try {
-		const pkg = removeMaintainerCliScripts(JSON.parse(removal?.manifest ?? packageFile.source));
+		const pkg = removeMaintainerCliScripts(
+			JSON.parse(removal?.manifest ?? packageFile.source),
+			layout
+		);
 		pkg.name = slug;
 		pkg.author = operator;
 		nextPackageJson = JSON.stringify(pkg, null, '\t') + '\n';
@@ -2354,7 +2497,7 @@ async function main() {
 	replaceAtomically(appHtmlFile, nextAppHtml);
 	console.log('  updated app.html');
 
-	removeMaintainerCliFiles();
+	removeMaintainerCliFiles(layout);
 	if (removal) writeSyncMarker(removal);
 	else await recordForkPoint();
 
@@ -2363,6 +2506,7 @@ async function main() {
 			`\nDeleted ${deleted.length} test files. Template commit ${removal.holder} still holds them.`
 		);
 	}
+	const { guidance } = layout;
 	const steps = [
 		...(removal
 			? [
@@ -2370,15 +2514,15 @@ async function main() {
 					'Check the lockfile: bun install --frozen-lockfile'
 				]
 			: []),
-		'Replace static/logo.svg with your logo, then run: bun run generate:logos',
+		`Replace ${guidance.logo} with your logo, then run: bun run generate:logos`,
 		...(markerOmitsTests()
 			? []
 			: ['Refresh email snapshots: bun run test:unit -- email-snapshots.test.ts -u']),
-		'Update editorial brand mentions in src/i18n/*.json (FAQ, hero, marketing prose, pricing tier names)',
-		'Rewrite the About and Contact placeholders and review the legal copy in src/lib/content/legal/*.md',
+		`Update editorial brand mentions in ${guidance.catalogs} (FAQ, hero, marketing prose, pricing tier names)`,
+		`Rewrite the About and Contact placeholders and review the legal copy in ${guidance.legalCopy}`,
 		'Keep each legal route page.md.ts summary aligned with that copy',
-		'Review site.ts structured data and src/lib/content/llms.txt access limits',
-		'Review src/lib/confect/support/instructions.txt'
+		`Review site.ts structured data and ${guidance.llms} access limits`,
+		`Review ${guidance.supportInstructions}`
 	];
 	console.log('\nSetup complete. Next steps:');
 	steps.forEach((step, index) => console.log(`  ${index + 1}. ${step}`));

@@ -26,11 +26,19 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import {
+	FLAT_TREE,
 	inPathSets,
 	isPathSetNameList,
-	pathSets,
-	type PathSetName
+	type PathSetName,
+	type Tree
 } from '../../../../scripts/path-sets';
+import {
+	layoutOf,
+	workspaceAt,
+	WORKSPACES,
+	type Layout,
+	type StarterWorkspace
+} from '../layout/v3';
 import { staleMarkerMessage } from './stale-marker';
 
 const MARKER = '.upstream-sync.json';
@@ -56,26 +64,80 @@ function git(args: string[], allowFail = false): string {
 	return gitOutput(args, allowFail).trim();
 }
 
+const TREES: Record<Layout, Tree> = {
+	flat: FLAT_TREE,
+	workspace: {
+		layout: 'workspace',
+		workspaces: Object.values(WORKSPACES).map(({ root }) => root)
+	}
+};
+
+/** One side of a changed path: the path at one revision, that revision's layout and the path's owner. */
+export interface ChangeSide {
+	readonly path: string;
+	readonly layout: Layout;
+	readonly owner: StarterWorkspace;
+}
+
+export function changeSide(path: string, layout: Layout): ChangeSide {
+	return { path, layout, owner: workspaceAt(path) };
+}
+
+/** A `git show --name-status` record: the status letter and the old path first for a rename or copy. */
+export interface ChangeRecord {
+	readonly status: string;
+	readonly paths: readonly string[];
+}
+
+/**
+ * The sides of a record. The old path takes the layout of the commit's first parent and the new
+ * path the layout of the commit; an added path has only the new side and a deleted one only the old.
+ */
+export function changeSides(
+	{ status, paths }: ChangeRecord,
+	layouts: { readonly parent: Layout; readonly commit: Layout }
+): ChangeSide[] {
+	const [before = '', after = before] = paths;
+	if (status.startsWith('A')) return [changeSide(before, layouts.commit)];
+	if (status.startsWith('D')) return [changeSide(before, layouts.parent)];
+	return [changeSide(before, layouts.parent), changeSide(after, layouts.commit)];
+}
+
 // Divergence categories: which fork-divergence area a changed path belongs to.
 // Generic shapes, not fork specifics. Used to flag commits that need adaptation.
-const CATEGORY_RULES: Array<[string, { test: (path: string) => boolean }]> = [
-	['i18n', /^src\/i18n\/|\bmessages?\/|\.ftl$/],
-	['theme', /layout\.css$|app\.css$|tailwind|theme|design-?tokens|design-?system/i],
+const CATEGORY_RULES: Array<[string, (side: ChangeSide) => boolean]> = [
+	['i18n', ({ path }) => /^src\/i18n\/|\bmessages?\/|\.ftl$/.test(path)],
+	[
+		'theme',
+		({ path }) => /layout\.css$|app\.css$|tailwind|theme|design-?tokens|design-?system/i.test(path)
+	],
 	[
 		'env/deploy',
-		/^\.env|wrangler|vercel|fly\.|dockerfile|^scripts\/deploy|convex\.config|\.github\/workflows\//i
+		({ path }) =>
+			/^\.env|wrangler|vercel|fly\.|dockerfile|^scripts\/deploy|convex\.config|\.github\/workflows\//i.test(
+				path
+			)
 	],
-	['branding', /legal|brand|marketing|logo|seo|manifest|favicon/i],
-	['backend', /^src\/lib\/(?:convex|confect|convex-components)\/|^convex\//],
-	['tests', { test: pathSets.tests.includes }],
+	['branding', ({ path }) => /legal|brand|marketing|logo|seo|manifest|favicon/i.test(path)],
+	[
+		'backend',
+		({ path, layout, owner }) =>
+			layout === 'workspace'
+				? owner === 'backend'
+				: /^src\/lib\/(?:convex|confect|convex-components)\/|^convex\//.test(path)
+	],
+	['tests', ({ path, layout }) => inPathSets(TREES[layout], path, ['tests'])],
 	[
 		'config',
-		/package\.json$|tsconfig|eslint|oxlint|\.prettier|knip|components\.json$|svelte\.config/i
+		({ path }) =>
+			/package\.json$|tsconfig|eslint|oxlint|\.prettier|knip|components\.json$|svelte\.config/i.test(
+				path
+			)
 	]
 ];
-export function categoriesFor(files: string[]): string[] {
+export function categoriesFor(sides: readonly ChangeSide[]): string[] {
 	const hit = new Set<string>();
-	for (const f of files) for (const [cat, re] of CATEGORY_RULES) if (re.test(f)) hit.add(cat);
+	for (const side of sides) for (const [cat, rule] of CATEGORY_RULES) if (rule(side)) hit.add(cat);
 	return [...hit];
 }
 
@@ -108,21 +170,27 @@ export function isExcluded(fullSha: string, excludedShas: readonly string[]): bo
 	return excludedShas.some((sha) => sha.length >= 7 && fullSha.startsWith(sha.toLowerCase()));
 }
 
-/** The paths of each `git show -z --name-status` record, the source first for a rename or copy. */
-function changeRecords(output: string): string[][] {
+/** The records of `git show -z --name-status`. */
+function changeRecords(output: string): ChangeRecord[] {
 	const fields = output.split('\0').filter(Boolean);
-	const records: string[][] = [];
+	const records: ChangeRecord[] = [];
 	for (let index = 0; index < fields.length;) {
-		const count = /^[RC]/.test(fields[index] ?? '') ? 2 : 1;
-		records.push(fields.slice(index + 1, index + 1 + count));
+		const status = fields[index] ?? '';
+		const count = /^[RC]/.test(status) ? 2 : 1;
+		records.push({ status, paths: fields.slice(index + 1, index + 1 + count) });
 		index += 1 + count;
 	}
 	return records;
 }
 
-/** A commit that touches only paths of the sets this project omits; it still gets reviewed. */
-export function isOmittedOnly(files: readonly string[], omitted: readonly PathSetName[]): boolean {
-	return files.length > 0 && files.every((file) => inPathSets(file, omitted));
+/** A commit whose every side lies in the sets this project omits; it still gets reviewed. */
+export function isOmittedOnly(
+	sides: readonly ChangeSide[],
+	omitted: readonly PathSetName[]
+): boolean {
+	return (
+		sides.length > 0 && sides.every(({ path, layout }) => inPathSets(TREES[layout], path, omitted))
+	);
 }
 
 function main() {
@@ -184,6 +252,12 @@ function main() {
 	]);
 	const rows = raw ? raw.split('\n') : [];
 
+	const layouts = new Map<string, Layout>();
+	const layoutAt = (revision: string) => {
+		const layout = layouts.get(revision) ?? layoutOf(revision, root);
+		layouts.set(revision, layout);
+		return layout;
+	};
 	const commits = rows.map((line) => {
 		const [sha = '', fullSha = '', author = '', subject = ''] = line.split('\t');
 		const records = changeRecords(
@@ -192,7 +266,8 @@ function main() {
 				true
 			)
 		);
-		const files = records.flatMap((paths) => paths.slice(-1));
+		const sideLayouts = { parent: layoutAt(`${fullSha}^1`), commit: layoutAt(fullSha) };
+		const sides = records.flatMap((record) => changeSides(record, sideLayouts));
 		const { priority, type } = classify(subject, author);
 		return {
 			sha,
@@ -200,10 +275,10 @@ function main() {
 			subject,
 			type,
 			priority,
-			files: files.length,
-			categories: categoriesFor(files),
+			files: records.length,
+			categories: categoriesFor(sides),
 			alreadyExcluded: isExcluded(fullSha, excluded),
-			...(isOmittedOnly(records.flat(), omitted) && { omittedOnly: true })
+			...(isOmittedOnly(sides, omitted) && { omittedOnly: true })
 		};
 	});
 

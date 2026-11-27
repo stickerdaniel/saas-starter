@@ -82,8 +82,8 @@ function activeSignal(): AbortSignal {
 	return new AbortController().signal;
 }
 
-function archive(files: ValidatedArchive['files'] = []): ValidatedArchive {
-	return { sha256: 'b'.repeat(64), files };
+function archive(files: ValidatedArchive['files'] = []): Pick<ValidatedArchive, 'files'> {
+	return { files };
 }
 
 describe('target ownership', () => {
@@ -361,8 +361,7 @@ describe('target ownership', () => {
 		const plan = await inspectTarget('project', parent);
 		let current = marker();
 		await claimTarget(plan, current, activeSignal());
-		const archive: ValidatedArchive = {
-			sha256: 'b'.repeat(64),
+		const archive: Pick<ValidatedArchive, 'files'> = {
 			files: [
 				{ path: 'nested', type: 'directory', mode: 0o755 },
 				{ path: 'nested/file.txt', type: 'file', data: Buffer.from('content'), mode: 0o644 }
@@ -391,8 +390,7 @@ describe('target ownership', () => {
 		const parent = await temporaryParent('create-saas-starter-write-abort-');
 		const plan = await inspectTarget('project', parent);
 		await claimTarget(plan, marker(), activeSignal());
-		const archive: ValidatedArchive = {
-			sha256: 'b'.repeat(64),
+		const archive: Pick<ValidatedArchive, 'files'> = {
 			files: [
 				{ path: 'first.txt', type: 'file', data: Buffer.from('first'), mode: 0o644 },
 				{ path: 'second.txt', type: 'file', data: Buffer.from('second'), mode: 0o644 }
@@ -424,8 +422,7 @@ describe('target ownership', () => {
 		const plan = await inspectTarget('project', parent);
 		await claimTarget(plan, marker(), activeSignal());
 		await writeFile(path.join(plan.path, 'foreign.txt'), 'foreign');
-		const archive: ValidatedArchive = {
-			sha256: 'b'.repeat(64),
+		const archive: Pick<ValidatedArchive, 'files'> = {
 			files: [{ path: 'foreign.txt', type: 'file', data: Buffer.from('creator'), mode: 0o644 }]
 		};
 

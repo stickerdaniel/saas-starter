@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { deletePathSets, reduceManifest } from './export-profile';
+import { FLAT_TREE } from './path-sets';
 
 const manifestText = readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf8');
 
@@ -108,7 +109,7 @@ describe('deletePathSets', () => {
 			writeFileSync(join(tree, file), '');
 		}
 
-		expect(deletePathSets(tree, tracked, ['tests'])).toEqual([
+		expect(deletePathSets(tree, tracked, ['tests'], FLAT_TREE)).toEqual([
 			'e2e/utils/auth.ts',
 			'src/lib/effect/clock.test.ts'
 		]);
@@ -133,8 +134,8 @@ describe('deletePathSets', () => {
 		writeFileSync(join(tree, 'e2e/utils/auth.ts'), '');
 		mkdirSync(join(tree, 'scripts/__fixtures__/static-checks'), { recursive: true });
 
-		expect(deletePathSets(tree, tracked, ['tests'])).toEqual(['e2e/utils/auth.ts']);
-		expect(deletePathSets(tree, tracked, ['tests'])).toEqual([]);
+		expect(deletePathSets(tree, tracked, ['tests'], FLAT_TREE)).toEqual(['e2e/utils/auth.ts']);
+		expect(deletePathSets(tree, tracked, ['tests'], FLAT_TREE)).toEqual([]);
 		expect(
 			['e2e', 'scripts/__fixtures__/static-checks'].filter((path) => existsSync(join(tree, path)))
 		).toEqual(['scripts/__fixtures__/static-checks']);
@@ -144,7 +145,7 @@ describe('deletePathSets', () => {
 		tree = mkdtempSync(join(tmpdir(), 'export-profile-'));
 		mkdirSync(join(tree, 'e2e'));
 
-		expect(deletePathSets(tree, ['e2e/public-a11y.spec.ts'], ['tests'])).toEqual([]);
+		expect(deletePathSets(tree, ['e2e/public-a11y.spec.ts'], ['tests'], FLAT_TREE)).toEqual([]);
 		expect(existsSync(join(tree, 'e2e'))).toBe(true);
 	});
 
@@ -158,7 +159,7 @@ describe('deletePathSets', () => {
 			symlinkSync(outside, join(tree, 'e2e'), process.platform === 'win32' ? 'junction' : 'dir');
 
 			expect(() =>
-				deletePathSets(tree, ['app/app.test.ts', 'e2e/public.spec.ts'], ['tests'])
+				deletePathSets(tree, ['app/app.test.ts', 'e2e/public.spec.ts'], ['tests'], FLAT_TREE)
 			).toThrow('Could not delete e2e/public.spec.ts: its ancestor e2e is no directory');
 			expect(existsSync(join(outside, 'public.spec.ts'))).toBe(true);
 			expect(existsSync(join(tree, 'app/app.test.ts'))).toBe(true);
@@ -172,9 +173,9 @@ describe('deletePathSets', () => {
 		mkdirSync(join(tree, 'e2e/utils'), { recursive: true });
 		writeFileSync(join(tree, 'e2e/a.spec.ts'), '');
 
-		expect(() => deletePathSets(tree, ['e2e/a.spec.ts', 'e2e/utils'], ['tests'])).toThrow(
-			'Could not delete e2e/utils: it is no regular file'
-		);
+		expect(() =>
+			deletePathSets(tree, ['e2e/a.spec.ts', 'e2e/utils'], ['tests'], FLAT_TREE)
+		).toThrow('Could not delete e2e/utils: it is no regular file');
 		expect(existsSync(join(tree, 'e2e/a.spec.ts'))).toBe(true);
 	});
 });
