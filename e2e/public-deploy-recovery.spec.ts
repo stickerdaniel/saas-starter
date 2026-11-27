@@ -67,3 +67,71 @@ test.describe('deploy stale-chunk recovery', () => {
 		expect(await page.evaluate(() => (window as SentinelWindow).__reloadSentinel)).toBe(true);
 	});
 });
+
+// Cheaper layers rejected because: the reload follows a real failed dynamic import
+// on the landing, which only a browser that runs the landing's scripts produces.
+test.describe('deploy stale-chunk recovery on the landing', () => {
+	const FAILED_IMPORT =
+		/^Failed to fetch dynamically imported module: \S+\/_app\/immutable\/\S+\.js$/;
+	const allowed: RegExp[] = [];
+	test.use({ allowedClientErrors: allowed });
+
+	test('a missing support chunk reloads the landing once and support opens', async ({
+		page,
+		clientErrors
+	}) => {
+		allowed.length = 0;
+		const documents = new Set<number>();
+		const preloadErrors: number[] = [];
+		await page.exposeBinding('__e2eRecoveryProbe', ({ frame }, kind: string, origin: number) => {
+			if (frame !== page.mainFrame()) return;
+			if (kind === 'document') documents.add(origin);
+			if (kind === 'preloadError') preloadErrors.push(origin);
+		});
+		await page.addInitScript(() => {
+			const report = (window as unknown as Record<string, (kind: string, origin: number) => void>)
+				.__e2eRecoveryProbe;
+			report('document', performance.timeOrigin);
+			window.addEventListener('vite:preloadError', () =>
+				report('preloadError', performance.timeOrigin)
+			);
+		});
+
+		let failedUrl: string | null = null;
+		let notFoundCount = 0;
+		await page.route('**/_app/immutable/**/*.js', async (route) => {
+			if (failedUrl) return route.fallback();
+			const response = await route.fetch();
+			const body = await response.text();
+			if (!failedUrl && body.includes('support.screenshot.error.email_subject')) {
+				failedUrl = route.request().url();
+				notFoundCount += 1;
+				return route.fulfill({ status: 404, body: '' });
+			}
+			return route.fulfill({ response, body });
+		});
+
+		await page.goto('/en?support=open');
+		await expect(page.getByRole('button', { name: 'Close feedback' })).toBeVisible({
+			timeout: 30_000
+		});
+		await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+		expect(failedUrl).not.toBeNull();
+		expect(notFoundCount).toBe(1);
+
+		await expect.poll(() => preloadErrors.length).toBe(1);
+		const [firstDocument] = documents;
+		expect(preloadErrors[0]).toBe(firstDocument);
+		await page.waitForTimeout(3_000);
+		expect(documents.size).toBe(2);
+		expect(await page.evaluate(() => sessionStorage.getItem('sk:preload-reloaded'))).toBe('1');
+
+		const exact = new RegExp(
+			`^Failed to fetch dynamically imported module: ${(failedUrl ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`
+		);
+		allowed.push(exact);
+		const failedImports = clientErrors.filter((message) => FAILED_IMPORT.test(message));
+		expect(failedImports.length).toBeLessThanOrEqual(1);
+		expect(failedImports.every((message) => exact.test(message))).toBe(true);
+	});
+});

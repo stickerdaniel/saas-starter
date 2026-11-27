@@ -212,6 +212,9 @@
 	/* Micro labels: avatar initials, unread counts, and small badges. No line-height
 	   companion, so the element keeps the one it inherits. */
 	--text-2xs: 0.625rem;
+	/* Inline code in legal pages, relative to the surrounding text. No line-height
+	   companion, so the code keeps the line height of its paragraph. */
+	--text-code: 0.9em;
 	/* Line height of the full chat composers. */
 	--leading-composer: 1.3;
 
@@ -357,6 +360,15 @@
    caller's rounded-* replaces it and it replaces Button's rounded-md. */
 @utility rounded-theme-pill {
 	border-radius: calc(9999px * sign(var(--radius)));
+}
+
+/* Floating full text that refits to the live viewport. Either side of a trigger holds
+   at least half the viewport minus the trigger and its offset, so the height fits on
+   the side the popover flips to; longer text scrolls. */
+@utility toggletip-bounds {
+	max-width: min(var(--container-xs), calc(100dvw - 2rem));
+	max-height: calc(50dvh - 1.5rem);
+	overflow-y: auto;
 }
 
 /* Tooltip arrow nudges per placed side, which the translate scale has no steps for.

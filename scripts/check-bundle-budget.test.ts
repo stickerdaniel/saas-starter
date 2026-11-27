@@ -18,6 +18,8 @@ const ROUTES: PageRoute[] = [
 ];
 const UNSET = ['PUBLIC_SENTRY_DSN'];
 const EFFECT_MODULE = 'node_modules/effect/dist/Effect.js';
+const PARSER_MODULE = 'node_modules/svelte-streamdown/node_modules/marked/lib/marked.esm.js';
+const PRIVACY = '/[[lang]]/(marketing)/privacy';
 
 const chunk = (fileName: string, parts: Partial<GraphChunk> = {}): GraphChunk => ({
 	fileName,
@@ -50,7 +52,8 @@ const baseGraph = (overrides: Record<string, Partial<GraphChunk>> = {}): ModuleG
 			imports: ['_app/immutable/chunks/widget-deps.js', '_app/immutable/chunks/runtime.js']
 		}),
 		chunk('_app/immutable/chunks/widget-deps.js'),
-		chunk('_app/immutable/chunks/effect.js', { modules: [EFFECT_MODULE] })
+		chunk('_app/immutable/chunks/effect.js', { modules: [EFFECT_MODULE] }),
+		chunk('_app/immutable/chunks/parser.js', { modules: [PARSER_MODULE] })
 	];
 	return {
 		unsetPublicEnv: UNSET,
@@ -79,8 +82,14 @@ const unchanged = budget({
 describe('measureRoutes', () => {
 	it('sums the initial closure of entries, layouts, page and static imports, and the lazy closure', () => {
 		expect(measure(baseGraph()).measures).toEqual([
-			{ id: MARKETING, initial: 7 * SIZE, lazy: 2 * SIZE, initialEffectModules: [] },
-			{ id: APP, initial: 8 * SIZE, lazy: 0, initialEffectModules: [] }
+			{
+				id: MARKETING,
+				initial: 7 * SIZE,
+				lazy: 2 * SIZE,
+				initialEffectModules: [],
+				markdownParserModules: []
+			},
+			{ id: APP, initial: 8 * SIZE, lazy: 0, initialEffectModules: [], markdownParserModules: [] }
 		]);
 	});
 
@@ -187,6 +196,47 @@ describe('checkBudget', () => {
 		expect(checkBudget(measure(graph), tight)).toEqual({ failures: [], compareSizes: false });
 		expect(checkBudget(measure(baseGraph()), tight).failures).toHaveLength(3);
 	});
+
+	describe('legal pages', () => {
+		const routes: PageRoute[] = [...ROUTES, { id: PRIVACY, nodes: [0, 2, 6] }];
+		const legalGraph = (parts: Partial<GraphChunk> = {}) => {
+			const graph = baseGraph();
+			graph.chunks.push(node(6, parts));
+			return graph;
+		};
+		const check = (graph: ModuleGraph) =>
+			checkBudget(
+				{ unsetPublicEnv: UNSET, ...measureRoutes(graph, ENTRIES, routes, () => SIZE) },
+				{ ...unchanged, routes: { ...unchanged.routes, [PRIVACY]: { initial: 0, lazy: 0 } } }
+			).failures.filter((failure) => failure.includes('Markdown parser'));
+
+		it('fails a legal page that ships a Markdown parser, also through a lazy chunk', () => {
+			const parser = '_app/immutable/chunks/parser.js';
+
+			expect(check(legalGraph({ imports: [parser] }))).toEqual([
+				expect.stringContaining(
+					`${PRIVACY}: the page reaches 1 Markdown parser modules (${PARSER_MODULE})`
+				)
+			]);
+			expect(check(legalGraph({ dynamicImports: [parser] }))).toEqual([
+				expect.stringContaining(`${PRIVACY}: the page reaches 1 Markdown parser modules`)
+			]);
+			expect(check(legalGraph())).toEqual([]);
+		});
+
+		it("ignores another route's parser, such as the home page's lazy support chat", () => {
+			const graph = legalGraph();
+			graph.chunks = graph.chunks.map((c) =>
+				c.fileName === ENTRIES[1]
+					? { ...c, dynamicImports: ['_app/immutable/nodes/4.js', '_app/immutable/nodes/6.js'] }
+					: c.fileName === '_app/immutable/nodes/4.js'
+						? { ...c, dynamicImports: ['_app/immutable/chunks/parser.js'] }
+						: c
+			);
+
+			expect(check(graph)).toEqual([]);
+		});
+	});
 });
 
 describe('support widget', () => {
@@ -246,7 +296,8 @@ describe('support widget', () => {
 			id: MARKETING,
 			initial: 8 * SIZE,
 			lazy: 2 * SIZE,
-			initialEffectModules: []
+			initialEffectModules: [],
+			markdownParserModules: []
 		});
 		expect(lazyChunks).toEqual([{ name: SUPPORT_WIDGET.name, lazy: 3 * SIZE }]);
 		expect(checkBudget(measureWidget(widgetGraph()), widgetBudget).failures).toEqual([]);

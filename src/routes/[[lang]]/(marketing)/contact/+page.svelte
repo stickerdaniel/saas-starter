@@ -4,7 +4,7 @@
 	import ObfuscatedEmail from '#lib/components/obfuscated-email.svelte';
 	import SEOHead from '#lib/components/SEOHead.svelte';
 	import { LEGAL_CONFIG } from '#lib/config/legal.js';
-	import { contactMarkdown as source } from '#lib/content/contact.js';
+	import { contactDocument as source } from '#lib/content/contact.js';
 	import { localizedHref } from '#lib/utils/i18n.js';
 	import { getTranslate } from '@tolgee/svelte';
 

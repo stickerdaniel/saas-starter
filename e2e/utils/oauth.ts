@@ -67,11 +67,16 @@ export async function fetchMetadata(request: APIRequestContext): Promise<Metadat
 
 export const resourceOf = (metadata: Metadata) => `${new URL(metadata.token_endpoint).origin}/mcp`;
 
-export const register = (request: APIRequestContext, metadata: Metadata, name: string) =>
+export const register = (
+	request: APIRequestContext,
+	metadata: Metadata,
+	name: string,
+	redirectUri = REDIRECT_URI
+) =>
 	request.post(metadata.registration_endpoint, {
 		data: {
 			client_name: name,
-			redirect_uris: [REDIRECT_URI],
+			redirect_uris: [redirectUri],
 			token_endpoint_auth_method: 'none',
 			grant_types: ['authorization_code', 'refresh_token'],
 			response_types: ['code']
@@ -81,9 +86,10 @@ export const register = (request: APIRequestContext, metadata: Metadata, name: s
 export async function registerClient(
 	request: APIRequestContext,
 	metadata: Metadata,
-	name: string
+	name: string,
+	redirectUri = REDIRECT_URI
 ): Promise<string> {
-	const response = await register(request, metadata, name);
+	const response = await register(request, metadata, name, redirectUri);
 	expect(response.status()).toBe(201);
 	return Schema.decodeUnknownSync(Registration)(await response.json()).client_id;
 }
@@ -118,13 +124,14 @@ export type Authorization = { url: string; verifier: string };
 export function authorization(
 	metadata: Metadata,
 	clientId: string,
-	scope: string | null
+	scope: string | null,
+	redirectUri = REDIRECT_URI
 ): Authorization {
 	const verifier = randomBytes(48).toString('base64url');
 	const params = new URLSearchParams({
 		response_type: 'code',
 		client_id: clientId,
-		redirect_uri: REDIRECT_URI,
+		redirect_uri: redirectUri,
 		state: randomBytes(8).toString('base64url'),
 		code_challenge: createHash('sha256').update(verifier).digest('base64url'),
 		code_challenge_method: 'S256',

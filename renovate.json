@@ -156,11 +156,6 @@
 			"allowedVersions": "<0.2.1"
 		},
 		{
-			"description": "Hold bits-ui below 2.21.0: 2.21.0 no longer opens a Tooltip on focus after a touch (huntabyte/bits-ui#2245), which TruncatedText relies on to show clipped text on touch, and src/lib/components/truncated-text.svelte.test.ts fails. Remove once TruncatedText opens clipped text with a tap instead.",
-			"matchPackageNames": ["bits-ui"],
-			"allowedVersions": "<2.21.0"
-		},
-		{
 			"description": "Hold @sveltejs/adapter-cloudflare below 8.0.3: 8.0.3 gives the SSR build the workerd resolve conditions, so @sentry/sveltekit resolves to its workerd entry with a static cloudflare:workers import, and SvelteKit's route analysis fails in Node with ERR_UNSUPPORTED_ESM_URL_SCHEME in every production build that sets PUBLIC_SENTRY_DSN. Remove once a production build with Sentry passes on the newer adapter.",
 			"matchPackageNames": ["@sveltejs/adapter-cloudflare"],
 			"allowedVersions": "<8.0.3"

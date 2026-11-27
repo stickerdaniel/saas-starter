@@ -517,8 +517,8 @@ describe('template setup writes importable branding values', () => {
 			LEGAL_CONFIG: imported.value!.config
 		}));
 		try {
-			const { aboutMarkdown } = await import('../src/lib/content/about');
-			expect(aboutMarkdown.literals).toEqual({
+			const { aboutDocument } = await import('../src/lib/content/about');
+			expect(aboutDocument.literals).toEqual({
 				BRAND_NAME: 'Northwind Labs',
 				OPERATOR_FIRST_NAME: 'Anne'
 			});

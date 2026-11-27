@@ -46,6 +46,8 @@ Self-hosting gives you unlimited keys and full control. The easiest way is using
 
    ```bash
    VITE_TOLGEE_API_URL=https://tolgee.yourdomain.com
+   TOLGEE_API_KEY=your_self_hosted_api_key
+   # Optional: in-context editing in dev
    VITE_TOLGEE_API_KEY=your_self_hosted_api_key
    ```
 
@@ -62,9 +64,10 @@ That's it! The deploy script (`scripts/deploy.ts`) automatically reads from `.to
 1. Create a free account at [app.tolgee.io](https://app.tolgee.io)
 2. Create a new project
 3. Go to **Project Settings → API keys → Create API key**
-4. Copy your API key and add it to `.env.local`:
+4. Copy your API key and add it to `.env.local`. The `i18n:*` scripts read `TOLGEE_API_KEY`; `VITE_TOLGEE_API_KEY` turns on in-context editing in dev:
 
 ```bash
+TOLGEE_API_KEY=your_api_key_here
 VITE_TOLGEE_API_KEY=your_api_key_here
 ```
 
@@ -241,7 +244,7 @@ The CLI is already installed and configured with:
 - **Config:** `.tolgeerc` (committed, holds `apiUrl`, format, and push/pull paths, no secrets)
 - **Translations:** `src/i18n/{language}.json` files
 
-The API key is never stored in the config file. The `i18n:*` package scripts pass it from the `VITE_TOLGEE_API_KEY` env var (loaded by varlock), so set that in `.env.local` before running any CLI command.
+The API key is never stored in the config file. The Tolgee CLI reads it from the `TOLGEE_API_KEY` env var, which varlock loads for the `i18n:*` scripts, so set that in `.env.local` before running any CLI command.
 
 ### Workflow Options
 
@@ -384,7 +387,7 @@ Example:
 
 ### Translations Not Loading
 
-1. Verify `VITE_TOLGEE_API_KEY` is set in `.env.local`
+1. Verify `VITE_TOLGEE_API_KEY` is set in `.env.local` and the Tolgee server answers; without either, dev logs `RecordFetchError` and falls back to the committed JSON
 2. Check Tolgee project has translations for all languages
 3. Check browser console for errors
 
