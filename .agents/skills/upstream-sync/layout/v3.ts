@@ -328,6 +328,8 @@ const WEB_SCRIPTS = [
 	'convex-vite-secret-logging.test.ts',
 	'css-sources.ts',
 	'deploy.ts',
+	'desk-computer-frame.ts',
+	'desk-computer-frame.test.ts',
 	'dev-cloud.ts',
 	'dev-cloud.test.ts',
 	'dev-convex-cloud.ts',
