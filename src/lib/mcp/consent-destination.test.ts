@@ -40,6 +40,11 @@ describe('consentDestination', () => {
 	});
 
 	it('knows no destination for a scheme that a website can register a handler for', () => {
-		expect(destinationOf('web+app://callback.example/oauth')).toEqual({ kind: 'unknown' });
+		for (const redirectUri of [
+			'web+app://callback.example/oauth',
+			'matrix://callback.example/oauth'
+		]) {
+			expect(destinationOf(redirectUri), redirectUri).toEqual({ kind: 'unknown' });
+		}
 	});
 });
