@@ -30,7 +30,7 @@ export interface ResolvedOptions {
 	yes: boolean;
 	trustTemplate: boolean;
 	skipInstall: boolean;
-	withTests: boolean;
+	withoutTests: boolean;
 	dryRun: boolean;
 }
 

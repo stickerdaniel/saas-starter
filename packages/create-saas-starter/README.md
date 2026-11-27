@@ -12,7 +12,7 @@ Without arguments, the CLI interactively prompts for the target, project and rep
 
 The CLI downloads one resolved GitHub revision, validates the complete archive before writing, and runs the template's public setup command before installing its locked dependencies. It never overwrites an existing path.
 
-The project leaves out the template's test suite unless you pass `--with-tests`. A template revision that cannot leave it out yields the full project, and the CLI says so.
+The project includes the template's test suite, and `--without-tests` leaves it out.
 
 Use `create-saas-starter --help` for all options. Automated use must provide the required values and `--trust-template` explicitly. `--yes` does not grant trust or permission to overwrite. `--dry-run` performs local validation only, without prompts, network access, child processes, or writes.
 

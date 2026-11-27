@@ -1,24 +1,14 @@
 import { EventEmitter } from 'node:events';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import {
-	lstat,
-	mkdir,
-	mkdtemp,
-	readdir,
-	readFile,
-	realpath,
-	rm,
-	rmdir,
-	writeFile
-} from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { assertSupportedNodeVersion, runCli, type CliIo, type CliRuntime } from '../src/index.js';
 import { SCAFFOLD_MARKER } from '../src/archive.js';
 import { DEFAULT_TEMPLATE_SHA } from '../src/options.js';
-import { publishStagedTarget, updateMarker } from '../src/target.js';
+import { createStagingTarget, publishStagedTarget, updateMarker } from '../src/target.js';
 import { runProcess, runSetupAndInstall } from '../src/process.js';
 import { tarGz, validTemplateEntries, type TarFixtureEntry } from './archive-fixture.js';
 import { cliChildWork, removeDirectories, settleChildWork } from './child-work.js';
@@ -493,7 +483,13 @@ function templateWithProfiles(profiles?: string): TarFixtureEntry[] {
 	];
 }
 
-const LEGACY_NOTICE = `Template revision ${DEFAULT_TEMPLATE_SHA} cannot leave out the test suite, so the project includes it.`;
+/** Keeps staging inside `parent`, so the test removes only the directory it created. */
+function stagingIn(parent: string): Partial<CliRuntime> {
+	return {
+		createStagingTarget: (target, marker, signal, options) =>
+			createStagingTarget(target, marker, signal, { ...options, root: parent })
+	};
+}
 
 describe('template profiles', () => {
 	/** Runs the CLI with fake setup and install children and records what they received. */
@@ -503,7 +499,7 @@ describe('template profiles', () => {
 		args: string[],
 		given: { setup?: number; install?: number; company?: string } = {}
 	) {
-		const { messages, cli } = await fixtureIo(signal);
+		const { parent, messages, cli } = await fixtureIo(signal);
 		vi.spyOn(globalThis, 'fetch').mockResolvedValue(responseFromBuffer(tarGz(entries)));
 		const children: string[][] = [];
 		let staging: string | undefined;
@@ -514,6 +510,7 @@ describe('template profiles', () => {
 			argument === 'Company' ? (given.company ?? argument) : argument
 		);
 		const code = await cli(projectArguments, {
+			...stagingIn(parent),
 			runSetupAndInstall: async (input) => {
 				staging = input.target;
 				return await runSetupAndInstall({
@@ -575,10 +572,10 @@ describe('template profiles', () => {
 		}
 	);
 
-	it('leaves the test suite out by default and hands setup the extracted files', async ({
+	it('leaves the test suite out with --without-tests and hands setup the extracted files', async ({
 		signal
 	}) => {
-		const run = await runProfile(signal, templateWithProfiles('["tests"]'), []);
+		const run = await runProfile(signal, templateWithProfiles('["tests"]'), ['--without-tests']);
 
 		expect(run.code).toBe(0);
 		expect(run.setup.slice(-2)).toEqual(['--without-tests', `--archive-files=${run.list}`]);
@@ -604,69 +601,98 @@ describe('template profiles', () => {
 		]);
 		expect(run.installs).toEqual([['install'], ['install', '--frozen-lockfile']]);
 		await expect(lstat(path.dirname(run.list!))).rejects.toMatchObject({ code: 'ENOENT' });
-		expect(run.messages).not.toContain(LEGACY_NOTICE);
 	});
 
 	it.for([
-		{ label: 'a template without templateProfiles', profiles: undefined, args: [], notice: true },
-		{ label: '--with-tests', profiles: '["tests"]', args: ['--with-tests'], notice: false }
-	])('creates the full project for $label', async ({ profiles, args, notice }, { signal }) => {
-		const run = await runProfile(signal, templateWithProfiles(profiles), args);
+		{ label: 'with templateProfiles', profiles: '["tests"]' },
+		{ label: 'without templateProfiles', profiles: undefined }
+	])(
+		'creates the full project by default for a template $label',
+		async ({ profiles }, { signal }) => {
+			const run = await runProfile(signal, templateWithProfiles(profiles), []);
 
-		expect(run.code).toBe(0);
-		expect(run.setup).not.toContain('--without-tests');
-		expect(run.setup.filter((argument) => argument.startsWith('--archive-files'))).toEqual([]);
-		expect(run.installs).toEqual([['install', '--frozen-lockfile']]);
-		expect(run.messages.filter((message) => message === LEGACY_NOTICE)).toHaveLength(
-			notice ? 1 : 0
-		);
-	});
-
-	it('keeps the list after a failed setup and prints the commands that repeat setup', async ({
-		signal
-	}) => {
-		const run = await runProfile(signal, templateWithProfiles('["tests"]'), [], {
-			setup: 1,
-			company: "O'Neil & Co"
-		});
-
-		expect(run.code).toBe(1);
-		expect(run.installs).toEqual([]);
-		await expect(readFile(run.list!, 'utf8')).resolves.toContain('src/example.test.ts');
-		temporaryDirectories.push(run.staging);
-		await rm(run.list!);
-		await rmdir(path.dirname(run.list!));
-		const heading = run.messages.indexOf(
-			'To repeat setup without the test suite, run these commands:'
-		);
-		const [navigation, command] = run.messages.slice(heading + 1);
-		expect(heading).not.toBe(-1);
-		expect(run.setup).toContain("--company=O'Neil & Co");
-		if (process.platform === 'win32') {
-			expect(navigation).toBe(`Set-Location -LiteralPath '${run.staging}'`);
-			expect(command).toMatch(/^bun run setup --slug=project /);
-			expect(command).toContain(" '--company=O''Neil & Co' ");
-			expect(command?.endsWith(` --without-tests '--archive-files=${run.list}'`)).toBe(true);
-		} else {
-			const typed = (line: string) =>
-				execFileSync('sh', ['-c', `printf '%s\\0' ${line}`], { encoding: 'utf8' })
-					.split('\0')
-					.slice(0, -1);
-			expect(typed(navigation!)).toEqual(['cd', run.staging]);
-			expect(typed(command!)).toEqual(['bun', ...run.setup]);
+			expect(run.code).toBe(0);
+			expect(run.setup).not.toContain('--without-tests');
+			expect(run.setup.filter((argument) => argument.startsWith('--archive-files'))).toEqual([]);
+			expect(run.installs).toEqual([['install', '--frozen-lockfile']]);
+			expect(run.messages.filter((message) => message.includes('test suite'))).toEqual([]);
 		}
-	});
+	);
+
+	it.for([
+		{ label: 'without templateProfiles', profiles: undefined },
+		{ label: 'with an empty templateProfiles', profiles: '[]' }
+	])(
+		'refuses --without-tests for a template $label before any write and names the revision',
+		async ({ profiles }, { signal }) => {
+			const { parent, messages, cli } = await fixtureIo(signal);
+			vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+				responseFromBuffer(tarGz(templateWithProfiles(profiles)))
+			);
+			const createStagingTarget = vi.fn(async () => 'unused');
+
+			await expect(
+				cli(argumentsForProject(['--without-tests']), { createStagingTarget })
+			).resolves.toBe(1);
+			expect(createStagingTarget).not.toHaveBeenCalled();
+			await expect(readdir(parent)).resolves.toEqual([]);
+			expect(messages).toEqual([
+				`Error: Template revision ${DEFAULT_TEMPLATE_SHA} cannot leave out the test suite: its package.json has no "tests" in templateProfiles.`
+			]);
+		}
+	);
+
+	it.for([
+		{
+			label: 'without the test suite, and keeps the list',
+			args: ['--without-tests'],
+			heading: 'To repeat setup without the test suite, run these commands:'
+		},
+		{ label: 'with the test suite', args: [], heading: 'To repeat setup, run these commands:' }
+	])(
+		'prints the commands that repeat a failed setup $label',
+		async ({ args, heading }, { signal }) => {
+			const run = await runProfile(signal, templateWithProfiles('["tests"]'), args, {
+				setup: 1,
+				company: "O'Neil & Co"
+			});
+
+			expect(run.code).toBe(1);
+			expect(run.installs).toEqual([]);
+			if (run.list !== undefined)
+				await expect(readFile(run.list, 'utf8')).resolves.toContain('src/example.test.ts');
+			expect(run.setup.includes('--without-tests')).toBe(run.list !== undefined);
+			const at = run.messages.indexOf(heading);
+			const [navigation, command] = run.messages.slice(at + 1);
+			expect(at).not.toBe(-1);
+			expect(run.setup).toContain("--company=O'Neil & Co");
+			if (process.platform === 'win32') {
+				expect(navigation).toBe(`Set-Location -LiteralPath '${run.staging}'`);
+				expect(command).toMatch(/^bun run setup --slug=project /);
+				expect(command).toContain(" '--company=O''Neil & Co' ");
+				expect(command?.endsWith(` --without-tests '--archive-files=${run.list}'`)).toBe(
+					run.list !== undefined
+				);
+			} else {
+				const typed = (line: string) =>
+					execFileSync('sh', ['-c', `printf '%s\\0' ${line}`], { encoding: 'utf8' })
+						.split('\0')
+						.slice(0, -1);
+				expect(typed(navigation!)).toEqual(['cd', run.staging]);
+				expect(typed(command!)).toEqual(['bun', ...run.setup]);
+			}
+		}
+	);
 
 	it('prints no install command when publication fails', async ({ signal }) => {
-		const { messages, cli } = await fixtureIo(signal);
+		const { parent, messages, cli } = await fixtureIo(signal);
 		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
 			responseFromBuffer(tarGz(templateWithProfiles('["tests"]')))
 		);
-		let staging: string | undefined;
 
-		const code = await cli(argumentsForProject(), {
+		const code = await cli(argumentsForProject(['--without-tests']), {
+			...stagingIn(parent),
 			runSetupAndInstall: async (input) => {
-				staging = input.target;
 				await input.onSetupComplete();
 				return 'ready';
 			},
@@ -676,7 +702,6 @@ describe('template profiles', () => {
 		});
 
 		expect(code).toBe(1);
-		temporaryDirectories.push(staging!);
 		expect(messages).toContain('Error: The target could not be published.');
 		expect(messages.filter((message) => message.startsWith('bun '))).toEqual([]);
 	});
@@ -684,27 +709,30 @@ describe('template profiles', () => {
 	it.for([
 		{
 			label: 'the two install commands after a project without tests',
-			args: [],
+			args: ['--without-tests'],
+			heading: 'Setup left out the test suite. To install the dependencies, run these commands:',
 			commands: ['bun install', 'bun install --frozen-lockfile']
 		},
-		{ label: 'no install command after a project with tests', args: ['--with-tests'], commands: [] }
-	])('prints $label failed to install', async ({ args, commands }, { signal }) => {
+		{
+			label: 'the frozen install command after a project with tests',
+			args: [],
+			heading: 'To install the dependencies, run these commands:',
+			commands: ['bun install --frozen-lockfile']
+		}
+	])('prints $label failed to install', async ({ args, heading, commands }, { signal }) => {
 		const run = await runProfile(signal, templateWithProfiles('["tests"]'), args, { install: 1 });
 
 		expect(run.code).toBe(1);
-		temporaryDirectories.push(run.staging);
+		const at = run.messages.indexOf(heading);
+		expect(at).not.toBe(-1);
+		expect(run.messages.slice(at + 2)).toEqual(commands);
 		expect(run.messages.filter((message) => message.startsWith('bun '))).toEqual(commands);
-		expect(
-			run.messages.includes(
-				'Setup left out the test suite. To install the dependencies, run these commands:'
-			)
-		).toBe(commands.length > 0);
 	});
 
 	it.for([
 		{
 			label: 'without tests and --skip-install',
-			args: ['--skip-install'],
+			args: ['--skip-install', '--without-tests'],
 			lines: [
 				'Run bun install before starting the app.',
 				'Then run bun install --frozen-lockfile to check the lockfile.'
@@ -712,11 +740,11 @@ describe('template profiles', () => {
 		},
 		{
 			label: 'with tests and --skip-install',
-			args: ['--skip-install', '--with-tests'],
+			args: ['--skip-install'],
 			lines: ['Run bun install --frozen-lockfile before starting the app.']
 		},
-		{ label: 'without tests after its installs', args: [], lines: [] },
-		{ label: 'with tests after its install', args: ['--with-tests'], lines: [] }
+		{ label: 'without tests after its installs', args: ['--without-tests'], lines: [] },
+		{ label: 'with tests after its install', args: [], lines: [] }
 	])('prints the install commands a project $label needs', async ({ args, lines }, { signal }) => {
 		const run = await runProfile(signal, templateWithProfiles('["tests"]'), args);
 
