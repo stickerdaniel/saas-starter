@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { lstatSync, readdirSync, realpathSync, rmdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { inPathSets, pathSets, type PathSetName } from './path-sets';
+import { inPathSets, pathSets, type PathSetName, type Tree } from './path-sets';
 
 /** `path` when it is a relative path with forward slashes and no empty, `.` or `..` segment. */
 export function checkedPath(path: string): string {
@@ -93,8 +93,8 @@ function isPresentFile(root: string, path: string): boolean {
 }
 
 /**
- * Deletes the files of the named sets among `files`, the template's own paths under `root`,
- * and returns the paths it deleted, sorted. A file outside `files` stays, and so does its
+ * Deletes the files of the named sets among `files`, the template's own paths under `root`, a
+ * tree shaped like `tree`, and returns the paths it deleted, sorted. A file outside `files` stays, and so does its
  * directory. A listed file that is already gone is skipped, and no directory is removed for it.
  * Before the first deletion every listed path must lie below real directories only and be a
  * regular file when it exists, so no deletion follows a link out of `root`.
@@ -102,9 +102,10 @@ function isPresentFile(root: string, path: string): boolean {
 export function deletePathSets(
 	root: string,
 	files: readonly string[],
-	names: readonly PathSetName[]
+	names: readonly PathSetName[],
+	tree: Tree
 ): string[] {
-	const paths = files.filter((file) => inPathSets(file, names)).sort();
+	const paths = files.filter((file) => inPathSets(tree, file, names)).sort();
 	for (const path of paths) {
 		try {
 			isPresentFile(root, path);

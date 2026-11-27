@@ -230,7 +230,8 @@ describe('process contract', () => {
 					city: 'Köln',
 					country: 'DE',
 					email: 'local@example.test'
-				})
+				}),
+				2
 			)
 		).toEqual([
 			'run',
@@ -249,7 +250,7 @@ describe('process contract', () => {
 	});
 
 	it('hands setup a value that starts with a dash in a form its flag reader accepts', () => {
-		const [, , ...flags] = setupArguments(options({ brand: '--Winter', company: '-Acme' }));
+		const [, , ...flags] = setupArguments(options({ brand: '--Winter', company: '-Acme' }), 2);
 		const setup = path.resolve(import.meta.dirname, '../../../scripts/template-setup.ts');
 
 		expect(spawnSync('bun', [setup, ...flags, '--help'], { encoding: 'utf8' })).toMatchObject({
@@ -270,6 +271,7 @@ describe('process contract', () => {
 				environment: { PATH: '/bin', HUSKY: '0' },
 				target: '/target',
 				options: options(),
+				version: 2,
 				signal: new AbortController().signal,
 				onSetupComplete: async () => {
 					events.push('setup-complete');
@@ -294,6 +296,7 @@ describe('process contract', () => {
 				environment: {},
 				target: '/target',
 				options: options(),
+				version: 2,
 				signal: new AbortController().signal,
 				onSetupComplete: async () => {
 					throw new Error('must not run');
@@ -312,6 +315,7 @@ describe('process contract', () => {
 				environment: {},
 				target: '/target',
 				options: options(),
+				version: 2,
 				signal: new AbortController().signal,
 				onSetupComplete: async () => {},
 				run: installFailure
@@ -327,6 +331,7 @@ describe('process contract', () => {
 				environment: {},
 				target: '/target',
 				options: options({ skipInstall: true }),
+				version: 2,
 				signal: new AbortController().signal,
 				onSetupComplete: async () => {},
 				run

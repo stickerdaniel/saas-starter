@@ -262,7 +262,10 @@ function assertPortablePathLength(
 	}
 }
 
-export function validateArchiveTargetPaths(target: string, archive: ValidatedArchive): void {
+export function validateArchiveTargetPaths(
+	target: string,
+	archive: Pick<ValidatedArchive, 'files'>
+): void {
 	if (!path.isAbsolute(target))
 		throw new Error('Target path must be absolute before archive validation.');
 	assertPortablePathLength(target, 'target directory', PORTABLE_WINDOWS_DIRECTORY_PATH_UNITS);
@@ -399,7 +402,7 @@ export function throwIfAborted(signal: AbortSignal): void {
 
 export async function writeArchive(
 	target: string,
-	archive: ValidatedArchive,
+	archive: Pick<ValidatedArchive, 'files'>,
 	signal: AbortSignal
 ): Promise<void> {
 	throwIfAborted(signal);
@@ -436,7 +439,7 @@ export async function writeArchive(
  */
 export async function writeArchiveList(
 	staging: string,
-	archive: ValidatedArchive
+	archive: Pick<ValidatedArchive, 'files'>
 ): Promise<string> {
 	const list = path.join(await mkdtemp(`${staging}.archive-files-`), 'files.json');
 	const files = archive.files.filter((entry) => entry.type === 'file').map((entry) => entry.path);

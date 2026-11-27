@@ -1,5 +1,6 @@
 import { lex } from 'svelte-streamdown';
 import { describe, expect, it } from 'vitest';
+import { BASE_TABLE, WORKSPACES } from '../.agents/skills/upstream-sync/layout/v3';
 import {
 	askUntilValid,
 	escapeMarkdownInline,
@@ -12,6 +13,8 @@ import {
 	referencesMaintainerCli,
 	removeMaintainerCliScripts,
 	readmeShowsCompletedSetup,
+	SETUP_LAYOUTS,
+	setupLayoutOf,
 	replaceGithubSlugSource,
 	replaceLegalConfigSource,
 	replaceLockRootNameSource,
@@ -34,6 +37,54 @@ function asciiDomainOfLength(length: number): string {
 	return labels.join('.');
 }
 
+describe('template setup layouts', () => {
+	it('names the version 3 paths where the move table places the version 2 paths', () => {
+		const [flat, workspace] = [SETUP_LAYOUTS[2], SETUP_LAYOUTS[3]];
+		const place = (path: string) =>
+			BASE_TABLE.place(path)?.to ?? BASE_TABLE.place(`${path}/`)?.to?.slice(0, -1);
+		const placed = (paths: Record<string, string>) =>
+			Object.fromEntries(Object.entries(paths).map(([key, path]) => [key, place(path)]));
+
+		expect(placed(flat.files)).toEqual(workspace.files);
+		expect(placed(flat.guidance)).toEqual(workspace.guidance);
+		expect(placed(flat.creator)).toEqual(workspace.creator);
+		expect(workspace.tree).toEqual({
+			layout: 'workspace',
+			workspaces: Object.values(WORKSPACES).flatMap(({ root }) => (root ? [root] : []))
+		});
+	});
+
+	it.each([4, '3', undefined])('refuses a manifest with templateSetupVersion %j', (version) => {
+		expect(() => setupLayoutOf({ templateSetupVersion: version })).toThrow(
+			`package.json declares templateSetupVersion ${JSON.stringify(version)}, and this setup reads only 2 and 3`
+		);
+	});
+
+	it('admits the two workspace patterns in version 3 and refuses the creator in either form', () => {
+		const manifest = {
+			scripts: { postinstall: 'bun run build', test: 'bun run test:unit' },
+			workspaces: ['apps/*', 'packages/*']
+		};
+		const workspace = SETUP_LAYOUTS[3];
+
+		expect(removeMaintainerCliScripts(manifest, workspace)).toMatchObject({
+			workspaces: ['apps/*', 'packages/*']
+		});
+		expect(() => removeMaintainerCliScripts(manifest, SETUP_LAYOUTS[2])).toThrow(
+			/workspace "apps\/\*" must match/
+		);
+		for (const pattern of [
+			'packages/create-saas-starter',
+			'packages/create-saas-starter/*',
+			'packages/**'
+		]) {
+			expect(() =>
+				removeMaintainerCliScripts({ ...manifest, workspaces: [pattern] }, workspace)
+			).toThrow(/Invalid package.json: workspace/);
+		}
+	});
+});
+
 describe('template setup maintainer manifest', () => {
 	const postinstall =
 		'bun run install:cli && bun run generate:content && bun svelte-kit sync && varlock codegen && varlock codegen --path .env-convex.schema && bun run build:emails';
@@ -50,9 +101,10 @@ describe('template setup maintainer manifest', () => {
 		setup: 'bun scripts/template-setup.ts'
 	};
 	const manifest = { name: 'original', templateSetupVersion: 1, scripts };
+	const flat = SETUP_LAYOUTS[2];
 
 	it('keeps unrelated data and produces exact project chains without mutating input', () => {
-		const result = removeMaintainerCliScripts(manifest);
+		const result = removeMaintainerCliScripts(manifest, flat);
 		expect(result).not.toBe(manifest);
 		expect(result).toMatchObject({ name: 'original', templateSetupVersion: 1 });
 		const next = result.scripts as Record<string, string>;
@@ -63,15 +115,20 @@ describe('template setup maintainer manifest', () => {
 		expect(next.setup).toBe('bun scripts/template-setup.ts');
 		expect(Object.keys(next)).toEqual(['postinstall', 'test', 'setup']);
 		expect(manifest.scripts).toEqual(scripts);
-		expect(removeMaintainerCliScripts(result)).toEqual(result);
+		expect(removeMaintainerCliScripts(result, flat)).toEqual(result);
 		expect(
-			removeMaintainerCliScripts({ ...result, scripts: { ...next, custom: 'bun run custom' } })
+			removeMaintainerCliScripts(
+				{ ...result, scripts: { ...next, custom: 'bun run custom' } },
+				flat
+			)
 		).toMatchObject({ scripts: { custom: 'bun run custom' } });
 	});
 
 	it('keeps a workspace outside the creator package', () => {
 		const workspaces = ['packages/eslint-plugin'];
-		expect(removeMaintainerCliScripts({ ...manifest, workspaces })).toMatchObject({ workspaces });
+		expect(removeMaintainerCliScripts({ ...manifest, workspaces }, flat)).toMatchObject({
+			workspaces
+		});
 	});
 
 	it.each([
@@ -170,7 +227,7 @@ describe('template setup maintainer manifest', () => {
 	])('rejects $label drift', ({ mutate }) => {
 		const input = structuredClone(manifest) as Record<string, unknown>;
 		mutate(input);
-		expect(() => removeMaintainerCliScripts(input)).toThrow(/Invalid package.json/);
+		expect(() => removeMaintainerCliScripts(input, flat)).toThrow(/Invalid package.json/);
 	});
 
 	it.each([
@@ -183,11 +240,11 @@ describe('template setup maintainer manifest', () => {
 		{ custom: 'echo test:cli' },
 		{ custom: 'printf test:cli && bun run build' }
 	])('preserves distinct custom names in a clean project: %o', (custom) => {
-		const clean = removeMaintainerCliScripts(manifest);
+		const clean = removeMaintainerCliScripts(manifest, flat);
 		const input = { ...clean, scripts: { ...(clean.scripts as object), ...custom } };
-		const result = removeMaintainerCliScripts(input);
+		const result = removeMaintainerCliScripts(input, flat);
 		expect(result.scripts).toEqual(input.scripts);
-		expect(removeMaintainerCliScripts(result)).toEqual(result);
+		expect(removeMaintainerCliScripts(result, flat)).toEqual(result);
 	});
 
 	it('recognizes every owned script name as a complete token', () => {

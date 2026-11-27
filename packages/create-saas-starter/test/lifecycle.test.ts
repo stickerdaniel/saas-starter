@@ -10,7 +10,14 @@ import { SCAFFOLD_MARKER } from '../src/archive.js';
 import { DEFAULT_TEMPLATE_SHA } from '../src/options.js';
 import { createStagingTarget, publishStagedTarget, updateMarker } from '../src/target.js';
 import { runProcess, runSetupAndInstall } from '../src/process.js';
-import { tarGz, validTemplateEntries, type TarFixtureEntry } from './archive-fixture.js';
+import {
+	changedEntries,
+	tarGz,
+	validTemplateEntries,
+	workspaceManifest,
+	workspaceTemplateEntries,
+	type TarFixtureEntry
+} from './archive-fixture.js';
 import { cliChildWork, removeDirectories, settleChildWork } from './child-work.js';
 
 const temporaryDirectories: string[] = [];
@@ -232,7 +239,9 @@ describe('CLI lifecycle', () => {
 		await expect(cli(argumentsForProject(args), { createStagingTarget })).resolves.toBe(1);
 		expect(createStagingTarget).not.toHaveBeenCalled();
 		await expect(lstat(path.join(parent, 'project'))).rejects.toMatchObject({ code: 'ENOENT' });
-		expect(messages.join('\n')).toContain('templateSetupVersion:2');
+		expect(messages.join('\n')).toContain(
+			'declares templateSetupVersion 1, and create-saas-starter'
+		);
 	});
 
 	it('reminds about legal values only while an identity field is missing', async ({ signal }) => {
@@ -751,4 +760,83 @@ describe('template profiles', () => {
 		expect(run.code).toBe(0);
 		expect(run.messages.filter((message) => message.includes('bun install'))).toEqual(lines);
 	});
+
+	it.for([
+		{ label: 'without the test suite', args: ['--without-tests'] },
+		{ label: 'with the test suite', args: [] }
+	])(
+		'hands a version 3 setup its flags and reconciles the lockfile $label',
+		async ({ args }, { signal }) => {
+			const entries = changedEntries(workspaceTemplateEntries(), {
+				'package.json': workspaceManifest({ templateProfiles: ['tests'] })
+			});
+			const run = await runProfile(signal, entries, args);
+
+			expect(run.code).toBe(0);
+			expect(run.setup.filter((argument) => argument.startsWith('--without-tests'))).toEqual(
+				run.list === undefined ? [] : ['--without-tests']
+			);
+			if (run.list !== undefined) {
+				expect(run.setup.slice(-2)).toEqual(['--without-tests', `--archive-files=${run.list}`]);
+				expect(run.listed).toEqual(
+					expect.arrayContaining(['apps/web/wrangler.toml', 'packages/ui/package.json'])
+				);
+			}
+			expect(run.installs).toEqual([['install'], ['install', '--frozen-lockfile']]);
+		}
+	);
+
+	it.for([
+		{
+			label: 'the moved tree under templateSetupVersion 2',
+			changes: { 'package.json': workspaceManifest({ templateSetupVersion: 2 }) },
+			expected: 'public setup requires regular file wrangler.toml for templateSetupVersion 2'
+		},
+		{
+			label: 'no packages/ui/package.json',
+			changes: { 'packages/ui/package.json': undefined },
+			expected: 'templateSetupVersion 3 declares @repo/ui as workspace:* in apps/web/package.json'
+		},
+		{
+			label: 'no generated Convex bindings',
+			changes: { 'packages/backend/convex/_generated/api.d.ts': undefined },
+			expected:
+				'public setup requires regular file packages/backend/convex/_generated/api.d.ts for templateSetupVersion 3'
+		},
+		{
+			label: 'templateSetupVersion 4',
+			changes: { 'package.json': workspaceManifest({ templateSetupVersion: 4 }) },
+			expected: 'declares templateSetupVersion 4'
+		},
+		{
+			label: 'no member below apps/',
+			changes: { 'apps/web/package.json': undefined },
+			expected: 'declares the workspace pattern apps/*, and no directory directly below apps/'
+		},
+		{
+			label: 'a workspace pattern that names the creator',
+			changes: {
+				'package.json': workspaceManifest({
+					workspaces: ['apps/*', 'packages/*', 'packages/create-saas-starter']
+				})
+			},
+			expected:
+				'templateSetupVersion 3 declares the workspace pattern packages/create-saas-starter, which lies in packages/create-saas-starter, and setup removes that directory.'
+		}
+	])(
+		'refuses an archive with $label before staging and writes no file',
+		async ({ changes, expected }, { signal }) => {
+			const { parent, messages, cli } = await fixtureIo(signal);
+			vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+				responseFromBuffer(tarGz(changedEntries(workspaceTemplateEntries(), changes)))
+			);
+			const createStagingTarget = vi.fn(async () => 'unused');
+
+			await expect(cli(argumentsForProject(), { createStagingTarget })).resolves.toBe(1);
+			expect(createStagingTarget).not.toHaveBeenCalled();
+			await expect(readdir(parent)).resolves.toEqual([]);
+			expect(messages.join('\n')).toContain(expected);
+			expect(messages.join('\n')).toContain(DEFAULT_TEMPLATE_SHA);
+		}
+	);
 });

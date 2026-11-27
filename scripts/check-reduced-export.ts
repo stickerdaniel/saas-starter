@@ -14,7 +14,7 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } f
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { deletePathSets, reduceManifest, trackedFiles } from './export-profile';
-import { inPathSets, type PathSetName } from './path-sets';
+import { FLAT_TREE, inPathSets, type PathSetName } from './path-sets';
 
 const sets: readonly PathSetName[] = ['tests'];
 const contractFiles = new Set(['package.json', 'bun.lock']);
@@ -100,9 +100,9 @@ const copy = mkdtempSync(join(tmpdir(), 'reduced-export-'));
 const started = performance.now();
 try {
 	const tracked = trackedFiles(root);
-	const omitted = tracked.filter((path) => inPathSets(path, sets));
+	const omitted = tracked.filter((path) => inPathSets(FLAT_TREE, path, sets));
 	const full = copyTree(root, copy, tracked);
-	const deleted = deletePathSets(copy, tracked, sets);
+	const deleted = deletePathSets(copy, tracked, sets, FLAT_TREE);
 	const manifest = join(copy, 'package.json');
 	writeFileSync(manifest, reduceManifest(readFileSync(manifest, 'utf8'), sets));
 	console.log(`Exported ${copy} without ${sets.join(', ')}: ${deleted.length} paths deleted.`);

@@ -11,11 +11,7 @@ const MAX_ARCHIVE_ENTRIES = 20_000;
 const MAX_PATH_DEPTH = 64;
 const MAX_META_ENTRY_BYTES = 1024 * 1024;
 export const SCAFFOLD_MARKER = '.saas-starter-scaffold.json';
-/**
- * The setup flag protocol this creator forwards. A template whose package.json declares any
- * other `templateSetupVersion` would reject those flags, so its archive fails before staging.
- */
-const TEMPLATE_SETUP_VERSION = 2;
+const SETUP_SCRIPT = 'bun scripts/template-setup.ts';
 
 interface ArchiveFile {
 	path: string;
@@ -27,6 +23,9 @@ interface ArchiveFile {
 export interface ValidatedArchive {
 	files: ArchiveFile[];
 	sha256: string;
+	tree: TemplateTree;
+	/** The sets that `templateProfiles` lets a project leave out. */
+	profiles: PathSetName[];
 }
 
 export interface ArchiveValidationMetrics {
@@ -413,7 +412,7 @@ function stripArchiveRoot(entries: ParsedEntry[]): ParsedEntry[] {
 	const stripped: ParsedEntry[] = [];
 	for (const entry of entries) {
 		const segments = validatePortablePath(entry.path);
-		if (root === undefined) root = segments[0];
+		if (root === undefined) root = segments[0]!;
 		if (portableKey(segments[0]!) !== portableKey(root)) fail('archive contains multiple roots');
 		if (segments.length === 1) {
 			if (entry.type !== 'directory') fail('archive root is not a directory');
@@ -426,46 +425,231 @@ function stripArchiveRoot(entries: ParsedEntry[]): ParsedEntry[] {
 	return stripped;
 }
 
-function validateTemplateContract(entries: ParsedEntry[]): void {
-	const tree = new Map(entries.map((entry) => [portableKey(entry.path), entry]));
-	const requiredFiles = [
-		'package.json',
-		'bun.lock',
-		'scripts/template-setup.ts',
-		'wrangler.toml',
-		'README.md',
-		'src/lib/config/site.ts',
-		'src/lib/config/legal.ts',
-		'src/lib/content/legal-content-dates.ts',
-		'src/lib/content/legal-metadata.ts'
-	];
-	for (const requiredFile of requiredFiles) {
-		const entry = tree.get(portableKey(requiredFile));
-		if (entry?.type !== 'file' || entry.path !== requiredFile) {
-			fail(`public setup requires regular file ${requiredFile}`);
-		}
-	}
-	const manifest = tree.get('package.json')!;
-	let value: unknown;
-	try {
-		value = JSON.parse(manifest.data!.toString('utf8'));
-	} catch {
-		fail('package.json is invalid JSON');
-	}
-	const packageJson = value as {
-		templateSetupVersion?: unknown;
-		scripts?: Record<string, unknown>;
-	};
-	if (
-		packageJson.templateSetupVersion !== TEMPLATE_SETUP_VERSION ||
-		packageJson.scripts?.setup !== 'bun scripts/template-setup.ts'
-	) {
-		fail(`templateSetupVersion:${TEMPLATE_SETUP_VERSION} and the public setup script are required`);
-	}
+interface ContractInput {
+	readonly revision: string;
+	readonly manifest: Record<string, unknown>;
+	readonly entries: readonly ParsedEntry[];
 }
 
+interface ArchiveContract {
+	/** The regular files public setup reads, at their paths in the archive. */
+	readonly requiredFiles: readonly string[];
+	readonly requiredWorkspaces: readonly string[];
+	readonly tree: (input: ContractInput) => {
+		readonly version: number;
+		readonly workspaces?: readonly string[];
+	};
+}
+
+/**
+ * The contract of each `templateSetupVersion`: the files setup reads and the tree the creator
+ * admits. Version 3 holds the version 2 files at their workspace paths, with the four files that
+ * its setup and its first install read.
+ */
+export const ARCHIVE_CONTRACTS = {
+	2: {
+		requiredFiles: [
+			'package.json',
+			'bun.lock',
+			'scripts/template-setup.ts',
+			'wrangler.toml',
+			'README.md',
+			'src/lib/config/site.ts',
+			'src/lib/config/legal.ts',
+			'src/lib/content/legal-content-dates.ts',
+			'src/lib/content/legal-metadata.ts'
+		],
+		requiredWorkspaces: [],
+		tree: () => ({ version: 2 }) as const
+	},
+	3: {
+		requiredFiles: [
+			'package.json',
+			'bun.lock',
+			'scripts/template-setup.ts',
+			'apps/web/wrangler.toml',
+			'README.md',
+			'packages/product-config/src/config/site.ts',
+			'packages/product-config/src/config/legal.ts',
+			'apps/web/src/lib/content/legal-content-dates.ts',
+			'apps/web/src/lib/content/legal-metadata.ts',
+			'apps/web/src/app.html',
+			'apps/web/static/manifest.webmanifest',
+			'packages/backend/convex.json',
+			'packages/backend/convex/_generated/api.d.ts'
+		],
+		requiredWorkspaces: ['apps/web'],
+		tree: (input: ContractInput) => ({ version: 3, workspaces: workspaceMembers(input) }) as const
+	}
+} as const satisfies Record<number, ArchiveContract>;
+
+export type TemplateSetupVersion = keyof typeof ARCHIVE_CONTRACTS;
+
+export type TemplateTree = ReturnType<(typeof ARCHIVE_CONTRACTS)[TemplateSetupVersion]['tree']>;
+
+function isTemplateSetupVersion(value: unknown): value is TemplateSetupVersion {
+	return typeof value === 'number' && Object.hasOwn(ARCHIVE_CONTRACTS, value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+const WORKSPACE_DIRECTORY = /^[\w.-]+(?:\/[\w.-]+)*$/;
+const CREATOR_DIRECTORY = 'packages/create-saas-starter';
+const DEPENDENCY_FIELDS = [
+	'dependencies',
+	'devDependencies',
+	'peerDependencies',
+	'optionalDependencies'
+] as const;
+
+/**
+ * The workspace directories that the root manifest's `workspaces` admits. A pattern is a literal
+ * directory, which must hold a `package.json`, or `<dir>/*`, which names every directory directly
+ * below `<dir>` that holds one, except a dot directory. Each pattern needs a member, members need
+ * distinct names, and each `workspace:` dependency of a member names a member.
+ */
+function workspaceMembers({ revision, manifest, entries }: ContractInput): string[] {
+	function refuse(detail: string): never {
+		throw new Error(`Template revision ${revision} with templateSetupVersion 3 ${detail}`);
+	}
+	const manifests = new Map(
+		entries
+			.filter((entry) => entry.type === 'file' && entry.path.endsWith('/package.json'))
+			.map((entry) => [entry.path.slice(0, -'/package.json'.length), entry])
+	);
+	const patterns = manifest.workspaces;
+	if (!Array.isArray(patterns) || patterns.length === 0) {
+		refuse('declares no list of workspace patterns in package.json.');
+	}
+	const members = new Set<string>();
+	for (const pattern of patterns) {
+		const directory = typeof pattern === 'string' ? pattern.replace(/\/\*$/, '') : undefined;
+		if (
+			directory === undefined ||
+			!WORKSPACE_DIRECTORY.test(directory) ||
+			directory.split('/').some((segment) => segment === '.' || segment === '..')
+		) {
+			refuse(
+				`declares the workspace pattern ${JSON.stringify(pattern)}, which is neither a directory nor <dir>/*.`
+			);
+		}
+		if (directory === CREATOR_DIRECTORY || directory.startsWith(`${CREATOR_DIRECTORY}/`)) {
+			refuse(
+				`declares the workspace pattern ${pattern}, which lies in ${CREATOR_DIRECTORY}, and setup removes that directory.`
+			);
+		}
+		if (pattern === directory) {
+			if (!manifests.has(directory)) {
+				refuse(`names the workspace ${directory}, and ${directory}/package.json is missing.`);
+			}
+			members.add(directory);
+			continue;
+		}
+		const found = [...manifests.keys()].filter((member) => {
+			const name = member.slice(directory.length + 1);
+			return member.startsWith(`${directory}/`) && !name.includes('/') && !name.startsWith('.');
+		});
+		if (found.length === 0) {
+			refuse(
+				`declares the workspace pattern ${pattern}, and no directory directly below ${directory}/ holds a package.json.`
+			);
+		}
+		for (const member of found) members.add(member);
+	}
+	const sorted = [...members].sort();
+	const names = new Map<string, string>();
+	const declared = sorted.map((member) => {
+		const path = `${member}/package.json`;
+		let value: unknown;
+		try {
+			value = JSON.parse(manifests.get(member)!.data!.toString('utf8'));
+		} catch {
+			refuse(`holds invalid JSON in ${path}.`);
+		}
+		if (!isRecord(value) || typeof value.name !== 'string' || value.name === '') {
+			refuse(`holds no package name in ${path}.`);
+		}
+		const name: string = value.name;
+		const other = names.get(name);
+		if (other) refuse(`names two workspaces ${JSON.stringify(name)}: ${other} and ${path}.`);
+		names.set(name, path);
+		return { path, value };
+	});
+	for (const { path, value } of declared) {
+		for (const field of DEPENDENCY_FIELDS) {
+			const dependencies = value[field];
+			if (!isRecord(dependencies)) continue;
+			for (const [dependency, range] of Object.entries(dependencies)) {
+				if (typeof range === 'string' && range.startsWith('workspace:') && !names.has(dependency)) {
+					refuse(`declares ${dependency} as ${range} in ${path}, and no workspace has that name.`);
+				}
+			}
+		}
+	}
+	return sorted;
+}
+
+function validateTemplateContract(
+	entries: ParsedEntry[],
+	revision: string
+): Pick<ValidatedArchive, 'tree' | 'profiles'> {
+	const tree = new Map(entries.map((entry) => [portableKey(entry.path), entry]));
+	const requireFile = (requiredFile: string, version?: TemplateSetupVersion) => {
+		const entry = tree.get(portableKey(requiredFile));
+		if (entry?.type !== 'file' || entry.path !== requiredFile) {
+			const contract = version === undefined ? '' : ` for templateSetupVersion ${version}`;
+			fail(
+				`public setup requires regular file ${requiredFile}${contract} of template revision ${revision}`
+			);
+		}
+		return entry;
+	};
+	let value: unknown;
+	try {
+		value = JSON.parse(requireFile('package.json').data!.toString('utf8'));
+	} catch (error) {
+		if (!(error instanceof SyntaxError)) throw error;
+		fail(`package.json of template revision ${revision} is invalid JSON`);
+	}
+	const manifest = isRecord(value) ? value : {};
+	const version = manifest.templateSetupVersion;
+	if (!isTemplateSetupVersion(version)) {
+		throw new Error(
+			`Template revision ${revision} declares templateSetupVersion ${JSON.stringify(version)}, and create-saas-starter ${CLI_VERSION} reads only ${Object.keys(ARCHIVE_CONTRACTS).join(' and ')}.`
+		);
+	}
+	const setup = isRecord(manifest.scripts) ? manifest.scripts.setup : undefined;
+	if (setup !== SETUP_SCRIPT) {
+		throw new Error(
+			`Template revision ${revision} declares the setup script ${JSON.stringify(setup)}, and create-saas-starter ${CLI_VERSION} runs only ${JSON.stringify(SETUP_SCRIPT)}.`
+		);
+	}
+	const contract = ARCHIVE_CONTRACTS[version];
+	for (const requiredFile of contract.requiredFiles) requireFile(requiredFile, version);
+	const profiles = manifest.templateProfiles ?? [];
+	if (!isPathSetNameList(profiles)) {
+		throw new Error(
+			`Template revision ${revision} declares a templateProfiles value that create-saas-starter ${CLI_VERSION} does not accept. It accepts a list of distinct names from ${JSON.stringify(Object.keys(pathSets))}.`
+		);
+	}
+	const archiveTree = contract.tree({ revision, manifest, entries });
+	const members: readonly string[] = 'workspaces' in archiveTree ? archiveTree.workspaces : [];
+	for (const workspace of contract.requiredWorkspaces) {
+		if (!members.includes(workspace)) {
+			throw new Error(
+				`Template revision ${revision} with templateSetupVersion ${version} has no workspace ${workspace} with a regular file ${workspace}/package.json.`
+			);
+		}
+	}
+	return { tree: archiveTree, profiles };
+}
+
+/** Validates the archive of template revision `revision` against the contract its manifest names. */
 export async function validateTemplateArchive(
 	compressed: Buffer,
+	revision: string,
 	metrics?: ArchiveValidationMetrics
 ): Promise<ValidatedArchive> {
 	if (compressed.length === 0 || compressed.length > MAX_ARCHIVE_BYTES) {
@@ -485,8 +669,9 @@ export async function validateTemplateArchive(
 	const parsed = await parseTar(raw);
 	const rooted = stripArchiveRoot(parsed);
 	const materialized = materializeAliases(rooted, metrics);
-	validateTemplateContract(materialized);
+	const contract = validateTemplateContract(materialized, revision);
 	return {
+		...contract,
 		files: materialized.map((entry) => ({
 			path: entry.path,
 			type: entry.type as 'file' | 'directory',
@@ -495,21 +680,6 @@ export async function validateTemplateArchive(
 		})),
 		sha256: createHash('sha256').update(compressed).digest('hex')
 	};
-}
-
-/** The path sets the template revision can leave out, from `templateProfiles` in its `package.json`. */
-export function templateProfiles(archive: ValidatedArchive, revision: string): PathSetName[] {
-	const manifest = archive.files.find((entry) => entry.path === 'package.json')!;
-	const { templateProfiles: value } = JSON.parse(manifest.data!.toString('utf8')) as {
-		templateProfiles?: unknown;
-	};
-	if (value === undefined) return [];
-	if (!isPathSetNameList(value)) {
-		throw new Error(
-			`Template revision ${revision} declares a templateProfiles value that create-saas-starter ${CLI_VERSION} does not accept. It accepts a list of distinct names from ${JSON.stringify(Object.keys(pathSets))}.`
-		);
-	}
-	return value;
 }
 
 export function archivePathForTarget(target: string, relativePath: string): string {

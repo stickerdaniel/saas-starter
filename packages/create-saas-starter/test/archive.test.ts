@@ -6,10 +6,19 @@ import {
 	type ArchiveValidationMetrics
 } from '../src/archive.js';
 import { MAX_ARCHIVE_BYTES } from '../src/template.js';
-import { tarGz, validTemplateEntries, type TarFixtureEntry } from './archive-fixture.js';
+import {
+	changedEntries,
+	tarGz,
+	validTemplateEntries,
+	workspaceManifest,
+	workspaceTemplateEntries,
+	type TarFixtureEntry
+} from './archive-fixture.js';
+
+const REVISION = 'a'.repeat(40);
 
 async function validates(extra: TarFixtureEntry[] = []) {
-	return await validateTemplateArchive(tarGz([...validTemplateEntries(), ...extra]));
+	return await validateTemplateArchive(tarGz([...validTemplateEntries(), ...extra]), REVISION);
 }
 
 function replacing(path: string, replacement: TarFixtureEntry): TarFixtureEntry[] {
@@ -79,7 +88,8 @@ describe('validateTemplateArchive', () => {
 	])('rejects %s entries', async (_name, entryPath) => {
 		await expect(
 			validateTemplateArchive(
-				tarGz(replacing('root/scripts/executable.ts', { path: entryPath, data: 'bad' }))
+				tarGz(replacing('root/scripts/executable.ts', { path: entryPath, data: 'bad' })),
+				REVISION
 			)
 		).rejects.toThrow('Unsafe template archive');
 	});
@@ -95,7 +105,9 @@ describe('validateTemplateArchive', () => {
 		);
 
 		expect(gunzipSync(compressed).includes(Buffer.from(rawPath))).toBe(true);
-		await expect(validateTemplateArchive(compressed)).rejects.toThrow(/backslash path metadata/);
+		await expect(validateTemplateArchive(compressed, REVISION)).rejects.toThrow(
+			/backslash path metadata/
+		);
 	});
 
 	it.each([
@@ -177,7 +189,7 @@ describe('validateTemplateArchive', () => {
 	] satisfies Array<[string, TarFixtureEntry[]]>)(
 		'rejects backslashes in %s metadata',
 		async (_name, entries) => {
-			await expect(validateTemplateArchive(tarGz(entries))).rejects.toThrow(/backslash/);
+			await expect(validateTemplateArchive(tarGz(entries), REVISION)).rejects.toThrow(/backslash/);
 		}
 	);
 
@@ -203,7 +215,7 @@ describe('validateTemplateArchive', () => {
 
 		expect(headerOffset % 512).toBe(0);
 		expect(raw[headerOffset + 124]).toBe(0xff);
-		await expect(validateTemplateArchive(compressed)).rejects.toThrow(
+		await expect(validateTemplateArchive(compressed, REVISION)).rejects.toThrow(
 			'negative archive entry size'
 		);
 	});
@@ -221,7 +233,7 @@ describe('validateTemplateArchive', () => {
 		);
 
 		expect(gunzipSync(compressed).includes(Buffer.from('size=-512\n'))).toBe(true);
-		await expect(validateTemplateArchive(compressed)).rejects.toThrow(
+		await expect(validateTemplateArchive(compressed, REVISION)).rejects.toThrow(
 			'negative archive entry size'
 		);
 	});
@@ -274,12 +286,14 @@ describe('validateTemplateArchive', () => {
 						type: 'SymbolicLink',
 						linkpath: 'missing.md'
 					})
-				)
+				),
+				REVISION
 			)
 		).rejects.toThrow(/unknown symbolic link/);
 		await expect(
 			validateTemplateArchive(
-				tarGz(validTemplateEntries().filter((entry) => entry.path !== 'root/AGENTS.md'))
+				tarGz(validTemplateEntries().filter((entry) => entry.path !== 'root/AGENTS.md')),
+				REVISION
 			)
 		).rejects.toThrow(/target is missing/);
 	});
@@ -296,7 +310,7 @@ describe('validateTemplateArchive', () => {
 		'src/lib/content/legal-metadata.ts'
 	])('rejects an archive missing setup input %s', async (requiredFile) => {
 		const entries = validTemplateEntries().filter((entry) => entry.path !== `root/${requiredFile}`);
-		await expect(validateTemplateArchive(tarGz(entries))).rejects.toThrow(
+		await expect(validateTemplateArchive(tarGz(entries), REVISION)).rejects.toThrow(
 			`public setup requires regular file ${requiredFile}`
 		);
 	});
@@ -306,7 +320,7 @@ describe('validateTemplateArchive', () => {
 			path: 'root/readme.md',
 			data: '# Wrong case\n'
 		});
-		await expect(validateTemplateArchive(tarGz(entries))).rejects.toThrow(
+		await expect(validateTemplateArchive(tarGz(entries), REVISION)).rejects.toThrow(
 			'public setup requires regular file README.md'
 		);
 	});
@@ -316,7 +330,7 @@ describe('validateTemplateArchive', () => {
 			path: 'root/wrangler.toml',
 			type: 'Directory'
 		});
-		await expect(validateTemplateArchive(tarGz(entries))).rejects.toThrow(
+		await expect(validateTemplateArchive(tarGz(entries), REVISION)).rejects.toThrow(
 			'public setup requires regular file wrangler.toml'
 		);
 	});
@@ -329,7 +343,7 @@ describe('validateTemplateArchive', () => {
 		).rejects.toThrow(/forbidden/);
 	});
 
-	it.each([1, 3, '2'])(
+	it.each([1, 4, '2'])(
 		'rejects templateSetupVersion %j from another setup protocol',
 		async (version) => {
 			await expect(
@@ -342,9 +356,12 @@ describe('validateTemplateArchive', () => {
 								scripts: { setup: 'bun scripts/template-setup.ts' }
 							})
 						})
-					)
+					),
+					REVISION
 				)
-			).rejects.toThrow('templateSetupVersion:2 and the public setup script are required');
+			).rejects.toThrow(
+				`Template revision ${REVISION} declares templateSetupVersion ${JSON.stringify(version)}, and create-saas-starter`
+			);
 		}
 	);
 
@@ -356,7 +373,7 @@ describe('validateTemplateArchive', () => {
 		}));
 		const metrics = validationMetrics();
 
-		const archive = await validateTemplateArchive(tarGz([...fillers, ...base]), metrics);
+		const archive = await validateTemplateArchive(tarGz([...fillers, ...base]), REVISION, metrics);
 
 		expect(archive.files).toHaveLength(20_000);
 		expect(metrics.treeParentLookups).toBeLessThan(100_000);
@@ -386,7 +403,7 @@ describe('validateTemplateArchive', () => {
 		const metrics = validationMetrics();
 
 		await expect(
-			validateTemplateArchive(tarGz([...base, ...fillers, ...aliases]), metrics)
+			validateTemplateArchive(tarGz([...base, ...fillers, ...aliases]), REVISION, metrics)
 		).rejects.toThrow(/alias materialization exceeds the entry limit/);
 		expect(metrics.aliasEntriesMaterialized).toBe(21);
 		expect(metrics.aliasEntriesMaterialized).toBeLessThan(41);
@@ -404,6 +421,7 @@ describe('validateTemplateArchive', () => {
 						data: Buffer.alloc(33 * 1024 * 1024)
 					}
 				]),
+				REVISION,
 				metrics
 			)
 		).rejects.toThrow(/alias materialization exceeds the size limit/);
@@ -420,11 +438,13 @@ describe('validateTemplateArchive', () => {
 	});
 
 	it('enforces compressed, decompressed, depth, and metadata limits', async () => {
-		await expect(validateTemplateArchive(Buffer.alloc(MAX_ARCHIVE_BYTES + 1))).rejects.toThrow(
-			/compressed archive/
-		);
+		await expect(
+			validateTemplateArchive(Buffer.alloc(MAX_ARCHIVE_BYTES + 1), REVISION)
+		).rejects.toThrow(/compressed archive/);
 		const oversizedRaw = Buffer.alloc(MAX_DECOMPRESSED_BYTES + 1);
-		await expect(validateTemplateArchive(gzipSync(oversizedRaw))).rejects.toThrow(/decompress/);
+		await expect(validateTemplateArchive(gzipSync(oversizedRaw), REVISION)).rejects.toThrow(
+			/decompress/
+		);
 		await expect(
 			validates([
 				{
@@ -442,5 +462,243 @@ describe('validateTemplateArchive', () => {
 				}
 			])
 		).rejects.toThrow();
+	});
+});
+
+function workspaceArchive(changes: Record<string, string | undefined> = {}): Buffer {
+	return tarGz(changedEntries(workspaceTemplateEntries(), changes));
+}
+
+const STARTER_MEMBERS = [
+	'apps/web',
+	'packages/backend',
+	'packages/create-saas-starter',
+	'packages/emails',
+	'packages/eslint-plugin',
+	'packages/product-config',
+	'packages/tooling',
+	'packages/ui'
+];
+
+describe('the version 3 archive contract', () => {
+	it('validates the fixture of the version 3 contract and admits its workspaces', async () => {
+		const archive = await validateTemplateArchive(workspaceArchive(), REVISION);
+
+		expect(archive.tree).toEqual({ version: 3, workspaces: STARTER_MEMBERS });
+		expect(archive.profiles).toEqual([]);
+		expect(archive.files.map(({ path }) => path)).toEqual(
+			expect.arrayContaining([
+				'apps/web/wrangler.toml',
+				'packages/product-config/src/config/site.ts',
+				'packages/backend/convex/_generated/api.d.ts'
+			])
+		);
+	});
+
+	it('refuses the moved tree under the version 2 contract', async () => {
+		await expect(
+			validateTemplateArchive(
+				workspaceArchive({ 'package.json': workspaceManifest({ templateSetupVersion: 2 }) }),
+				REVISION
+			)
+		).rejects.toThrow(
+			`public setup requires regular file wrangler.toml for templateSetupVersion 2 of template revision ${REVISION}`
+		);
+	});
+
+	it('refuses an archive without the generated Convex bindings and names version and path', async () => {
+		await expect(
+			validateTemplateArchive(
+				workspaceArchive({ 'packages/backend/convex/_generated/api.d.ts': undefined }),
+				REVISION
+			)
+		).rejects.toThrow(
+			`public setup requires regular file packages/backend/convex/_generated/api.d.ts for templateSetupVersion 3 of template revision ${REVISION}`
+		);
+	});
+
+	it('refuses an archive without the UI workspace manifest through the dependency on it', async () => {
+		await expect(
+			validateTemplateArchive(workspaceArchive({ 'packages/ui/package.json': undefined }), REVISION)
+		).rejects.toThrow(
+			`Template revision ${REVISION} with templateSetupVersion 3 declares @repo/ui as workspace:* in apps/web/package.json, and no workspace has that name.`
+		);
+	});
+
+	it('refuses an archive whose web workspace manifest another app below apps/ replaces', async () => {
+		await expect(
+			validateTemplateArchive(
+				workspaceArchive({
+					'apps/web/package.json': undefined,
+					'apps/customer-portal/package.json': JSON.stringify({ name: 'customer-portal' })
+				}),
+				REVISION
+			)
+		).rejects.toThrow(
+			`Template revision ${REVISION} with templateSetupVersion 3 has no workspace apps/web with a regular file apps/web/package.json.`
+		);
+	});
+
+	it('admits a product app below apps/ beside the web workspace', async () => {
+		const archive = await validateTemplateArchive(
+			workspaceArchive({
+				'apps/customer-portal/package.json': JSON.stringify({ name: 'customer-portal' })
+			}),
+			REVISION
+		);
+
+		expect(archive.tree).toEqual({
+			version: 3,
+			workspaces: ['apps/customer-portal', ...STARTER_MEMBERS]
+		});
+	});
+
+	it.each([
+		{
+			label: 'the string "3"',
+			fields: { templateSetupVersion: '3' },
+			expected: 'templateSetupVersion "3"'
+		},
+		{
+			label: 'a setup script one character off',
+			fields: { scripts: { setup: 'bun scripts/template-setup.js' } },
+			expected: 'the setup script "bun scripts/template-setup.js"'
+		}
+	])('refuses a manifest with $label and names the revision', async ({ fields, expected }) => {
+		await expect(
+			validateTemplateArchive(
+				workspaceArchive({ 'package.json': workspaceManifest(fields) }),
+				REVISION
+			)
+		).rejects.toThrow(`Template revision ${REVISION} declares ${expected}`);
+	});
+
+	it.each([
+		{ label: 'the profile list the manifest declares', fields: { templateProfiles: ['tests'] } },
+		{ label: 'an empty profile list without templateProfiles', fields: {} }
+	])('reads $label', async ({ fields }) => {
+		const archive = await validateTemplateArchive(
+			workspaceArchive({ 'package.json': workspaceManifest(fields) }),
+			REVISION
+		);
+
+		expect(archive.profiles).toEqual(fields.templateProfiles ?? []);
+	});
+
+	it.each([
+		{
+			label: 'a pattern without a member',
+			changes: {
+				'package.json': workspaceManifest({ workspaces: ['apps/*', 'packages/*', 'tools/*'] }),
+				'tools/README.md': '# Tools\n'
+			},
+			expected:
+				'declares the workspace pattern tools/*, and no directory directly below tools/ holds a package.json.'
+		},
+		{
+			label: 'two members of one name',
+			changes: { 'packages/emails/package.json': JSON.stringify({ name: '@repo/ui' }) },
+			expected:
+				'names two workspaces "@repo/ui": packages/emails/package.json and packages/ui/package.json.'
+		},
+		{
+			label: 'a workspace dependency on a name no member has',
+			changes: {
+				'apps/web/package.json': JSON.stringify({
+					name: '@repo/web',
+					devDependencies: { '@repo/voice': 'workspace:^' }
+				})
+			},
+			expected:
+				'declares @repo/voice as workspace:^ in apps/web/package.json, and no workspace has that name.'
+		},
+		{
+			label: 'a recursive pattern',
+			changes: { 'package.json': workspaceManifest({ workspaces: ['apps/*', 'packages/**'] }) },
+			expected:
+				'declares the workspace pattern "packages/**", which is neither a directory nor <dir>/*.'
+		}
+	])('refuses $label', async ({ changes, expected }) => {
+		await expect(validateTemplateArchive(workspaceArchive(changes), REVISION)).rejects.toThrow(
+			`Template revision ${REVISION} with templateSetupVersion 3 ${expected}`
+		);
+	});
+
+	it('accepts a directory below a pattern that holds no package.json, which is no member', async () => {
+		const archive = await validateTemplateArchive(
+			workspaceArchive({ 'packages/assets/logo.svg': '<svg/>' }),
+			REVISION
+		);
+
+		expect(archive.tree).toEqual({ version: 3, workspaces: STARTER_MEMBERS });
+		expect(archive.files.map(({ path }) => path)).toContain('packages/assets/logo.svg');
+	});
+});
+
+/**
+ * The six membership fixtures of `probe-c/workspaces.ts`: five candidate directories, each with a
+ * `package.json` named `local-<index>`, and one pattern list per fixture. Bun 1.3.9, 1.3.14 and
+ * 1.4.5 gave the member sets in `probe-c/workspaces.log`. The overlap fixture here also names
+ * `apps/web`, which version 3 requires, and Bun 1.4.3 installs `apps/web` and `packages/ui` for it.
+ */
+describe('workspace membership', () => {
+	const candidates = [
+		'apps/web',
+		'packages/ui',
+		'packages/.dot',
+		'packages/deep/leaf',
+		'libs/misc'
+	];
+	function membershipArchive(patterns: string[], duplicate = false): Buffer {
+		const changes: Record<string, string | undefined> = Object.fromEntries(
+			STARTER_MEMBERS.map((member) => [`${member}/package.json`, undefined])
+		);
+		for (const [index, candidate] of candidates.entries()) {
+			const name = duplicate && candidate === 'libs/misc' ? 'local-0' : `local-${index}`;
+			changes[`${candidate}/package.json`] = JSON.stringify({ name, version: '1.0.0' });
+		}
+		changes['package.json'] = workspaceManifest({ workspaces: patterns });
+		return workspaceArchive(changes);
+	}
+
+	it.each([
+		{ fixture: 'v3', patterns: ['apps/*', 'packages/*'], members: ['apps/web', 'packages/ui'] },
+		{ fixture: 'literal', patterns: ['apps/web'], members: ['apps/web'] },
+		{
+			fixture: 'overlap',
+			patterns: ['apps/web', 'packages/*', 'packages/ui'],
+			members: ['apps/web', 'packages/ui']
+		}
+	])('admits the members Bun installs for the $fixture fixture', async ({ patterns, members }) => {
+		const archive = await validateTemplateArchive(membershipArchive(patterns), REVISION);
+
+		expect(archive.tree).toEqual({ version: 3, workspaces: members });
+	});
+
+	it.each([
+		{
+			fixture: 'missing',
+			patterns: ['empty/*'],
+			duplicate: false,
+			expected:
+				'declares the workspace pattern empty/*, and no directory directly below empty/ holds a package.json.'
+		},
+		{
+			fixture: 'duplicate',
+			patterns: ['apps/*', 'libs/*'],
+			duplicate: true,
+			expected: 'names two workspaces "local-0": apps/web/package.json and libs/misc/package.json.'
+		},
+		{
+			fixture: 'deep',
+			patterns: ['packages/**'],
+			duplicate: false,
+			expected:
+				'declares the workspace pattern "packages/**", which is neither a directory nor <dir>/*.'
+		}
+	])('refuses the $fixture fixture', async ({ patterns, duplicate, expected }) => {
+		await expect(
+			validateTemplateArchive(membershipArchive(patterns, duplicate), REVISION)
+		).rejects.toThrow(`Template revision ${REVISION} with templateSetupVersion 3 ${expected}`);
 	});
 });

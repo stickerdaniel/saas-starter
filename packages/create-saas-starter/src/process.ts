@@ -7,6 +7,7 @@ import {
 	windowsJobCommand,
 	type ChildCommand
 } from '../../../scripts/windows-job.ts';
+import type { TemplateSetupVersion } from './archive.js';
 import type { ResolvedOptions } from './prompts.js';
 
 const MINIMUM_BUN_VERSION = [1, 3, 9] as const;
@@ -250,8 +251,41 @@ export async function verifyBun(
 	return { executable, environment: filtered };
 }
 
+type InstallSteps = [string[], ...string[][]];
+
+interface SetupProtocol {
+	/** The flags that ask setup to leave out the test suite, given the list of extracted files. */
+	readonly withoutTests: (archiveList: string) => string[];
+	readonly installs: (withoutTests: boolean) => InstallSteps;
+}
+
+const FROZEN_INSTALL = ['install', '--frozen-lockfile'];
+const withoutTestsFlags = (archiveList: string) => [
+	'--without-tests',
+	`--archive-files=${archiveList}`
+];
+
+/**
+ * The words each setup version understands. A version 3 setup removes the creator workspace that
+ * `bun.lock` lists, so its project reconciles the lockfile before the frozen check in both profiles.
+ */
+const SETUP_PROTOCOLS = {
+	2: {
+		withoutTests: withoutTestsFlags,
+		installs: (withoutTests) => (withoutTests ? [['install'], FROZEN_INSTALL] : [FROZEN_INSTALL])
+	},
+	3: {
+		withoutTests: withoutTestsFlags,
+		installs: () => [['install'], FROZEN_INSTALL]
+	}
+} as const satisfies Record<TemplateSetupVersion, SetupProtocol>;
+
 /** `archiveList`, the list of extracted files, asks setup to leave out the test suite. */
-export function setupArguments(options: ResolvedOptions, archiveList?: string): string[] {
+export function setupArguments(
+	options: ResolvedOptions,
+	version: TemplateSetupVersion,
+	archiveList?: string
+): string[] {
 	const args = ['run', 'setup'];
 	for (const [flag, value] of [
 		['--slug', options.slug],
@@ -267,14 +301,13 @@ export function setupArguments(options: ResolvedOptions, archiveList?: string): 
 	] as const) {
 		if (value !== undefined) args.push(`${flag}=${value}`);
 	}
-	if (archiveList !== undefined) args.push('--without-tests', `--archive-files=${archiveList}`);
+	if (archiveList !== undefined) args.push(...SETUP_PROTOCOLS[version].withoutTests(archiveList));
 	return args;
 }
 
-/** The Bun arguments that install a project, in order. A project without tests rewrites bun.lock first. */
-export function installSteps(withoutTests: boolean): [string[], ...string[][]] {
-	const frozen = ['install', '--frozen-lockfile'];
-	return withoutTests ? [['install'], frozen] : [frozen];
+/** The Bun arguments that install a project, in order; a rewritten bun.lock comes before its check. */
+export function installSteps(version: TemplateSetupVersion, withoutTests: boolean): InstallSteps {
+	return SETUP_PROTOCOLS[version].installs(withoutTests);
 }
 
 export async function runSetupAndInstall(input: {
@@ -282,6 +315,7 @@ export async function runSetupAndInstall(input: {
 	environment: NodeJS.ProcessEnv;
 	target: string;
 	options: ResolvedOptions;
+	version: TemplateSetupVersion;
 	archiveList?: string;
 	signal: AbortSignal;
 	onSetupComplete: () => Promise<void>;
@@ -291,7 +325,7 @@ export async function runSetupAndInstall(input: {
 	const setup = await run(
 		{
 			command: input.bun,
-			args: setupArguments(input.options, input.archiveList),
+			args: setupArguments(input.options, input.version, input.archiveList),
 			env: input.environment
 		},
 		{ cwd: input.target, env: input.environment, signal: input.signal }
@@ -300,7 +334,7 @@ export async function runSetupAndInstall(input: {
 	if (setup.code !== 0) throw new Error(`Template setup failed with exit code ${setup.code}.`);
 	await input.onSetupComplete();
 	if (input.options.skipInstall) return 'needs-install';
-	for (const args of installSteps(input.archiveList !== undefined)) {
+	for (const args of installSteps(input.version, input.archiveList !== undefined)) {
 		const install = await run(
 			{ command: input.bun, args, env: input.environment },
 			{ cwd: input.target, env: input.environment, signal: input.signal }
