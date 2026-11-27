@@ -9,6 +9,8 @@ on:
       - packages/create-saas-starter/**
       - scripts/windows-job.ts
       - scripts/template-setup.ts
+      - scripts/export-profile.ts
+      - scripts/path-sets.ts
       - scripts/__fixtures__/template-setup/**
       - scripts/test-executable.ts
       - src/lib/content/legal-content-dates.ts
@@ -27,6 +29,8 @@ on:
       - packages/create-saas-starter/**
       - scripts/windows-job.ts
       - scripts/template-setup.ts
+      - scripts/export-profile.ts
+      - scripts/path-sets.ts
       - scripts/__fixtures__/template-setup/**
       - scripts/test-executable.ts
       - src/lib/content/legal-content-dates.ts

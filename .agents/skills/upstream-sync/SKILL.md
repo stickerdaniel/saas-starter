@@ -69,6 +69,7 @@ The list scopes from `.upstream-sync.json`'s `lastSynced` (falls back to the for
 point on the first sync). A merge leaves `lastSynced` in place, so merged commits stay
 on the list until `--mark-synced` records the finished review. Each row shows a
 priority tag, the divergence categories it touches, and the file count. Oldest-first is the integration/dependency order.
+When the marker's `omitted` names path sets this project left out, such as `tests`, a row whose files all belong to them shows `(omitted-only)`; it stays on the list and still gets a verdict.
 `--json` gives machine output; `--type` / `--tag` narrow the view (review-all stays
 the default). The upstream defaults to the template this skill shipped from; if this
 fork was forked from another fork, pass `--upstream <url>` (or set `upstreamUrl` in the

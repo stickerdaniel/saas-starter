@@ -65,6 +65,15 @@ export const pathSets = {
 
 export type PathSetName = keyof typeof pathSets;
 
+/** Whether `value` is a list of distinct set names, as `templateProfiles` and a marker's `omitted` hold. */
+export function isPathSetNameList(value: unknown): value is PathSetName[] {
+	return (
+		Array.isArray(value) &&
+		new Set(value).size === value.length &&
+		value.every((name) => typeof name === 'string' && Object.hasOwn(pathSets, name))
+	);
+}
+
 export function inPathSets(path: string, names: Iterable<PathSetName>): boolean {
 	for (const name of names) if (pathSets[name].includes(path)) return true;
 	return false;

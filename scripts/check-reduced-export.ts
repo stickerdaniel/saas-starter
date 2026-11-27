@@ -13,7 +13,7 @@ import { spawnSync } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { deletePathSets, reduceManifest } from './export-profile';
+import { deletePathSets, reduceManifest, trackedFiles } from './export-profile';
 import { inPathSets, type PathSetName } from './path-sets';
 
 const sets: readonly PathSetName[] = ['tests'];
@@ -96,7 +96,7 @@ const root = git(process.cwd(), 'rev-parse', '--show-toplevel').trim();
 const copy = mkdtempSync(join(tmpdir(), 'reduced-export-'));
 const started = performance.now();
 try {
-	const tracked = records(git(root, 'ls-files', '-z'));
+	const tracked = trackedFiles(root);
 	const omitted = tracked.filter((path) => inPathSets(path, sets));
 	const full = copyTree(root, copy, tracked);
 	const deleted = deletePathSets(copy, tracked, sets);

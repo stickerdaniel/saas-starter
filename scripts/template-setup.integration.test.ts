@@ -29,6 +29,7 @@ import {
 	buildSiteStructuredData,
 	type OrganizationLegalIdentity
 } from '../src/lib/seo/structured-data';
+import { reduceManifest } from './export-profile';
 import { testExecutable } from './test-executable';
 import { required } from './required';
 
@@ -57,6 +58,8 @@ const FIXTURE_FILES = [
 	'README.md',
 	'wrangler.toml',
 	'scripts/template-setup.ts',
+	'scripts/export-profile.ts',
+	'scripts/path-sets.ts',
 	'src/lib/config/legal.ts',
 	'src/lib/config/site.ts',
 	'src/lib/content/legal-content-dates.ts',
@@ -68,6 +71,8 @@ const FIXTURE_FILES = [
 /** Copied from the live template so the rewrite runs against the files a project ships. */
 const LIVE_FILES: ReadonlySet<string> = new Set([
 	'scripts/template-setup.ts',
+	'scripts/export-profile.ts',
+	'scripts/path-sets.ts',
 	'src/lib/content/legal-metadata.ts',
 	'static/manifest.webmanifest',
 	'src/app.html'
@@ -108,7 +113,7 @@ function snapshot(dir: string): Record<string, string> {
 	);
 }
 
-function runSetup(dir: string, args: string[], preload?: string) {
+function runSetup(dir: string, args: string[], preload?: string, env = CHILD_ENV) {
 	// Use the public manifest dispatch so preload faults exercise the same process path as users.
 	const command = preload
 		? [`--preload=${preload}`, 'run', 'setup', ...args]
@@ -117,9 +122,7 @@ function runSetup(dir: string, args: string[], preload?: string) {
 		cwd: dir,
 		encoding: 'utf-8',
 		// The manifest script starts a nested Bun runtime; propagate the same CLI preload to it.
-		env: preload
-			? { ...CHILD_ENV, BUN_OPTIONS: `--preload=${preload.replaceAll('\\', '/')}` }
-			: CHILD_ENV,
+		env: preload ? { ...env, BUN_OPTIONS: `--preload=${preload.replaceAll('\\', '/')}` } : env,
 		// Keep stdin detached from a TTY, matching CI and non-interactive CLI use.
 		stdio: ['ignore', 'pipe', 'pipe'],
 		timeout: 60_000,
@@ -2374,5 +2377,528 @@ describe('template setup help', () => {
 		expect(run.stdout).toContain('--slug');
 		expect(run.stdout).toContain('Unknown flags are rejected before any file is written.');
 		expect(snapshot(dir)).toEqual(before);
+	});
+});
+
+describe('template setup --without-tests', () => {
+	const TEMPLATE_URL = 'https://github.com/stickerdaniel/saas-starter.git';
+	const TEMPLATE_SHA = 'a'.repeat(40);
+	const SCAFFOLD = '.saas-starter-scaffold.json';
+	const GIT_ENV: NodeJS.ProcessEnv = {
+		...CHILD_ENV,
+		GIT_CONFIG_NOSYSTEM: '1',
+		GIT_CONFIG_GLOBAL: process.platform === 'win32' ? 'NUL' : '/dev/null',
+		GIT_AUTHOR_NAME: 'Fixture',
+		GIT_AUTHOR_EMAIL: 'fixture@example.com',
+		GIT_COMMITTER_NAME: 'Fixture',
+		GIT_COMMITTER_EMAIL: 'fixture@example.com'
+	};
+	const SUITE = ['e2e/public.spec.ts', 'e2e/utils/auth.ts', 'src/lib/effect/clock.test.ts'];
+	const KEPT = ['src/lib/effect/clock.ts', 'src/lib/confect/demo.spec.ts'];
+
+	function git(dir: string, args: string[]): string {
+		const result = spawnSync('git', args, { cwd: dir, encoding: 'utf-8', env: GIT_ENV });
+		if (result.status !== 0) throw new Error(`git ${args.join(' ')}: ${result.stderr}`);
+		return result.stdout.trim();
+	}
+
+	function write(dir: string, files: Record<string, string>): void {
+		for (const [rel, content] of Object.entries(files)) {
+			mkdirSync(dirname(join(dir, rel)), { recursive: true });
+			writeFileSync(join(dir, rel), content);
+		}
+	}
+
+	function tree(dir: string): Record<string, string> {
+		const files: Record<string, string> = {};
+		const visit = (rel: string): void => {
+			for (const entry of readdirSync(join(dir, rel), { withFileTypes: true })) {
+				const path = rel ? `${rel}/${entry.name}` : entry.name;
+				if (path === '.git') continue;
+				if (entry.isDirectory()) visit(path);
+				else if (entry.isFile()) files[path] = readFileSync(join(dir, path), 'utf-8');
+				else files[path] = 'link';
+			}
+		};
+		visit('');
+		return files;
+	}
+
+	function scaffold(phase = 'setup'): string {
+		return JSON.stringify({
+			version: 1,
+			state: 'incomplete',
+			phase,
+			source: 'stickerdaniel/saas-starter',
+			ref: 'main',
+			sha: TEMPLATE_SHA
+		});
+	}
+
+	/** A directory as the creator leaves it before setup: the archive, its marker, and the list. */
+	function staged(phase = 'setup'): { dir: string; list: string } {
+		const dir = createFixture();
+		cpSync(join(ROOT, 'package.json'), join(dir, 'package.json'));
+		const helper = '.agents/skills/upstream-sync/scripts/scaffold-marker.ts';
+		mkdirSync(dirname(join(dir, helper)), { recursive: true });
+		cpSync(join(ROOT, helper), join(dir, helper));
+		write(dir, Object.fromEntries([...SUITE, ...KEPT].map((rel) => [rel, `// ${rel}\n`])));
+		const list = `${dir}-archive-files.json`;
+		fixtures.push(list);
+		writeFileSync(list, JSON.stringify([...FIXTURE_FILES, helper, ...SUITE, ...KEPT]));
+		write(dir, { [SCAFFOLD]: scaffold(phase) });
+		return { dir, list };
+	}
+
+	function args(list?: string): string[] {
+		return [
+			...REQUIRED,
+			...IDENTITY,
+			'--without-tests',
+			...(list === undefined ? [] : ['--archive-files', list])
+		];
+	}
+
+	function marker(dir: string): unknown {
+		const path = join(dir, '.upstream-sync.json');
+		return existsSync(path) ? JSON.parse(readFileSync(path, 'utf-8')) : undefined;
+	}
+
+	function setup(dir: string, argv: string[], preload?: string) {
+		return runSetup(dir, argv, preload, GIT_ENV);
+	}
+
+	function installLines(stdout: string): string[] {
+		return stdout.split('\n').filter((line) => line.includes('bun install'));
+	}
+
+	it('deletes the listed suite of a staged project and records it in the marker', () => {
+		const { dir, list } = staged();
+
+		const run = setup(dir, args(list));
+
+		expect(run.code, run.stderr).toBe(0);
+		expect([...SUITE, ...KEPT].filter((rel) => existsSync(join(dir, rel)))).toEqual(KEPT);
+		expect(marker(dir)).toEqual({ forkPoint: TEMPLATE_SHA, omitted: ['tests'] });
+		expect(run.stdout).toContain(
+			`Deleted 3 test files. Template commit ${TEMPLATE_SHA} still holds them.`
+		);
+		const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf-8'));
+		expect(pkg.scripts).not.toHaveProperty('test:e2e');
+		expect(pkg.devDependencies).not.toHaveProperty('miniflare');
+	});
+
+	it('refuses in a Git repository even with the template as its remote', () => {
+		const { dir, list } = staged();
+		git(dir, ['init', '-q', '-b', 'main']);
+		git(dir, ['add', '-A']);
+		git(dir, ['commit', '-q', '--no-verify', '-m', 'template']);
+		git(dir, ['remote', 'add', 'origin', TEMPLATE_URL]);
+		const before = tree(dir);
+
+		const run = setup(dir, args(list));
+
+		expect(run.code).toBe(1);
+		expect(run.stderr).toContain(
+			'--without-tests removes the test suite only while create-saas-starter stages a new project. This directory is a Git repository, so setup deleted nothing.'
+		);
+		expect(tree(dir)).toEqual(before);
+	});
+
+	it.each<[string, (dir: string) => NodeJS.ProcessEnv]>([
+		[
+			'in a Git repository while git is not on PATH',
+			(dir) => {
+				git(dir, ['init', '-q', '-b', 'main']);
+				git(dir, ['add', '-A']);
+				git(dir, ['commit', '-q', '--no-verify', '-m', 'template']);
+				const env = { ...GIT_ENV, PATH: dirname(BUN) };
+				expect(() => testExecutable('git', dir, env)).toThrow();
+				return env;
+			}
+		],
+		[
+			'with a .git file that names a missing directory',
+			(dir) => {
+				writeFileSync(join(dir, '.git'), `gitdir: ${join(dir, 'missing')}\n`);
+				return GIT_ENV;
+			}
+		]
+	])('refuses %s and deletes nothing', (_, prepare) => {
+		const { dir, list } = staged();
+		const env = prepare(dir);
+		const before = tree(dir);
+
+		const run = runSetup(dir, args(list), undefined, env);
+
+		expect(run.code).toBe(1);
+		expect(run.stderr).toContain('This directory is a Git repository, so setup deleted nothing.');
+		expect(tree(dir)).toEqual(before);
+		expect(existsSync(join(dir, '.git'))).toBe(true);
+	});
+
+	it.each<[string, string]>([
+		['e2e/archive.test.json that names itself', 'e2e/archive.test.json'],
+		['archive-list.json in the root, given as a relative path', 'archive-list.json']
+	])('refuses a list at %s and deletes nothing', (_, rel) => {
+		const { dir, list } = staged();
+		write(dir, { [rel]: JSON.stringify([...JSON.parse(readFileSync(list, 'utf-8')), rel]) });
+		const given = rel.includes('/') ? join(dir, rel) : rel;
+		const before = tree(dir);
+
+		const run = setup(dir, args(given));
+
+		expect(run.code).toBe(1);
+		expect(run.stderr).toContain(
+			`--archive-files ${given} lies inside the project. The list must be outside the project directory. Setup deleted nothing.`
+		);
+		expect(tree(dir)).toEqual(before);
+	});
+
+	it('refuses a link in the project that leads to a list outside it', () => {
+		const { dir, list } = staged();
+		const link = join(dir, 'archive-list.json');
+		symlinkSync(list, link, 'file');
+		const before = tree(dir);
+
+		const run = setup(dir, args(link));
+
+		expect(run.code).toBe(1);
+		expect(run.stderr).toContain(`--archive-files ${link} lies inside the project.`);
+		expect(tree(dir)).toEqual(before);
+	});
+
+	const caseInsensitive = (() => {
+		const probe = mkdtempSync(join(tmpdir(), 'template-setup-case-'));
+		fixtures.push(probe);
+		writeFileSync(join(probe, 'a'), '');
+		return existsSync(join(probe, 'A'));
+	})();
+
+	it.runIf(caseInsensitive)('keeps a changed file below e2e renamed to E2E', () => {
+		const { dir, list } = staged();
+		rmSync(join(dir, 'e2e/public.spec.ts'));
+		renameSync(join(dir, 'e2e'), join(dir, 'E2E'));
+		writeFileSync(join(dir, 'E2E/utils/auth.ts'), 'mine\n');
+
+		const run = setup(dir, args(list));
+
+		expect(run.code, run.stderr).toBe(0);
+		expect(readFileSync(join(dir, 'E2E/utils/auth.ts'), 'utf-8')).toBe('mine\n');
+		expect(existsSync(join(dir, 'src/lib/effect/clock.test.ts'))).toBe(false);
+	});
+
+	function refusesReplacedTestFile(replace: (path: string) => void): void {
+		const { dir, list } = staged();
+		const path = join(dir, 'src/lib/effect/clock.test.ts');
+		rmSync(path);
+		replace(path);
+		const before = tree(dir);
+
+		const run = setup(dir, args(list));
+
+		expect(run.code).toBe(1);
+		expect(run.stderr).toContain(
+			'Could not delete src/lib/effect/clock.test.ts: it is no regular file, so setup deleted nothing.'
+		);
+		expect(tree(dir)).toEqual(before);
+	}
+
+	it('refuses a listed test file replaced by a link to a file outside the project', () => {
+		const outside = mkdtempSync(join(tmpdir(), 'template-setup-outside-'));
+		fixtures.push(outside);
+		writeFileSync(join(outside, 'clock.test.ts'), 'outside\n');
+
+		refusesReplacedTestFile((path) => symlinkSync(join(outside, 'clock.test.ts'), path, 'file'));
+
+		expect(readFileSync(join(outside, 'clock.test.ts'), 'utf-8')).toBe('outside\n');
+	});
+
+	it.skipIf(process.platform === 'win32')('refuses a listed test file replaced by a FIFO', () => {
+		refusesReplacedTestFile((path) => {
+			const made = spawnSync('mkfifo', [path], { encoding: 'utf-8' });
+			if (made.status !== 0) throw new Error(`mkfifo: ${made.stderr}`);
+		});
+	});
+
+	it('refuses a reduced package.json that has miniflare back and deletes nothing', () => {
+		const { dir, list } = staged();
+		const reduced = JSON.parse(
+			reduceManifest(readFileSync(join(dir, 'package.json'), 'utf-8'), ['tests'])
+		);
+		reduced.devDependencies.miniflare = '^4.0.0';
+		write(dir, { 'package.json': JSON.stringify(reduced, null, '\t') + '\n' });
+		const before = tree(dir);
+
+		const run = setup(dir, args(list));
+
+		expect(run.code).toBe(1);
+		expect(run.stderr).toContain(
+			'package.json is neither full nor reduced for the tests set: it names the scripts [] and the devDependencies ["miniflare"], so setup deleted nothing.'
+		);
+		expect(tree(dir)).toEqual(before);
+	});
+
+	it.each<[string, (list: string) => string | undefined, string]>([
+		[
+			'without --archive-files',
+			() => undefined,
+			'--without-tests needs --archive-files, the list of the files create-saas-starter extracted. Setup deleted nothing.'
+		],
+		[
+			'with a list that is no array of strings',
+			(list) => {
+				writeFileSync(list, JSON.stringify({ files: ['e2e/public.spec.ts'] }));
+				return list;
+			},
+			'holds no JSON array of strings'
+		],
+		[
+			'with a listed path that has a .. segment',
+			(list) => {
+				writeFileSync(list, JSON.stringify(['e2e/../e2e/public.spec.ts']));
+				return list;
+			},
+			'it has an empty, . or .. segment'
+		]
+	])('refuses a staged project %s and deletes nothing', (_, listFile, message) => {
+		const { dir, list } = staged();
+		const before = tree(dir);
+
+		const run = setup(dir, args(listFile(list)));
+
+		expect(run.code).toBe(1);
+		expect(run.stderr).toContain(message);
+		expect(tree(dir)).toEqual(before);
+	});
+
+	it('refuses a scaffold marker in phase install and deletes nothing', () => {
+		const { dir, list } = staged('install');
+		const before = tree(dir);
+
+		const run = setup(dir, args(list));
+
+		expect(run.code).toBe(1);
+		expect(run.stderr).toContain(
+			'No scaffold marker in phase setup is here, so setup deleted nothing.'
+		);
+		expect(tree(dir)).toEqual(before);
+	});
+
+	it('refuses test files that the list does not name, names them and deletes nothing', () => {
+		const { dir, list } = staged();
+		write(dir, {
+			'node_modules/vendor/ours.test.js': 'installed\n',
+			'e2e/mine.spec.ts': 'mine\n'
+		});
+		const before = tree(dir);
+
+		const run = setup(dir, args(list));
+
+		expect(run.code).toBe(1);
+		expect(run.stderr).toContain(
+			'--without-tests deletes only files of the template archive. These test files are not in the list from --archive-files, so setup deleted nothing:\n  e2e/mine.spec.ts\n  node_modules/vendor/ours.test.js\n'
+		);
+		expect(tree(dir)).toEqual(before);
+	});
+
+	it('names at most 20 unlisted test files and counts the rest', () => {
+		const { dir, list } = staged();
+		const added = Array.from(
+			{ length: 23 },
+			(_, i) => `src/added-${String(i).padStart(2, '0')}.test.ts`
+		);
+		write(dir, Object.fromEntries(added.map((rel) => [rel, ''])));
+
+		const run = setup(dir, args(list));
+
+		expect(run.code).toBe(1);
+		const named = run.stderr.split('\n').filter((line) => line.startsWith('  src/added-'));
+		expect(named).toEqual(added.slice(0, 20).map((rel) => `  ${rel}`));
+		expect(run.stderr).toContain('\n  and 3 more\n');
+	});
+
+	it('accepts a project nested in another work tree only with the list', () => {
+		const parent = mkdtempSync(join(tmpdir(), 'template-setup-parent-'));
+		fixtures.push(parent);
+		git(parent, ['init', '-q', '-b', 'main']);
+		const { dir: source, list } = staged();
+		const dir = join(parent, 'apps/product');
+		mkdirSync(dirname(dir), { recursive: true });
+		renameSync(source, dir);
+		const before = tree(dir);
+
+		const refused = setup(dir, args());
+		expect(refused.code).toBe(1);
+		expect(refused.stderr).toContain('--without-tests needs --archive-files');
+		expect(tree(dir)).toEqual(before);
+
+		const run = setup(dir, args(list));
+		expect(run.code, run.stderr).toBe(0);
+		expect(SUITE.filter((rel) => existsSync(join(dir, rel)))).toEqual([]);
+	});
+
+	it('follows no link when e2e links out of the project', () => {
+		const { dir, list } = staged();
+		const outside = mkdtempSync(join(tmpdir(), 'template-setup-outside-'));
+		fixtures.push(outside);
+		writeFileSync(join(outside, 'public.spec.ts'), 'outside\n');
+		rmSync(join(dir, 'e2e'), { recursive: true });
+		symlinkSync(outside, join(dir, 'e2e'), process.platform === 'win32' ? 'junction' : 'dir');
+
+		const run = setup(dir, args(list));
+
+		expect(run.code, run.stderr).toBe(0);
+		expect(run.stdout).toContain('Deleted 1 test files.');
+		expect(readFileSync(join(outside, 'public.spec.ts'), 'utf-8')).toBe('outside\n');
+		expect(lstatSync(join(dir, 'e2e')).isDirectory()).toBe(false);
+	});
+
+	it('rejects --archive-files without --without-tests before any write', () => {
+		const { dir, list } = staged();
+		const before = tree(dir);
+
+		const run = setup(dir, [...REQUIRED, ...IDENTITY, '--archive-files', list]);
+
+		expect(run.code).toBe(1);
+		expect(run.stderr).toContain('--archive-files works only with --without-tests.');
+		expect(run.stdout).not.toContain('Applying:');
+		expect(tree(dir)).toEqual(before);
+	});
+
+	it('names test commands and install steps in the summary only for its profile', () => {
+		const full = setup(staged().dir, [...REQUIRED, ...IDENTITY]);
+		const project = staged();
+		const reduced = setup(project.dir, args(project.list));
+
+		expect(full.code, full.stderr).toBe(0);
+		expect(reduced.code, reduced.stderr).toBe(0);
+		expect(full.stdout).toContain('Refresh email snapshots');
+		expect(installLines(full.stdout)).toEqual([]);
+		expect(reduced.stdout).not.toMatch(/test:unit|test:e2e|snapshots/);
+		expect(installLines(reduced.stdout)).toEqual([
+			'  1. Update bun.lock without the test dependencies: bun install',
+			'  2. Check the lockfile: bun install --frozen-lockfile'
+		]);
+
+		const later = setup(project.dir, [...REQUIRED, ...IDENTITY]);
+
+		expect(later.code, later.stderr).toBe(0);
+		expect(later.stdout).not.toMatch(/test:unit|test:e2e|snapshots/);
+		expect(installLines(later.stdout)).toEqual([]);
+	});
+
+	it('adds omitted to an existing marker and keeps every other field', () => {
+		const { dir, list } = staged();
+		const existing = {
+			upstreamUrl: TEMPLATE_URL,
+			forkPoint: TEMPLATE_SHA,
+			lastSynced: TEMPLATE_SHA,
+			syncedAt: '2026-11-01T00:00:00.000Z',
+			excluded: [{ sha: 'abcdef12', reason: 'own pricing' }]
+		};
+		write(dir, { '.upstream-sync.json': JSON.stringify(existing, null, '\t') + '\n' });
+
+		const run = setup(dir, args(list));
+
+		expect(run.code, run.stderr).toBe(0);
+		expect(marker(dir)).toEqual({ ...existing, omitted: ['tests'] });
+	});
+
+	it('changes no file when a finished run is repeated', () => {
+		const { dir, list } = staged();
+		const first = setup(dir, args(list));
+		expect(first.code, first.stderr).toBe(0);
+		const after = tree(dir);
+
+		const repeat = setup(dir, args(list));
+
+		expect(repeat.code, repeat.stderr).toBe(0);
+		expect(tree(dir)).toEqual(after);
+	});
+
+	describe('a repeat after a stop ends where an uninterrupted run ends', () => {
+		type StopPoint = 'first-deletion' | 'before-legal' | 'before-site' | 'before-marker';
+
+		function stopPreload(dir: string, point: StopPoint): string {
+			const preload = join(dir, '..', `${dir.split(/[\\/]/).at(-1)}-${point}.mjs`);
+			fixtures.push(preload);
+			writeFileSync(
+				preload,
+				`import { mock } from 'bun:test';
+import defaultFs, * as fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
+
+const point = ${JSON.stringify(point)};
+const normalize = (value) => String(value).replaceAll('\\\\', '/');
+const stop = () => process.kill(process.pid, 'SIGKILL');
+const { rmSync, mkdtempSync, writeFileSync } = fs;
+let removals = 0;
+const replacements = {
+	rmSync(path, options) {
+		if (point === 'first-deletion' && ++removals === 2) stop();
+		return rmSync(path, options);
+	},
+	mkdtempSync(prefix, options) {
+		const stage = normalize(prefix);
+		if (point === 'before-legal' || (point === 'before-site' && stage.endsWith('-site.ts-'))) stop();
+		return mkdtempSync(prefix, options);
+	},
+	writeFileSync(path, data, options) {
+		if (point === 'before-marker' && normalize(path).endsWith('/.upstream-sync.json')) stop();
+		return writeFileSync(path, data, options);
+	}
+};
+Object.assign(defaultFs, replacements);
+syncBuiltinESMExports();
+mock.module('fs', () => ({ ...fs, ...replacements }));
+mock.module('node:fs', () => ({ ...fs, ...replacements }));
+`
+			);
+			return preload;
+		}
+
+		const stoppedState: Record<StopPoint, (dir: string) => unknown> = {
+			'first-deletion': (dir) => SUITE.filter((rel) => existsSync(join(dir, rel))).length,
+			'before-legal': (dir) => [
+				SUITE.filter((rel) => existsSync(join(dir, rel))).length,
+				readFileSync(join(dir, 'src/lib/config/legal.ts'), 'utf-8').includes('Northwind')
+			],
+			'before-site': (dir) => [
+				readFileSync(join(dir, 'README.md'), 'utf-8').startsWith('# Northwind Labs'),
+				readFileSync(join(dir, 'src/lib/config/site.ts'), 'utf-8').includes('northwind/')
+			],
+			'before-marker': (dir) => [
+				readFileSync(join(dir, 'src/app.html'), 'utf-8').includes('Northwind Labs'),
+				existsSync(join(dir, '.upstream-sync.json'))
+			]
+		};
+		const expectedStop: Record<StopPoint, unknown> = {
+			'first-deletion': 2,
+			'before-legal': [0, false],
+			'before-site': [true, false],
+			'before-marker': [true, false]
+		};
+
+		it.each<StopPoint>(['first-deletion', 'before-legal', 'before-site', 'before-marker'])(
+			'stopped at %s',
+			(point) => {
+				const reference = staged();
+				const uninterrupted = setup(reference.dir, args(reference.list));
+				expect(uninterrupted.code, uninterrupted.stderr).toBe(0);
+
+				const { dir, list } = staged();
+				const stopped = setup(dir, args(list), stopPreload(dir, point));
+				expect(stopped.code).not.toBe(0);
+				expect(stoppedState[point](dir)).toEqual(expectedStop[point]);
+
+				const repeat = setup(dir, args(list));
+				expect(repeat.code, repeat.stderr).toBe(0);
+				expect(tree(dir)).toEqual(tree(reference.dir));
+				expect(marker(dir)).toEqual(marker(reference.dir));
+				expect(installLines(repeat.stdout)).toEqual(installLines(uninterrupted.stdout));
+			},
+			60_000
+		);
 	});
 });

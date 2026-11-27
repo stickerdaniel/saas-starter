@@ -33,11 +33,19 @@ import {
 	unlinkSync,
 	writeFileSync
 } from 'fs';
-import { basename, dirname, isAbsolute, join, relative, sep } from 'path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'path';
 import { createInterface, type Interface } from 'readline';
 import { domainToASCII, pathToFileURL } from 'url';
 import { parseArgs } from 'util';
 import { isIsoCalendarDate } from '../src/lib/content/legal-metadata';
+import {
+	archiveFiles,
+	checkedPath,
+	deletePathSets,
+	PathSetDeletionError,
+	reduceManifest
+} from './export-profile';
+import { inPathSets, isPathSetNameList, type PathSetName } from './path-sets';
 
 const ROOT = join(import.meta.dirname, '..');
 
@@ -71,6 +79,8 @@ interface SetupFlags {
 	operator?: string;
 	address: Partial<AddressFields>;
 	email?: string;
+	withoutTests: boolean;
+	archiveFiles?: string;
 }
 
 /**
@@ -96,6 +106,8 @@ function readFlags(): SetupFlags {
 				// Parsed only to reject it with the replacement flags instead of a generic error.
 				address: { type: 'string' },
 				email: { type: 'string' },
+				'without-tests': { type: 'boolean', default: false },
+				'archive-files': { type: 'string' },
 				help: { type: 'boolean', short: 'h', default: false }
 			},
 			strict: true,
@@ -114,6 +126,13 @@ function readFlags(): SetupFlags {
 		process.exit(1);
 	}
 
+	if (values['archive-files'] !== undefined && values['without-tests'] !== true) {
+		console.error(
+			'Error: --archive-files works only with --without-tests.\nRun bun run setup --help to see the supported flags.'
+		);
+		process.exit(1);
+	}
+
 	if (values.help) {
 		console.log(`Template Setup
 
@@ -121,19 +140,22 @@ Usage:
   bun run setup                                          (interactive)
   bun run setup --slug <s> --repo <owner/name> --brand <s> [--company <s>] [--operator <s>]
                 [--street <s>] [--postal-code <s>] [--city <s>] [--country <CC>] [--email <user@domain.tld>]
+                [--without-tests --archive-files <file>]
 
 Flags:
-  --slug         Worker slug (1-63 lowercase letters, numbers, or inner hyphens)
-  --repo         GitHub repo in owner/name format
-  --brand        Brand display name
-  --company      Company name (legal entity)
-  --operator     Operator name (person or org running the service)
-  --street       Street address, such as "123 Main Street, Suite 100"
-  --postal-code  Postal code
-  --city         City
-  --country      Two uppercase letters, such as US or DE
-  --email        Contact email in user@domain.tld form
-  -h, --help     Show this help
+  --slug           Worker slug (1-63 lowercase letters, numbers, or inner hyphens)
+  --repo           GitHub repo in owner/name format
+  --brand          Brand display name
+  --company        Company name (legal entity)
+  --operator       Operator name (person or org running the service)
+  --street         Street address, such as "123 Main Street, Suite 100"
+  --postal-code    Postal code
+  --city           City
+  --country        Two uppercase letters, such as US or DE
+  --email          Contact email in user@domain.tld form
+  --without-tests  Delete the test suite (see below)
+  --archive-files  JSON list of the files create-saas-starter extracted (see below)
+  -h, --help       Show this help
 
 The address fields appear in the Impressum, the Contact page, and the email
 footer as "street, postal-code city, country".
@@ -143,7 +165,14 @@ while they still hold their template values.
 Identity fields without flags preserve current legal.ts values.
 A legal.ts that still stores the address as one string needs all four address flags.
 In interactive mode, missing flags are prompted with current values as defaults.
-Unknown flags are rejected before any file is written.`);
+Unknown flags are rejected before any file is written.
+
+--without-tests deletes the files of the test suite. Setup accepts it only from
+create-saas-starter while it stages a new project: outside a Git repository,
+with the scaffold marker in phase setup, and with --archive-files <file>, a
+JSON list of the paths the creator extracted. The list lies outside the project
+directory; a relative path resolves against the working directory of setup.
+Otherwise setup refuses before any write.`);
 		process.exit(0);
 	}
 
@@ -159,7 +188,9 @@ Unknown flags are rejected before any file is written.`);
 				return value === undefined ? [] : [[key, value]];
 			})
 		),
-		email: normalizeFlag(values.email)
+		email: normalizeFlag(values.email),
+		withoutTests: values['without-tests'] === true,
+		archiveFiles: normalizeFlag(values['archive-files'])
 	};
 }
 
@@ -202,12 +233,16 @@ interface StagedFile {
 
 const REAL_ROOT = realpathSync(ROOT);
 
-function isWithinRepository(path: string): boolean {
-	const fromRoot = relative(REAL_ROOT, path);
+function isWithin(root: string, path: string): boolean {
+	const fromRoot = relative(root, path);
 	return (
 		fromRoot === '' ||
 		(!isAbsolute(fromRoot) && fromRoot !== '..' && !fromRoot.startsWith(`..${sep}`))
 	);
+}
+
+function isWithinRepository(path: string): boolean {
+	return isWithin(REAL_ROOT, path);
 }
 
 function inspectCanonicalFile(rel: string): CanonicalFile {
@@ -431,6 +466,11 @@ function gitAtRoot(args: string[]): string | undefined {
 	return result.status === 0 ? result.stdout.trim() : undefined;
 }
 
+function isGitTopLevel(): boolean {
+	const toplevel = gitAtRoot(['rev-parse', '--show-toplevel']);
+	return !!toplevel && realpathSync(toplevel) === REAL_ROOT;
+}
+
 /**
  * The upstream commit this project was created from, when setup can know it exactly:
  * the CLI scaffold sha, or HEAD of a clone or fork while HEAD still sits on an
@@ -439,8 +479,7 @@ function gitAtRoot(args: string[]): string | undefined {
  * its exact tree match stays findable, so nothing is recorded there.
  */
 async function creationForkPoint(): Promise<string | undefined> {
-	const toplevel = gitAtRoot(['rev-parse', '--show-toplevel']);
-	const inGit = !!toplevel && realpathSync(toplevel) === REAL_ROOT;
+	const inGit = isGitTopLevel();
 	let scaffold: Record<string, unknown> | undefined;
 	if (inGit) {
 		// Once Git has the marker, its first commit wins over a later edit, exactly as
@@ -508,6 +547,186 @@ async function recordForkPoint(): Promise<void> {
 				`  Commit {"forkPoint": "${forkPoint}"} in it yourself before the first upstream sync.`
 		);
 	}
+}
+
+const TESTS: readonly PathSetName[] = ['tests'];
+const LISTED_PATHS_SHOWN = 20;
+
+type SyncMarker = Record<string, unknown> & { omitted?: PathSetName[] };
+
+interface TestRemoval {
+	files: string[];
+	holder: string;
+	manifest: string;
+	marker?: CanonicalFile;
+	nextMarker: SyncMarker;
+}
+
+const STAGING_ONLY =
+	'--without-tests removes the test suite only while create-saas-starter stages a new project.';
+
+function readArchiveList(file: string | undefined): string[] {
+	if (file === undefined) {
+		fail(
+			'--without-tests needs --archive-files, the list of the files create-saas-starter extracted. Setup deleted nothing.'
+		);
+	}
+	let places: string[];
+	let list: unknown;
+	try {
+		const given = resolve(file);
+		places = [
+			realpathSync.native(given),
+			join(realpathSync.native(dirname(given)), basename(given))
+		];
+		list = JSON.parse(readFileSync(given, 'utf-8'));
+	} catch (error) {
+		fail(
+			`--archive-files ${file} holds no readable JSON: ${errorMessage(error)}. Setup deleted nothing.`
+		);
+	}
+	const root = realpathSync.native(ROOT);
+	if (places.some((place) => isWithin(root, place))) {
+		fail(
+			`--archive-files ${file} lies inside the project. The list must be outside the project directory. Setup deleted nothing.`
+		);
+	}
+	if (!Array.isArray(list) || !list.every((path) => typeof path === 'string')) {
+		fail(`--archive-files ${file} holds no JSON array of strings. Setup deleted nothing.`);
+	}
+	try {
+		return list.map(checkedPath);
+	} catch (error) {
+		fail(`--archive-files ${file}: ${errorMessage(error)}. Setup deleted nothing.`);
+	}
+}
+
+function stagedTestFiles(archiveList: string | undefined): { files: string[]; holder: string } {
+	if (lstatSync(join(ROOT, '.git'), { throwIfNoEntry: false }) || isGitTopLevel()) {
+		fail(`${STAGING_ONLY} This directory is a Git repository, so setup deleted nothing.`);
+	}
+	const noScaffold = `${STAGING_ONLY} No scaffold marker in phase setup is here, so setup deleted nothing.`;
+	let scaffold: Record<string, unknown> | undefined;
+	try {
+		scaffold = JSON.parse(readFileSync(join(ROOT, SCAFFOLD_MARKER), 'utf-8'));
+	} catch {
+		fail(noScaffold);
+	}
+	if (
+		scaffold?.version !== 1 ||
+		scaffold.state !== 'incomplete' ||
+		scaffold.phase !== 'setup' ||
+		scaffold.source !== TEMPLATE_REPOSITORY ||
+		typeof scaffold.sha !== 'string' ||
+		!FULL_COMMIT_SHA.test(scaffold.sha)
+	) {
+		fail(noScaffold);
+	}
+	const extracted = new Set(readArchiveList(archiveList));
+	let files: string[];
+	try {
+		files = archiveFiles(ROOT).filter((path) => inPathSets(path, TESTS));
+	} catch (error) {
+		fail(`${errorMessage(error)}. Setup deleted nothing.`);
+	}
+	const foreign = files.filter((path) => !extracted.has(path)).sort();
+	if (foreign.length > 0) {
+		const shown = foreign.slice(0, LISTED_PATHS_SHOWN).map((path) => `  ${path}`);
+		const more = foreign.length - shown.length;
+		fail(
+			'--without-tests deletes only files of the template archive. These test files are not in ' +
+				`the list from --archive-files, so setup deleted nothing:\n${shown.join('\n')}` +
+				(more > 0 ? `\n  and ${more} more` : '')
+		);
+	}
+	return { files, holder: scaffold.sha };
+}
+
+function readSyncMarker(): { file?: CanonicalFile; value?: SyncMarker } {
+	if (lstatSync(join(ROOT, UPSTREAM_SYNC_MARKER), { throwIfNoEntry: false }) === undefined) {
+		return {};
+	}
+	const file = inspectCanonicalFile(UPSTREAM_SYNC_MARKER);
+	const value: unknown = JSON.parse(file.source);
+	if (!value || typeof value !== 'object' || Array.isArray(value)) {
+		throw new Error(`${UPSTREAM_SYNC_MARKER} must hold a JSON object`);
+	}
+	const { omitted } = value as Record<string, unknown>;
+	if (omitted !== undefined && !isPathSetNameList(omitted)) {
+		throw new Error(`${UPSTREAM_SYNC_MARKER} has an invalid omitted list`);
+	}
+	return { file, value: value as SyncMarker };
+}
+
+function markerOmitsTests(): boolean {
+	try {
+		return readSyncMarker().value?.omitted?.includes('tests') ?? false;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Decides before the first write whether setup may delete the test suite, and what it deletes:
+ * each regular file that the rule matches and that the creator's list names with the spelling the
+ * walk of the root finds below real directories. Setup does not check that such a file still has
+ * the bytes the creator wrote, and it does not guard against another process that changes the
+ * tree while it runs.
+ */
+async function planTestRemoval(
+	packageFile: CanonicalFile,
+	archiveList: string | undefined
+): Promise<TestRemoval> {
+	const profiles: unknown = JSON.parse(packageFile.source).templateProfiles;
+	if (!isPathSetNameList(profiles) || !profiles.includes('tests')) {
+		fail('--without-tests needs "tests" in templateProfiles of package.json');
+	}
+	const { files, holder } = stagedTestFiles(archiveList);
+	let manifest: string;
+	try {
+		manifest = reduceManifest(packageFile.source, TESTS);
+	} catch (error) {
+		fail(`${errorMessage(error)}, so setup deleted nothing.`);
+	}
+	let marker: ReturnType<typeof readSyncMarker>;
+	try {
+		marker = readSyncMarker();
+	} catch (error) {
+		fail(errorMessage(error));
+	}
+	const omitted = [...new Set([...(marker.value?.omitted ?? []), ...TESTS])];
+	if (marker.value) {
+		return {
+			files,
+			holder,
+			manifest,
+			marker: marker.file,
+			nextMarker: { ...marker.value, omitted }
+		};
+	}
+	const forkPoint = await creationForkPoint().catch(() => undefined);
+	return { files, holder, manifest, nextMarker: { ...(forkPoint && { forkPoint }), omitted } };
+}
+
+function deleteTestFiles(removal: TestRemoval): string[] {
+	try {
+		return deletePathSets(ROOT, removal.files, TESTS);
+	} catch (error) {
+		if (!(error instanceof PathSetDeletionError)) throw error;
+		if (error.deleted.length === 0) fail(`${error.message}, so setup deleted nothing.`);
+		fail(
+			`${error.message}\nSetup deleted ${error.deleted.length} test files before it stopped. ` +
+				'Run the same command again to finish.'
+		);
+	}
+}
+
+/** Merges `omitted` into the marker as setup's last write; every other field stays. */
+function writeSyncMarker(removal: TestRemoval): void {
+	const content = JSON.stringify(removal.nextMarker, null, '\t') + '\n';
+	if (removal.marker) replaceAtomically(removal.marker, content);
+	else writeFileSync(join(ROOT, UPSTREAM_SYNC_MARKER), content, { encoding: 'utf-8', flag: 'wx' });
+	console.log(`  recorded ${UPSTREAM_SYNC_MARKER} (omitted ${TESTS.join(', ')})`);
 }
 
 function removeOwnedFile(path: string, errors: string[]): void {
@@ -1894,7 +2113,9 @@ async function main() {
 		company: companyFlag,
 		operator: operatorFlag,
 		address: addressFlags,
-		email: emailFlag
+		email: emailFlag,
+		withoutTests,
+		archiveFiles: archiveList
 	} = readFlags();
 
 	let packageFile: CanonicalFile;
@@ -1921,6 +2142,8 @@ async function main() {
 	} catch (error) {
 		fail(errorMessage(error));
 	}
+
+	const removal = withoutTests ? await planTestRemoval(packageFile, archiveList) : undefined;
 
 	const legalConfig = await readLegalConfig(legalConfigFile).catch((error: unknown) =>
 		fail(errorMessage(error))
@@ -2071,7 +2294,7 @@ async function main() {
 	let nextWebManifest: string;
 	let nextAppHtml: string;
 	try {
-		const pkg = removeMaintainerCliScripts(JSON.parse(packageFile.source));
+		const pkg = removeMaintainerCliScripts(JSON.parse(removal?.manifest ?? packageFile.source));
 		pkg.name = slug;
 		pkg.author = operator;
 		nextPackageJson = JSON.stringify(pkg, null, '\t') + '\n';
@@ -2097,6 +2320,8 @@ async function main() {
 	}
 
 	console.log(`\nApplying: slug=${slug}, repo=${repo}, brand="${brand}"\n`);
+
+	const deleted = removal && deleteTestFiles(removal);
 
 	replaceLegalPair(legalConfigFile, nextLegalSource, legalDatesFile, nextLegalDates);
 	console.log('  updated legal.ts');
@@ -2130,20 +2355,33 @@ async function main() {
 	console.log('  updated app.html');
 
 	removeMaintainerCliFiles();
-	await recordForkPoint();
+	if (removal) writeSyncMarker(removal);
+	else await recordForkPoint();
 
+	if (removal && deleted) {
+		console.log(
+			`\nDeleted ${deleted.length} test files. Template commit ${removal.holder} still holds them.`
+		);
+	}
+	const steps = [
+		...(removal
+			? [
+					'Update bun.lock without the test dependencies: bun install',
+					'Check the lockfile: bun install --frozen-lockfile'
+				]
+			: []),
+		'Replace static/logo.svg with your logo, then run: bun run generate:logos',
+		...(markerOmitsTests()
+			? []
+			: ['Refresh email snapshots: bun run test:unit -- email-snapshots.test.ts -u']),
+		'Update editorial brand mentions in src/i18n/*.json (FAQ, hero, marketing prose, pricing tier names)',
+		'Rewrite the About and Contact placeholders and review the legal copy in src/lib/content/legal/*.md',
+		'Keep each legal route page.md.ts summary aligned with that copy',
+		'Review site.ts structured data and src/lib/content/llms.txt access limits',
+		'Review src/lib/confect/support/instructions.txt'
+	];
 	console.log('\nSetup complete. Next steps:');
-	console.log('  1. Replace static/logo.svg with your logo, then run: bun run generate:logos');
-	console.log('  2. Refresh email snapshots: bun run test:unit -- email-snapshots.test.ts -u');
-	console.log(
-		'  3. Update editorial brand mentions in src/i18n/*.json (FAQ, hero, marketing prose, pricing tier names)'
-	);
-	console.log(
-		'  4. Rewrite the About and Contact placeholders and review the legal copy in src/lib/content/legal/*.md'
-	);
-	console.log('  5. Keep each legal route page.md.ts summary aligned with that copy');
-	console.log('  6. Review site.ts structured data and src/lib/content/llms.txt access limits');
-	console.log('  7. Review src/lib/confect/support/instructions.txt');
+	steps.forEach((step, index) => console.log(`  ${index + 1}. ${step}`));
 	console.log('');
 	rl?.close();
 }

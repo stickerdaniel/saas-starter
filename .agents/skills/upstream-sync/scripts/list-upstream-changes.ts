@@ -6,7 +6,8 @@
  * be reviewed, understood, and consciously integrated or excluded. This is not a
  * security-only tool: all enhancements are candidates. Each commit gets a priority
  * tag (security highest) and the divergence categories it touches, and nothing is
- * filtered out by default, so every commit stays in view.
+ * filtered out by default, so every commit stays in view. A commit whose files all belong to
+ * the path sets the marker's `omitted` names gets the label `omitted-only` and stays listed.
  *
  * Unit of review = the first-parent commit on upstream's default branch. Upstream lands
  * each PR as one such commit, a squash or a merge commit, so each is the canonical, net,
@@ -24,7 +25,12 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
-import { pathSets } from '../../../../scripts/path-sets';
+import {
+	inPathSets,
+	isPathSetNameList,
+	pathSets,
+	type PathSetName
+} from '../../../../scripts/path-sets';
 import { staleMarkerMessage } from './stale-marker';
 
 const MARKER = '.upstream-sync.json';
@@ -34,17 +40,20 @@ function gitEnv(): NodeJS.ProcessEnv {
 	for (const k of SCRUBBED) delete env[k];
 	return env;
 }
-function git(args: string[], allowFail = false): string {
+function gitOutput(args: string[], allowFail: boolean): string {
 	try {
 		return execFileSync('git', args, {
 			encoding: 'utf-8',
 			env: gitEnv(),
 			maxBuffer: 64 * 1024 * 1024
-		}).trim();
+		});
 	} catch (err) {
 		if (allowFail) return '';
 		throw err;
 	}
+}
+function git(args: string[], allowFail = false): string {
+	return gitOutput(args, allowFail).trim();
 }
 
 // Divergence categories: which fork-divergence area a changed path belongs to.
@@ -99,6 +108,23 @@ export function isExcluded(fullSha: string, excludedShas: readonly string[]): bo
 	return excludedShas.some((sha) => sha.length >= 7 && fullSha.startsWith(sha.toLowerCase()));
 }
 
+/** The paths of each `git show -z --name-status` record, the source first for a rename or copy. */
+function changeRecords(output: string): string[][] {
+	const fields = output.split('\0').filter(Boolean);
+	const records: string[][] = [];
+	for (let index = 0; index < fields.length;) {
+		const count = /^[RC]/.test(fields[index] ?? '') ? 2 : 1;
+		records.push(fields.slice(index + 1, index + 1 + count));
+		index += 1 + count;
+	}
+	return records;
+}
+
+/** A commit that touches only paths of the sets this project omits; it still gets reviewed. */
+export function isOmittedOnly(files: readonly string[], omitted: readonly PathSetName[]): boolean {
+	return files.length > 0 && files.every((file) => inPathSets(file, omitted));
+}
+
 function main() {
 	const { values } = parseArgs({
 		args: process.argv.slice(2),
@@ -141,6 +167,11 @@ function main() {
 	const excluded = ((marker?.excluded as Array<{ sha?: string }>) || []).flatMap((e) =>
 		e.sha ? [e.sha] : []
 	);
+	const omitted = marker?.omitted ?? [];
+	if (!isPathSetNameList(omitted)) {
+		console.error(`${MARKER} has an invalid omitted list: ${JSON.stringify(omitted)}`);
+		process.exit(1);
+	}
 
 	// Oldest-first first-parent commits since base, merge commits included; %x09 = tab field
 	// sep. The full SHA only matches excluded entries; output keeps the short one.
@@ -155,9 +186,13 @@ function main() {
 
 	const commits = rows.map((line) => {
 		const [sha = '', fullSha = '', author = '', subject = ''] = line.split('\t');
-		const files = git(['show', '--name-only', '--format=', '--diff-merges=first-parent', sha], true)
-			.split('\n')
-			.filter(Boolean);
+		const records = changeRecords(
+			gitOutput(
+				['show', '-z', '--name-status', '--format=', '--diff-merges=first-parent', sha],
+				true
+			)
+		);
+		const files = records.flatMap((paths) => paths.slice(-1));
 		const { priority, type } = classify(subject, author);
 		return {
 			sha,
@@ -167,7 +202,8 @@ function main() {
 			priority,
 			files: files.length,
 			categories: categoriesFor(files),
-			alreadyExcluded: isExcluded(fullSha, excluded)
+			alreadyExcluded: isExcluded(fullSha, excluded),
+			...(isOmittedOnly(records.flat(), omitted) && { omittedOnly: true })
 		};
 	});
 
@@ -203,7 +239,7 @@ function main() {
 	for (const c of view) {
 		const tag = c.priority === 'security' ? '🔒security' : c.priority;
 		const cats = c.categories.length ? ` [${c.categories.join(',')}]` : '';
-		const ex = c.alreadyExcluded ? ' (already excluded)' : '';
+		const ex = `${c.omittedOnly ? ' (omitted-only)' : ''}${c.alreadyExcluded ? ' (already excluded)' : ''}`;
 		console.log(
 			`${c.sha}  ${tag.padEnd(10)} ${String(c.files).padStart(3)}f${cats}  ${c.subject}${ex}`
 		);

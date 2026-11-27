@@ -2,6 +2,9 @@
 	"name": "saas-starter",
 	"version": "0.1.0",
 	"templateSetupVersion": 2,
+	"templateProfiles": [
+		"tests"
+	],
 	"license": "MIT",
 	"type": "module",
 	"workspaces": [
