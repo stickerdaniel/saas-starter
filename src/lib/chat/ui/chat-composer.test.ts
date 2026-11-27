@@ -1013,6 +1013,33 @@ describe.each(['refused', 'accepted'] as const)(
 	}
 );
 
+describe('a view of an ended session that moves to a thread only storage holds', () => {
+	it('leaves the stored file of the next session in place when it sends', async () => {
+		const chat = registeredSurface(`settlement-${crypto.randomUUID()}`);
+		const endedCore = new ChatCore({ threadId: 'thread-c' });
+		const ended = await chat.open('thread-c', endedCore);
+		clearPersistedChatState();
+		const uploader = await chat.open('thread-a');
+		uploader.context.addAttachments([file('a')]);
+		await tick();
+		await uploader.close();
+		expect(keys(chat.store!.readThread('thread-a'))).toEqual(['a']);
+
+		endedCore.setThread('thread-a');
+		await tick();
+		const snapshot = ended.context.captureSendSnapshot();
+		const settle = ended.context.beginSend(snapshot);
+		ended.context.clearInputForSend(snapshot);
+		ended.context.clearAttachmentsForSend(snapshot);
+		settle('refused');
+		await settleWork();
+
+		expect(keys(chat.store!.readThread('thread-a'))).toEqual(['a']);
+		const reopened = await chat.open('thread-a');
+		expect(reopened.attachments()).toEqual(['a']);
+	});
+});
+
 /** What another tab does when its session ends: empty the stores, then say so. */
 function endSessionInAnotherTab(...storageKeys: string[]): void {
 	for (const key of storageKeys) {

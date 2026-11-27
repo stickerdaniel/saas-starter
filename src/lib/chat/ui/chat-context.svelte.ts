@@ -272,7 +272,9 @@ export class ChatUIContext implements ComposerView {
 		this.composer.clearSent(snapshot);
 	}
 
+	/** Take a send's files out of the composer, also after this view unmounted, unless its session ended. */
 	clearAttachmentsForSend(snapshot: ChatSendSnapshot): void {
+		if (untrack(() => this.sessionEnded)) return;
 		this.composer.clearSentAttachments(snapshot);
 	}
 
