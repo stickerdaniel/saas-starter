@@ -25,13 +25,12 @@ export const handleFontPreload: Handle = async ({ event, resolve }) => {
 	const response = await resolve(event, {
 		// Let the document arrive before scripts compete for bandwidth. Forms still
 		// preload their full module graph so fields become usable without a waterfall.
-		preload:
-			scope === 'public' && inlineCriticalFont
-				? ({ type, path }) => {
-						if (type === 'js' && formPage) scriptPreloads.add(path);
-						return type === 'css';
-					}
-				: undefined,
+		preload: inlineCriticalFont
+			? ({ type, path }) => {
+					if (type === 'js' && formPage) scriptPreloads.add(path);
+					return type === 'css';
+				}
+			: undefined,
 		// Keep charset in the first 1024 bytes, then start decoding before other styles.
 		transformPageChunk: ({ html }) => {
 			if (!inlineCriticalFont) {

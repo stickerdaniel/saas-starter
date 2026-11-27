@@ -40,14 +40,22 @@ describe('HTML font preloads', () => {
 		}
 	);
 
-	it('sends the homepage font in the head without starting the full font download', async () => {
+	it('sends the homepage font in the head and leaves script hints out', async () => {
 		const result = await handleFontPreload({
 			event: { route: { id: '/[[lang]]/(marketing)' } } as never,
 			resolve: async (_event, options) => {
 				const html =
 					'<html><head><meta charset="utf-8" /><title>Home</title></head><body>Headline</body></html>';
+				const links = [
+					{ type: 'css', path: '/app.css', link: '</app.css>; rel=preload; as=style' },
+					{ type: 'js', path: '/app.js', link: '</app.js>; rel=modulepreload' }
+				] as const;
+				const hints = links
+					.filter((link) => options?.preload?.(link) ?? true)
+					.map((link) => link.link)
+					.join(', ');
 				return new Response(await options?.transformPageChunk?.({ html, done: true }), {
-					headers: { 'content-type': 'text/html', link: '</app.js>; rel=modulepreload' }
+					headers: { 'content-type': 'text/html', link: hints }
 				});
 			}
 		});
@@ -55,7 +63,8 @@ describe('HTML font preloads', () => {
 		expect(html.slice(0, html.indexOf('</head>'))).toContain('data:font/woff2;base64,d09GMg');
 		expect(html.slice(0, 1024)).toContain('<meta charset="utf-8" />');
 		expect(html).toContain('<body>Headline</body>');
-		expect(result.headers.get('link')).toBe('</app.js>; rel=modulepreload');
+		expect(html).not.toContain('modulepreload');
+		expect(result.headers.get('link')).toBe('</app.css>; rel=preload; as=style');
 	});
 
 	it.each(['/[[lang]]/(marketing)/pricing', '/[[lang]]/(auth)/signin'])(
