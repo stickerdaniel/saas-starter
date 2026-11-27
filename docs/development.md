@@ -28,6 +28,10 @@ Every commit is checked automatically. `static-checks:staged` first runs spell c
 
 Run `ANALYZE=true bun run build` to generate a treemap with gzip and brotli sizes. Helps you spot bloat before it reaches production.
 
+## Svelte DevTools
+
+`bun run dev` adds the [Svelte DevTools](https://github.com/sveltejs/vite-devtools-svelte) to the Vite DevTools dock and serves them standalone at `/.svelte-devtools/`; the first visit asks for a one-time code the dev server prints. The `svelte-devtools` entry in `.mcp.json` gives agents the same data while `bun run dev` runs. `bun run dev:test`, Vitest and builds leave both plugins off.
+
 ## VS Code Integration
 
 Dev server, static checks, i18n sync, email build, and worktree creation are all available as VS Code tasks via `Run Task` (`Cmd/Ctrl+Shift+P`).

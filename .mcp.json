@@ -8,6 +8,10 @@
 			"command": "bunx",
 			"args": ["-y", "chrome-devtools-mcp@latest", "--no-usage-statistics"]
 		},
+		"svelte-devtools": {
+			"command": "bunx",
+			"args": ["@sveltejs/vite-devtools-svelte", "mcp"]
+		},
 		"posthog": {
 			"type": "http",
 			"url": "https://mcp.posthog.com/mcp"
