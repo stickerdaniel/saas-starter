@@ -13,11 +13,19 @@ import LazyToaster from './lazy-toaster.svelte';
 
 let hidden = false;
 let component: ReturnType<typeof mount> | undefined;
+let idle: Map<number, () => void>;
 
 beforeAll(() => import('./sonner.svelte'));
 
 beforeEach(() => {
 	vi.useFakeTimers();
+	idle = new Map();
+	vi.stubGlobal('requestIdleCallback', (callback: () => void) => {
+		const id = idle.size + 1;
+		idle.set(id, callback);
+		return id;
+	});
+	vi.stubGlobal('cancelIdleCallback', (id: number) => idle.delete(id));
 	vi.stubGlobal(
 		'matchMedia',
 		vi.fn(() => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} }))
@@ -84,6 +92,22 @@ describe('LazyToaster', () => {
 		await vi.waitFor(() => expect(toastsWith('Saved')).toHaveLength(1));
 		await settle();
 		expect(toastsWith('Saved')).toHaveLength(1);
+		expect(document.querySelectorAll('[data-sonner-toaster]')).toHaveLength(1);
+		expect(chunk.requests).toBe(1);
+	});
+
+	it('loads the renderer once when the page is idle', async () => {
+		const chunk = holdRenderer();
+		expect(chunk.requests).toBe(0);
+
+		for (const callback of idle.values()) callback();
+		await vi.waitFor(() => expect(chunk.requests).toBe(1));
+		chunk.release();
+		await settle();
+
+		toast('Upload still in progress');
+		flushSync();
+		expect(toastsWith('Upload still in progress')).toHaveLength(1);
 		expect(document.querySelectorAll('[data-sonner-toaster]')).toHaveLength(1);
 		expect(chunk.requests).toBe(1);
 	});
