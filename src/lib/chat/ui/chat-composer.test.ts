@@ -975,6 +975,44 @@ describe('a surface composer kept past its session end with a send still open', 
 	});
 });
 
+describe.each(['refused', 'accepted'] as const)(
+	'a view of an ended session kept by its caller, its send then %s',
+	(outcome) => {
+		it('sends nothing into the view of the next session', async () => {
+			const chat = registeredSurface(`settlement-${crypto.randomUUID()}`);
+			const ended = await chat.open('thread-a');
+			clearPersistedChatState();
+			const next = await chat.open('thread-a', ended.core);
+			await next.type('new text');
+			next.context.addAttachments([file('new')]);
+			await tick();
+			const unchanged = (text: string) => {
+				expect(next.text()).toBe(text);
+				expect(next.attachments()).toEqual(['new']);
+				expect(chat.owner.pendingAttachmentCount(next.context)).toBe(0);
+				expect(chat.drafts!.getDraft('thread-a')).toBe(text);
+				expect(keys(chat.store!.readThread('thread-a'))).toEqual(['new']);
+			};
+
+			const snapshot = ended.context.captureSendSnapshot();
+			ended.context.clearInputForSend(snapshot);
+			const settle = ended.context.beginSend(snapshot);
+			ended.context.clearAttachmentsForSend(snapshot);
+			expect(ended.context.isSendSnapshotCurrent(snapshot)).toBe(false);
+			unchanged('new text');
+
+			await next.send('next send');
+			chat.sends[0]!.reject(new Error('refused'));
+			await settleWork();
+			unchanged('next send');
+
+			settle(outcome);
+			await settleWork();
+			unchanged('next send');
+		});
+	}
+);
+
 /** What another tab does when its session ends: empty the stores, then say so. */
 function endSessionInAnotherTab(...storageKeys: string[]): void {
 	for (const key of storageKeys) {

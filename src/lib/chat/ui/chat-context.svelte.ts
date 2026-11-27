@@ -109,7 +109,12 @@ export class ChatUIContext implements ComposerView {
 	 * and changes nothing, also before its surface remounts it.
 	 */
 	private get retired(): boolean {
-		return this.disposed || this.composer.session !== this.session;
+		return this.disposed || this.sessionEnded;
+	}
+
+	/** Whether the session this view was made for has ended. Its sends belong to nobody. */
+	private get sessionEnded(): boolean {
+		return this.composer.session !== this.session;
 	}
 
 	/**
@@ -246,12 +251,15 @@ export class ChatUIContext implements ComposerView {
 		this.setInputValue('');
 	}
 
+	/** What a send would carry now. A context of an ended session carries nothing. */
 	captureSendSnapshot(): ChatSendSnapshot {
 		return {
 			sessionEpoch: getChatSessionEpoch(),
 			conversation: this.conversation,
 			inputValue: untrack(() => this.inputValue),
-			attachments: this.composer.captureAttachments(this.conversation)
+			attachments: untrack(() => this.sessionEnded)
+				? { attachments: [] }
+				: this.composer.captureAttachments(this.conversation)
 		};
 	}
 
@@ -270,12 +278,19 @@ export class ChatUIContext implements ComposerView {
 
 	isSendSnapshotCurrent(snapshot: ChatSendSnapshot): boolean {
 		return (
-			isChatSessionCurrent(snapshot.sessionEpoch) && this.conversation === snapshot.conversation
+			!untrack(() => this.sessionEnded) &&
+			isChatSessionCurrent(snapshot.sessionEpoch) &&
+			this.conversation === snapshot.conversation
 		);
 	}
 
-	/** Hand a cleared send to the surface's composer; call the result with its outcome. */
+	/**
+	 * Hand a cleared send to the surface's composer; call the result with its
+	 * outcome. A context of an ended session hands over nothing, and its result
+	 * does nothing.
+	 */
 	beginSend(snapshot: ChatSendSnapshot): (outcome: ComposerSendOutcome) => void {
+		if (untrack(() => this.sessionEnded)) return () => {};
 		const sendId = this.composer.begin(snapshot);
 		return (outcome) => this.composer.settle(sendId, outcome);
 	}
