@@ -200,16 +200,6 @@ const KNOWN_EDGES: readonly EdgePair[] = [
 	['src/lib/emails/__tests__/email-rendering.test.ts', 'src/lib/confect/emails/templates.ts'],
 	['src/lib/emails/__tests__/email-rendering.test.ts', 'src/lib/confect/env.ts'],
 	['src/lib/emails/renderer.ts', 'src/routes/layout.css'],
-	[
-		'src/lib/emails/templates/CancellationAdminNotificationEmail.svelte',
-		'src/lib/confect/admin/journey/theme.ts'
-	],
-	[
-		'src/lib/emails/templates/NewCustomerAdminNotificationEmail.svelte',
-		'src/lib/confect/admin/journey/theme.ts'
-	],
-	['src/lib/emails/templates/types.ts', 'src/lib/confect/admin/customerNotifications/compose.ts'],
-	['src/lib/emails/templates/types.ts', 'src/lib/confect/support/rateLimitAlertFields.ts'],
 	['src/lib/hooks/use-haptic.svelte.test.ts', '$app/env'],
 	['src/lib/hooks/use-haptic.svelte.ts', '$app/env']
 ];

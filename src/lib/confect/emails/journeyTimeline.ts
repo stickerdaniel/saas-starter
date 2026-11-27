@@ -1,6 +1,8 @@
 import { t } from '../i18n/translations';
 import { createClock, formatDuration, type JourneyFormat } from '../admin/journey/format';
-import type { JourneyStep, JourneyTone } from '../admin/journey/source';
+import type { JourneyTone } from '../admin/journey/source';
+import type { RailRole, RailTheme, RailTone } from '../../emails/journey-theme';
+import type { RailStep } from '../../emails/templates/types';
 import { escapeHtml } from './html';
 
 /**
@@ -23,20 +25,10 @@ import { escapeHtml } from './html';
  * dark-scheme override, which the consuming template defines in its head.
  */
 
-/** One colour the rail paints, with the class that overrides it in dark mode. */
-export type RailRole = { color: string; darkClass?: string };
-
-/**
- * The roles the rail consumes. Per tone a dot and a title colour; a null title
- * inherits the body text colour. `line` is the rail, `muted` details and
- * times, `gap` the "3 h later" labels.
- */
-export type RailTheme = {
-	tones: Record<JourneyTone, { dot: RailRole; title: RailRole | null }>;
-	line: RailRole;
-	muted: RailRole;
-	gap: RailRole;
-};
+type Equal<A, B> =
+	(<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+type Expect<T extends true> = T;
+type _JourneyToneMatchesRailTone = Expect<Equal<JourneyTone, RailTone>>;
 
 const TABLE = 'cellpadding="0" cellspacing="0" border="0" role="presentation"';
 
@@ -80,7 +72,7 @@ function railCells(theme: RailTheme, line: boolean, content = ''): string {
  * string is escaped in the HTML; the text carries no markup or entities.
  */
 export function buildJourneyTimeline(
-	steps: readonly JourneyStep[],
+	steps: readonly RailStep[],
 	notes: readonly string[],
 	format: JourneyFormat,
 	theme: RailTheme

@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'svelte';
-import type { AnonymousRateLimitBucket } from '../../confect/support/rateLimitAlertFields';
+import type { RailTheme, RailTone, TileTheme } from '../journey-theme';
 import type VerificationEmail from './VerificationEmail.svelte';
 import type PasswordResetEmail from './PasswordResetEmail.svelte';
 import type AdminReplyNotificationEmail from './AdminReplyNotificationEmail.svelte';
@@ -8,7 +8,6 @@ import type NewUserSignupNotificationEmail from './NewUserSignupNotificationEmai
 import type SupportRateLimitAlertEmail from './SupportRateLimitAlertEmail.svelte';
 import type NewCustomerAdminNotificationEmail from './NewCustomerAdminNotificationEmail.svelte';
 import type CancellationAdminNotificationEmail from './CancellationAdminNotificationEmail.svelte';
-import type { ComposedJourney } from '../../confect/admin/customerNotifications/compose';
 
 // Extract component prop types
 export type VerificationEmailProps = ComponentProps<typeof VerificationEmail>;
@@ -132,13 +131,24 @@ export type NewUserSignupNotificationEmailData = {
  * @property adminDashboardLink - Link to the admin support dashboard
  */
 export type SupportRateLimitAlertEmailData = {
-	bucket: AnonymousRateLimitBucket;
+	bucket: 'supportThreadCreateAnon' | 'supportFileUploadAnon' | 'supportFilePreviewAnon';
 	available: number;
 	capacity: number;
 	ratePerHour: number;
 	lowForMinutes: number;
 	cooldownHours: number;
 	adminDashboardLink: string;
+};
+
+export type JourneyTile = { label: string; value: string; unknown?: true };
+
+export type RailStep = { at: number; title: string; lines: string[]; tone: RailTone };
+
+export type CustomerJourney = {
+	tiles: JourneyTile[];
+	steps: RailStep[];
+	notes: string[];
+	theme: { rail: RailTheme; tiles: TileTheme };
 };
 
 /**
@@ -159,7 +169,7 @@ export type NewCustomerAdminNotificationEmailData = {
 	customerEmail: string;
 	amount: string;
 	previewText: string;
-	journey: ComposedJourney | null;
+	journey: CustomerJourney | null;
 	timeZone: string;
 	adminDashboardLink: string;
 };
@@ -183,7 +193,7 @@ export type CancellationAdminNotificationEmailData = {
 	customerEmail: string;
 	duration: string;
 	previewText: string;
-	journey: ComposedJourney | null;
+	journey: CustomerJourney | null;
 	timeZone: string;
 	lookbackDays: number | null;
 	adminDashboardLink: string;
