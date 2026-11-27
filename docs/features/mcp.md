@@ -23,7 +23,7 @@ The endpoint runs on Effect's request-scoped MCP layer, which serves only the se
 | Codex 0.172.0                          | `initialize` with `2025-06-18`                                 | HTTP 400, no tool                                                 |
 | Cursor CLI 2026.11.19                  | `initialize` with `2025-11-25`                                 | HTTP 400, "Connection failed"                                     |
 
-The origin check comes first, then the bearer check. A request from a foreign origin gets HTTP 403, and a preflight from the app's own origin gets HTTP 204. Any other request without a valid token gets the 401 challenge whatever it carries. Past both checks, the `initialize` of an earlier revision gets HTTP 400 with a JSON-RPC error in the body, whose `id` repeats the id of the request:
+The origin check comes first, then the bearer check. A request from a foreign origin gets HTTP 403. An `OPTIONS` request from the app's own origin or without an `Origin` header gets HTTP 204 without a token. A `POST`, `GET` or `DELETE` without a valid token gets the 401 challenge whatever it carries. Past both checks, the `initialize` of an earlier revision, sent with `Content-Type: application/json` and `Accept: application/json, text/event-stream`, gets HTTP 400 with a JSON-RPC error in the body, whose `id` repeats the id of the request:
 
 - `initialize` without the `MCP-Protocol-Version` header: `{"jsonrpc":"2.0","id":1,"error":{"code":-32020,"message":"MCP-Protocol-Version header is required"}}`
 - `initialize` with the header `2025-11-25`: `{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"Required request metadata is missing"}}`
