@@ -359,6 +359,15 @@
 	border-radius: calc(9999px * sign(var(--radius)));
 }
 
+/* Floating full text that refits to the live viewport. Either side of a trigger holds
+   at least half the viewport minus the trigger and its offset, so the height fits on
+   the side the popover flips to; longer text scrolls. */
+@utility toggletip-bounds {
+	max-width: min(var(--container-xs), calc(100dvw - 2rem));
+	max-height: calc(50dvh - 1.5rem);
+	overflow-y: auto;
+}
+
 /* Tooltip arrow nudges per placed side, which the translate scale has no steps for.
    Each axis goes through Tailwind's --tw-translate-* variables so a caller's
    translate-x-* or translate-y-* replaces only its own axis. */

@@ -7,7 +7,7 @@
 				default: '',
 				// Clipped text opened by a tap matches the Tooltip that hover and focus show.
 				tooltip:
-					'w-fit max-w-xs gap-0 bg-foreground px-3 py-1.5 text-xs text-background shadow-none ring-0'
+					'toggletip-bounds w-fit gap-0 bg-foreground px-3 py-1.5 text-xs text-background shadow-none ring-0'
 			}
 		},
 		defaultVariants: {
