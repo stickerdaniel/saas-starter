@@ -96,7 +96,7 @@ describe('LazyToaster', () => {
 		expect(chunk.requests).toBe(1);
 	});
 
-	it('loads the renderer once when the page is idle', async () => {
+	it('loads the renderer when the page is idle and mounts it on the first toast', async () => {
 		const chunk = holdRenderer();
 		expect(chunk.requests).toBe(0);
 
@@ -104,6 +104,7 @@ describe('LazyToaster', () => {
 		await vi.waitFor(() => expect(chunk.requests).toBe(1));
 		chunk.release();
 		await settle();
+		expect(document.querySelector('section[aria-live]')).toBeNull();
 
 		toast('Upload still in progress');
 		flushSync();
