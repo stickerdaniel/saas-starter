@@ -4,7 +4,7 @@ import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../src/lib/convex/_generated/api';
 import { resolveConvexUrl } from './utils/convex-url';
 import { resolveSiteUrl } from './utils/site-url';
-import { submitSignInForm } from './utils/auth';
+import { submitSignInForm, waitForAuthenticated } from './utils/auth';
 import { getPreviewBypass } from './utils/preview-bypass';
 import { ownTestEmail } from './utils/owned-test-data';
 
@@ -140,6 +140,101 @@ test('remembers Not now on another browser for the same account', async ({ page,
 		} finally {
 			await otherBrowser.close();
 		}
+	} finally {
+		await client().mutation(api.tests.deleteTestUser, { email, secret: secret() });
+	}
+});
+
+type SyncFrame = {
+	type?: string;
+	modifications?: Array<{ type?: string; queryId?: number; udfPath?: string; value?: unknown }>;
+};
+
+/** The values the Convex server sends this page for `users:viewer`. */
+async function recordViewer(page: Page): Promise<unknown[]> {
+	const viewerQueries = new Set<number>();
+	const values: unknown[] = [];
+	const frame = (raw: string | Buffer): SyncFrame =>
+		typeof raw === 'string' && raw.startsWith('{') ? JSON.parse(raw) : {};
+	await page.routeWebSocket(/\/api\/[^/]+\/sync/, (ws) => {
+		const server = ws.connectToServer();
+		ws.onMessage((raw) => {
+			const sent = frame(raw);
+			if (sent.type === 'ModifyQuerySet')
+				for (const { type, queryId, udfPath } of sent.modifications ?? [])
+					if (type === 'Add' && udfPath === 'users:viewer' && queryId !== undefined)
+						viewerQueries.add(queryId);
+			server.send(raw);
+		});
+		server.onMessage((raw) => {
+			const received = frame(raw);
+			if (received.type === 'Transition')
+				for (const { type, queryId, value } of received.modifications ?? [])
+					if (type === 'QueryUpdated' && queryId !== undefined && viewerQueries.has(queryId))
+						values.push(value);
+			ws.send(raw);
+		});
+	});
+	return values;
+}
+
+// Cheaper layers rejected because: the passkey client loads on demand, and only a browser
+// performs the WebAuthn ceremony, follows the full-page redirect and opens the destination's
+// authenticated Convex connection.
+test('signs in with a passkey into an authenticated destination', async ({ page }) => {
+	const email = `passkey-signin-${Date.now()}@e2e.example.com`;
+	ownTestEmail(email, 'userEmails');
+	try {
+		const signup = await page.request.post('/api/auth/sign-up/email', {
+			headers: { Origin: resolveSiteUrl() },
+			data: { email, password, name: 'Passkey Signin' }
+		});
+		expect(signup.ok()).toBe(true);
+		await client().mutation(api.tests.verifyTestUserEmail, { email, secret: secret() });
+		await page.context().clearCookies();
+		const signin = await page.request.post('/api/auth/sign-in/email', {
+			headers: { Origin: resolveSiteUrl() },
+			data: { email, password }
+		});
+		expect(signin.ok()).toBe(true);
+		const cdp = await page.context().newCDPSession(page);
+		await cdp.send('WebAuthn.enable');
+		const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', {
+			options: {
+				protocol: 'ctap2',
+				transport: 'internal',
+				hasResidentKey: true,
+				hasUserVerification: true,
+				isUserVerified: true,
+				automaticPresenceSimulation: true
+			}
+		});
+		await page.goto('/en/app/settings?tab=security');
+		await waitForAuthenticated(page);
+		await page.getByRole('button', { name: 'Add Passkey', exact: true }).click();
+		await expect(page.getByText('Passkey added successfully', { exact: true })).toBeVisible();
+		expect(
+			(await cdp.send('WebAuthn.getCredentials', { authenticatorId })).credentials
+		).toHaveLength(1);
+
+		await page.goto('about:blank');
+		await page.request.post('/api/auth/sign-out', { headers: { Origin: resolveSiteUrl() } });
+		await page.context().clearCookies();
+		await page.goto('/en/signin');
+		const viewer = await recordViewer(page);
+		const signedIn = documentAt(page, home);
+		await page.getByRole('button', { name: 'Sign in with Passkey', exact: true }).click();
+		await signedIn;
+		await expect(page.locator('html[data-hydrated] #user-menu-trigger')).toBeVisible();
+		await expect(page.locator('#user-menu-trigger')).toContainText(email);
+		await expect
+			.poll(() =>
+				viewer.some(
+					(value) =>
+						typeof value === 'object' && value !== null && 'email' in value && value.email === email
+				)
+			)
+			.toBe(true);
 	} finally {
 		await client().mutation(api.tests.deleteTestUser, { email, secret: secret() });
 	}

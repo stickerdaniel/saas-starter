@@ -13,11 +13,11 @@
 	},
 	"routes": {
 		"/[[lang]]/(auth)/email-verified": {
-			"initial": 235634,
+			"initial": 232158,
 			"lazy": 228998
 		},
 		"/[[lang]]/(auth)/forgot-password": {
-			"initial": 229398,
+			"initial": 225536,
 			"lazy": 228998
 		},
 		"/[[lang]]/(auth)/oauth/consent": {
@@ -25,103 +25,103 @@
 			"lazy": 229557
 		},
 		"/[[lang]]/(auth)/passkey-setup": {
-			"initial": 228087,
+			"initial": 224612,
 			"lazy": 228998
 		},
 		"/[[lang]]/(auth)/reset-password": {
-			"initial": 238049,
+			"initial": 234187,
 			"lazy": 1089210
 		},
 		"/[[lang]]/(auth)/signin": {
-			"initial": 252115,
+			"initial": 248671,
 			"lazy": 1089210
 		},
 		"/[[lang]]/(auth)/signup": {
-			"initial": 247127,
+			"initial": 243266,
 			"lazy": 1089210
 		},
 		"/[[lang]]/(docs)/docs/[...slug]": {
-			"initial": 281865,
+			"initial": 278003,
 			"lazy": 229760
 		},
 		"/[[lang]]/(marketing)": {
-			"initial": 231360,
+			"initial": 227502,
 			"lazy": 286610
 		},
 		"/[[lang]]/(marketing)/about": {
-			"initial": 262098,
+			"initial": 258237,
 			"lazy": 277020
 		},
 		"/[[lang]]/(marketing)/contact": {
-			"initial": 262479,
+			"initial": 258618,
 			"lazy": 277020
 		},
 		"/[[lang]]/(marketing)/impressum": {
-			"initial": 262550,
+			"initial": 258689,
 			"lazy": 277020
 		},
 		"/[[lang]]/(marketing)/pricing": {
-			"initial": 207838,
+			"initial": 203977,
 			"lazy": 284325
 		},
 		"/[[lang]]/(marketing)/privacy": {
-			"initial": 264539,
+			"initial": 260678,
 			"lazy": 277020
 		},
 		"/[[lang]]/(marketing)/terms": {
-			"initial": 265377,
+			"initial": 261516,
 			"lazy": 277020
 		},
 		"/[[lang]]/[...path]": {
-			"initial": 184688,
+			"initial": 180826,
 			"lazy": 229755
 		},
 		"/[[lang]]/admin": {
-			"initial": 284594,
+			"initial": 281118,
 			"lazy": 225908
 		},
 		"/[[lang]]/admin/audit-log": {
-			"initial": 332035,
+			"initial": 328559,
 			"lazy": 225436
 		},
 		"/[[lang]]/admin/dashboard": {
-			"initial": 289499,
+			"initial": 286023,
 			"lazy": 225908
 		},
 		"/[[lang]]/admin/licenses": {
-			"initial": 290859,
+			"initial": 287383,
 			"lazy": 225908
 		},
 		"/[[lang]]/admin/settings": {
-			"initial": 367563,
+			"initial": 364087,
 			"lazy": 221602
 		},
 		"/[[lang]]/admin/support": {
-			"initial": 499596,
+			"initial": 496121,
 			"lazy": 330605
 		},
 		"/[[lang]]/admin/users": {
-			"initial": 339559,
+			"initial": 336081,
 			"lazy": 225436
 		},
 		"/[[lang]]/app": {
-			"initial": 284927,
+			"initial": 281454,
 			"lazy": 225908
 		},
 		"/[[lang]]/app/ai-chat": {
-			"initial": 437692,
+			"initial": 434218,
 			"lazy": 331077
 		},
 		"/[[lang]]/app/community-chat": {
-			"initial": 295626,
+			"initial": 292153,
 			"lazy": 225292
 		},
 		"/[[lang]]/app/settings": {
-			"initial": 326127,
+			"initial": 322866,
 			"lazy": 1083886
 		},
 		"/[[lang]]/shadcn-demo": {
-			"initial": 298618,
+			"initial": 294756,
 			"lazy": 229300
 		}
 	},
