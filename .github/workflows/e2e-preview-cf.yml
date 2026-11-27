@@ -364,6 +364,7 @@ jobs:
     timeout-minutes: 20
     permissions:
       actions: write
+      checks: read
       contents: read
       pull-requests: read
       statuses: write
@@ -425,17 +426,21 @@ jobs:
           HEAD_SHA: ${{ github.event.check_run.head_sha || inputs.sha }}
           SUMMARY: ${{ github.event.check_run.output.summary }}
         run: |
-          summary=$SUMMARY
+          version_urls() {
+            sed -n -E 's#^Preview URL: (https://[A-Za-z0-9.-]+)/?$#\1#p'
+          }
           if [ "$EVENT" = workflow_dispatch ]; then
-            summary=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs?per_page=100" \
-              --jq '[.check_runs[] | select(.app.slug == "cloudflare-workers-and-pages" and .conclusion == "success")][0].output.summary // ""')
+            urls=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs?per_page=100" \
+              --jq '.check_runs[] | select(.app.slug == "cloudflare-workers-and-pages" and .conclusion == "success") | .output.summary // ""' | version_urls)
+            if ! printf '%s\n' "$urls" | grep -Fxq -- "${DISPATCHED_URL%/}"; then
+              echo "::warning::The dispatch input ${DISPATCHED_URL} is no per-version Preview URL of a successful Cloudflare check on ${HEAD_SHA}."
+              exit 0
+            fi
+            url=${DISPATCHED_URL%/}
+          else
+            url=$(printf '%s\n' "$SUMMARY" | version_urls)
           fi
-          url=$(printf '%s\n' "$summary" | sed -n -E 's#^Preview URL: (https://[A-Za-z0-9.-]+)/?$#\1#p')
           [ -n "$url" ] && [ "$(printf '%s\n' "$url" | wc -l)" -eq 1 ] || exit 0
-          if [ "$EVENT" = workflow_dispatch ] && [ "${DISPATCHED_URL%/}" != "$url" ]; then
-            echo "::warning::The dispatch input ${DISPATCHED_URL} is not the commit's per-version Preview URL ${url}."
-            exit 0
-          fi
           echo "url=$url" >> "$GITHUB_OUTPUT"
       # Skips before it needs a target, so a change that cannot alter /en
       # passes without a preview.
