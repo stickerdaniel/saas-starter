@@ -433,18 +433,20 @@ export interface SpecifierChange {
 
 function placeResolved(table: MoveTable, resolved: string, target: string): string | undefined {
 	const placement = table.place(target);
-	if (!placement?.to) return undefined;
+	const to = placement?.to;
+	if (!placement || !to) return undefined;
 	const { rule } = placement;
 	if (rule.to !== null && rule.from.endsWith('/') && resolved.startsWith(rule.from)) {
 		return rule.to + resolved.slice(rule.from.length);
 	}
-	if (resolved === target) return placement.to;
+	if (resolved === target) return to;
 	const runtime = resolved.match(RUNTIME_EXTENSION)?.[0] ?? '';
 	const named = resolved.slice(0, resolved.length - runtime.length);
 	const omitted = target.slice(named.length);
-	return placement.to.endsWith(omitted)
-		? placement.to.slice(0, placement.to.length - omitted.length) + runtime
-		: placement.to;
+	const dropped = [omitted, omitted.replace(/^\/index(?=\.)/, '')].find((suffix) =>
+		to.endsWith(suffix)
+	);
+	return dropped === undefined ? to : to.slice(0, to.length - dropped.length) + runtime;
 }
 
 /**

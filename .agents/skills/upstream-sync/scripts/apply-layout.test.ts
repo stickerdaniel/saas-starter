@@ -266,12 +266,22 @@ describe('apply-layout plans', () => {
 			'package.json': '{}',
 			'.upstream-sync.layout.ts': `export default { rules: [
 				{ from: 'voice/old.ts', to: 'apps/voice/renamed.ts', owner: 'voice' },
+				{ from: 'voice/button/index.tsx', to: 'apps/voice/pane/view.tsx', owner: 'voice' },
 				{ from: 'voice/use.ts', to: 'apps/voice/use.ts', owner: 'voice' }
 			] };\n`,
 			'voice/old.ts': '',
-			'voice/use.ts': "import { a } from './old';\nimport { b } from './old.js';\n"
+			'voice/button/index.tsx': '',
+			'voice/use.ts': [
+				"import { a } from './old';",
+				"import { b } from './old.js';",
+				"import { c } from './button';",
+				"import { d } from './button/index.js';",
+				''
+			].join('\n')
 		});
 		expect(layout(root, '--specifiers').stdout.trim().split('\n').sort()).toEqual([
+			'apps/voice/use.ts\t./button\t./pane/view',
+			'apps/voice/use.ts\t./button/index.js\t./pane/view.js',
 			'apps/voice/use.ts\t./old\t./renamed',
 			'apps/voice/use.ts\t./old.js\t./renamed.js'
 		]);
