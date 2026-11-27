@@ -15,14 +15,16 @@ import { api } from '#lib/convex/_generated/api.js';
 import { ChatCore } from '../core/chat-core.svelte.ts';
 import { ChatDraftManager } from '../core/chat-draft-manager.svelte.ts';
 import { ChatAttachmentStore } from '../core/chat-attachment-store.svelte.ts';
-import { clearPersistedChatState } from '../core/chat-persisted-state.ts';
+import { clearPersistedChatState, getChatSessionEpoch } from '../core/chat-persisted-state.ts';
+import { ChatConversation } from '../core/chat-session-port.svelte.ts';
 import { DEFAULT_ATTACHMENT_PROFILE, MAX_MESSAGE_LENGTH, type Attachment } from '../core/types.js';
 import type { UploadProfile } from '../../uploads/profiles.js';
-import { ChatUIContext, type UploadConfig } from './chat-context.svelte.ts';
+import { ChatUIContext, type ChatSendSnapshot, type UploadConfig } from './chat-context.svelte.ts';
 import {
 	ComposerSendCoordinator,
 	acquireComposerSendCoordinator,
-	type ComposerSendLease
+	type ComposerSendLease,
+	type ComposerSendTarget
 } from './composer-send-coordinator.ts';
 import ChatTestProvider from './test-fixtures/ChatTestProvider.svelte';
 import ChatInputHarness from './test-fixtures/ChatInputHarness.svelte';
@@ -72,11 +74,13 @@ function chatSurface({
 	persistent = true,
 	profile,
 	name = `settlement-${crypto.randomUUID()}`,
+	showFileButton = false,
 	owner: givenOwner
 }: {
 	persistent?: boolean;
 	profile?: UploadProfile;
 	name?: string;
+	showFileButton?: boolean;
 	owner?: (drafts: ChatDraftManager | undefined) => ComposerSendCoordinator;
 } = {}) {
 	const drafts = persistent ? new ChatDraftManager(name) : undefined;
@@ -108,7 +112,7 @@ function chatSurface({
 		context.setDisplayMessages([]);
 		context.loadDraft(threadId);
 		const target = document.body.appendChild(document.createElement('div'));
-		const contentProps = { context, onSend };
+		const contentProps = { context, onSend, showFileButton };
 		const component = mount(ChatTestProvider<typeof contentProps>, {
 			target,
 			props: { client, content: ChatInputHarness, contentProps }
@@ -125,6 +129,10 @@ function chatSurface({
 			text: () => textarea().value,
 			attachments: () => keys(context.attachments),
 			notice: () => target.querySelector('[data-testid="chat-input-limit-notice"]'),
+			atAttachmentCap: () =>
+				target
+					.querySelector(`button[aria-label="${en.chat.tooltip.attach_files}"]`)
+					?.getAttribute('aria-disabled') === 'true',
 			button,
 			async type(value: string) {
 				textarea().value = value;
@@ -775,6 +783,59 @@ describe.each(['accepted', 'refused'] as const)(
 	}
 );
 
+describe.each(['accepted', 'refused'] as const)(
+	'a released surface whose send outlives its session, then %s',
+	(outcome) => {
+		it('holds no work and no files after the session end, and releases at most once', async () => {
+			const { chat, lease } = leasedSurface(`settlement-${crypto.randomUUID()}`, {
+				persistent: false
+			});
+			const composer = await chat.open('thread-a');
+			await composer.send('old session', 'a');
+			lease.release();
+			expect(chat.owner.hasOutstandingWork).toBe(true);
+			expect(chat.owner.pendingAttachmentCount(composer.context)).toBe(1);
+
+			clearPersistedChatState();
+			await tick();
+			expect(chat.owner.hasOutstandingWork).toBe(false);
+			expect(chat.owner.pendingAttachmentCount(composer.context)).toBe(0);
+
+			if (outcome === 'refused') chat.sends[0]!.reject(new Error('refused'));
+			else chat.sends[0]!.resolve();
+			await settleWork();
+
+			expect(chat.release.mock.calls).toEqual(outcome === 'refused' ? [[fileA]] : []);
+			expect(chat.restorations).toEqual([]);
+			expect(composer.text()).toBe('');
+		});
+	}
+);
+
+describe('an owner kept past its session end with a send still open', () => {
+	it('restores a refusal of the next session at once and releases the old files on their refusal', async () => {
+		const { chat, lease } = leasedSurface(`settlement-${crypto.randomUUID()}`, {
+			persistent: false
+		});
+		const composer = await chat.open('thread-a');
+		await composer.send('old session', 'a');
+		clearPersistedChatState();
+		await tick();
+
+		await composer.send('next session');
+		chat.sends[1]!.reject(new Error('refused'));
+		await settleWork();
+		expect(composer.text()).toBe('next session');
+		expect(chat.restorations).toEqual(['next session']);
+
+		chat.sends[0]!.reject(new Error('refused'));
+		await settleWork();
+		expect(chat.release).toHaveBeenCalledExactlyOnceWith(fileA);
+		expect(composer.text()).toBe('next session');
+		lease.release();
+	});
+});
+
 describe('sent attachments', () => {
 	it('takes the files of a send refused on the spot out of the composer until its group settles', async () => {
 		const chat = chatSurface({ persistent: false });
@@ -801,6 +862,26 @@ describe('sent attachments', () => {
 		await tick();
 		expect(chat.release).toHaveBeenCalledExactlyOnceWith(fileB);
 		expect(composer.attachments()).toEqual(['a']);
+	});
+
+	it('frees the files of an accepted send at the cap while the rest of its group is open', async () => {
+		const profile: UploadProfile = { ...DEFAULT_ATTACHMENT_PROFILE, maxFiles: 2 };
+		const chat = chatSurface({ persistent: false, profile, showFileButton: true });
+		const composer = await chat.open('thread-a');
+		await composer.send('A', 'a');
+		await composer.send('B', 'b');
+		expect(composer.atAttachmentCap()).toBe(true);
+
+		chat.sends[0]!.resolve();
+		await settleWork();
+		expect(composer.atAttachmentCap()).toBe(false);
+		expect(chat.owner.pendingAttachmentCount(composer.context)).toBe(1);
+
+		chat.sends[1]!.reject(new Error('refused'));
+		await settleWork();
+		expect(composer.text()).toBe('B');
+		expect(composer.attachments()).toEqual(['b']);
+		expect(chat.release).not.toHaveBeenCalled();
 	});
 
 	it('gives nothing back to the transport when the send is accepted', async () => {
@@ -865,6 +946,37 @@ describe('sent attachments', () => {
 		expect(reopened.attachments()).toEqual([]);
 		await reopened.close();
 		expect(chat.release).toHaveBeenCalledOnce();
+	});
+});
+
+describe('settlement notices', () => {
+	it('tells the composers about each settled send before the group restores its refusals', () => {
+		const owner = new ComposerSendCoordinator();
+		const conversation = new ChatConversation('thread-a');
+		const calls: string[] = [];
+		const target: ComposerSendTarget = {
+			core: { conversation },
+			inputValue: '',
+			restoreFailedSend: (text) => calls.push(`restore ${text}`),
+			sendResources: () => ({ release: () => calls.push('release') }),
+			pendingSendsChanged: () => calls.push('changed')
+		};
+		owner.attachTarget(target);
+		const snapshot = (inputValue: string): ChatSendSnapshot => ({
+			sessionEpoch: getChatSessionEpoch(),
+			conversation,
+			inputValue,
+			inputRevision: 1,
+			attachments: { attachments: [] }
+		});
+		const first = owner.begin(target, snapshot('A'));
+		const second = owner.begin(target, snapshot('B'));
+		calls.length = 0;
+
+		owner.settle(first, 'refused');
+		expect(calls).toEqual(['changed']);
+		owner.settle(second, 'refused');
+		expect(calls).toEqual(['changed', 'changed', 'restore A\n\nB']);
 	});
 });
 

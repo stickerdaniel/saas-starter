@@ -1,3 +1,4 @@
+import * as Data from 'effect/Data';
 import type { ChatDraftCheckpoint } from '../core/chat-draft-manager.svelte.ts';
 import type { ChatAttachmentStore } from '../core/chat-attachment-store.svelte.ts';
 import {
@@ -47,8 +48,15 @@ type PendingSend = {
 	readonly source: ComposerSendTarget;
 	readonly resources: ComposerSendResources;
 	readonly draftCheckpoint?: ChatDraftCheckpoint;
-	outcome?: ComposerSendOutcome;
 };
+
+type SendEntry = Data.TaggedEnum<{
+	Open: { readonly send: PendingSend };
+	Settled: { readonly send: PendingSend; readonly outcome: ComposerSendOutcome };
+	Abandoned: { readonly release: () => void };
+}>;
+const SendEntry = Data.taggedEnum<SendEntry>();
+type LiveEntry = Data.TaggedEnum.Value<SendEntry, 'Open' | 'Settled'>;
 
 /** Refused work of a conversation that is off screen and has no thread id to be stored under yet. */
 type HeldRestoration = {
@@ -99,13 +107,7 @@ function sentAttachments(sends: PendingSend[]): Attachment[] {
 export class ComposerSendCoordinator implements PersistedChatHolder {
 	readonly drafts?: ComposerDraftStore;
 	private nextSendId = 0;
-	private readonly pending = new Map<number, PendingSend>();
-	/**
-	 * Sends of an ended session that are still open. Nothing of them is restored
-	 * any more, but a refusal still hands their unkept files back to the
-	 * transport, which an acceptance must not.
-	 */
-	private readonly abandoned = new Map<number, () => void>();
+	private readonly entries = new Map<number, SendEntry>();
 	private readonly targets = new Set<ComposerSendTarget>();
 	private held: HeldRestoration[] = [];
 	private unregister: (() => void) | null = null;
@@ -141,29 +143,39 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 	/** Take over a send the composer has just cleared. */
 	begin(source: ComposerSendTarget, snapshot: ChatSendSnapshot): number {
 		const id = this.nextSendId++;
-		this.pending.set(id, {
+		this.entries.set(
 			id,
-			sessionEpoch: snapshot.sessionEpoch,
-			snapshot,
-			source,
-			resources: source.sendResources(),
-			draftCheckpoint: this.drafts?.captureCheckpoint(snapshot.conversation.threadId)
-		});
+			SendEntry.Open({
+				send: {
+					id,
+					sessionEpoch: snapshot.sessionEpoch,
+					snapshot,
+					source,
+					resources: source.sendResources(),
+					draftCheckpoint: this.drafts?.captureCheckpoint(snapshot.conversation.threadId)
+				}
+			})
+		);
 		this.pendingChanged();
 		return id;
 	}
 
 	/** Record a transport outcome. Only the first outcome of a send counts. */
 	settle(sendId: number, outcome: ComposerSendOutcome): void {
-		const releaseAbandoned = this.abandoned.get(sendId);
-		if (releaseAbandoned) {
-			this.abandoned.delete(sendId);
-			if (outcome === 'refused') releaseAbandoned();
-			return;
-		}
-		const send = this.pending.get(sendId);
-		if (!send || send.outcome) return;
-		send.outcome = outcome;
+		const entry = this.entries.get(sendId);
+		if (!entry) return;
+		SendEntry.$match(entry, {
+			Abandoned: ({ release }) => {
+				this.entries.delete(sendId);
+				if (outcome === 'refused') release();
+			},
+			Settled: () => {},
+			Open: ({ send }) => this.settleOpen(send, outcome)
+		});
+	}
+
+	private settleOpen(send: PendingSend, outcome: ComposerSendOutcome): void {
+		this.entries.set(send.id, SendEntry.Settled({ send, outcome }));
 		this.pendingChanged();
 		if (!isChatSessionCurrent(send.sessionEpoch)) {
 			this.abandon((candidate) => !isChatSessionCurrent(candidate.sessionEpoch));
@@ -173,15 +185,21 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 			this.drafts?.clearDraftIfUnchanged(send.draftCheckpoint, send.snapshot.conversation.threadId);
 		}
 
-		const group = [...this.pending.values()].filter(
-			(candidate) =>
+		const group = [...this.liveEntries()].filter(
+			({ send: candidate }) =>
 				candidate.sessionEpoch === send.sessionEpoch &&
 				sameConversation(candidate.snapshot.conversation, send.snapshot.conversation)
 		);
-		if (group.some((candidate) => !candidate.outcome)) return;
-		for (const candidate of group) this.pending.delete(candidate.id);
-		const refused = group.filter((candidate) => candidate.outcome === 'refused');
-		if (refused.length > 0) this.publish(group, refused);
+		if (group.some(SendEntry.$is('Open'))) return;
+		for (const { send: candidate } of group) this.entries.delete(candidate.id);
+		const refused = group.flatMap((candidate) =>
+			candidate._tag === 'Settled' && candidate.outcome === 'refused' ? [candidate.send] : []
+		);
+		if (refused.length > 0)
+			this.publish(
+				group.map((candidate) => candidate.send),
+				refused
+			);
 		this.dropSurfaceIfIdle();
 	}
 
@@ -190,7 +208,7 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 	 * group, or refused work still waits for its conversation's thread id.
 	 */
 	get hasOutstandingWork(): boolean {
-		return this.pending.size > 0 || this.held.length > 0;
+		return !this.liveEntries().next().done || this.held.length > 0;
 	}
 
 	/**
@@ -205,10 +223,13 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 	/** Whether the stored draft of `threadId` is the one a pending send captured. */
 	holdsDraft(threadId: string | null): boolean {
 		if (!this.drafts || threadId === null) return false;
-		const sends = [...this.pending.values()].filter(
-			(send) =>
-				isChatSessionCurrent(send.sessionEpoch) && send.snapshot.conversation.threadId === threadId
-		);
+		const sends = [...this.liveEntries()]
+			.map((entry) => entry.send)
+			.filter(
+				(send) =>
+					isChatSessionCurrent(send.sessionEpoch) &&
+					send.snapshot.conversation.threadId === threadId
+			);
 		return this.storedDraftCaptured(threadId, sends);
 	}
 
@@ -218,12 +239,14 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 	 */
 	pendingAttachmentCount(target: ComposerSendTarget): number {
 		const shown = target.core.conversation;
-		const holding = [...this.pending.values()].filter(
-			(send) =>
-				send.outcome !== 'accepted' &&
-				isChatSessionCurrent(send.sessionEpoch) &&
-				sameConversation(send.snapshot.conversation, shown)
-		);
+		const holding = [...this.liveEntries()]
+			.filter((entry) => entry._tag === 'Open' || entry.outcome === 'refused')
+			.map((entry) => entry.send)
+			.filter(
+				(send) =>
+					isChatSessionCurrent(send.sessionEpoch) &&
+					sameConversation(send.snapshot.conversation, shown)
+			);
 		return sentAttachments(holding).length;
 	}
 
@@ -232,6 +255,10 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 		this.held = [];
 		this.abandon(() => true);
 		this.pendingChanged();
+	}
+
+	private *liveEntries(): Generator<LiveEntry> {
+		for (const entry of this.entries.values()) if (entry._tag !== 'Abandoned') yield entry;
 	}
 
 	private pendingChanged(): void {
@@ -245,14 +272,23 @@ export class ComposerSendCoordinator implements PersistedChatHolder {
 	 * since it may yet be accepted.
 	 */
 	private abandon(ended: (send: PendingSend) => boolean): void {
-		for (const send of this.pending.values()) {
+		for (const entry of this.liveEntries()) {
+			const { send } = entry;
 			if (!ended(send)) continue;
-			this.pending.delete(send.id);
 			const { resources } = send;
 			const attachments = send.snapshot.attachments.attachments;
-			if (resources.store || attachments.length === 0) continue;
-			if (send.outcome === 'refused') resources.release(attachments);
-			else if (!send.outcome) this.abandoned.set(send.id, () => resources.release(attachments));
+			const owed = !resources.store && attachments.length > 0;
+			if (owed && entry._tag === 'Open') {
+				this.entries.set(
+					send.id,
+					SendEntry.Abandoned({ release: () => resources.release(attachments) })
+				);
+				continue;
+			}
+			this.entries.delete(send.id);
+			if (owed && entry._tag === 'Settled' && entry.outcome === 'refused') {
+				resources.release(attachments);
+			}
 		}
 		this.dropSurfaceIfIdle();
 	}
