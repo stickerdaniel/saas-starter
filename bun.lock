@@ -100,6 +100,7 @@
         "convex-vite-plugin": "0.4.0",
         "dom-accessibility-api": "0.7.1",
         "eld": "2.1.1",
+        "entities": "9.0.0",
         "esbuild": "0.28.2",
         "eslint": "10.14.0",
         "eslint-config-prettier": "10.1.8",

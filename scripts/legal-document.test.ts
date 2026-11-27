@@ -131,25 +131,19 @@ describe('parseLegalMarkdown', () => {
 		);
 	});
 
-	it('keeps ampersands, decodes numeric references and rejects named entities', () => {
-		expect(ofType(parse('A & B'), 'text')).toEqual([{ type: 'text', value: 'A & B' }]);
-		expect(ofType(parse('A & B &#169; &#xA9; &#38;'), 'text')).toEqual([
-			{ type: 'text', value: 'A & B © © &' }
+	it('decodes character references and keeps other ampersands', () => {
+		expect(ofType(parse('A & B &#169; &#38; &copy; &nbsp;x R&D; more'), 'text')).toEqual([
+			{ type: 'text', value: 'A & B © & © \u00a0x R&D; more' }
 		]);
-		for (const entity of ['&copy;', '&nbsp;']) {
-			expect(() => parseLegalMarkdown('sample', `Text ${entity} here`)).toThrow(
-				`HTML entity ${entity} is not supported in sample. Write the character itself.`
-			);
-		}
 	});
 
-	it('flattens formatting in image alt text', () => {
-		const nodes = parse('![**Company** logo](/logo.png) ![*Blocked* pixel](javascript:alert(1))');
+	it('flattens and decodes image alt text', () => {
+		const nodes = parse(
+			'![**A & B** &#169; &copy;](/logo.png) ![*Blocked* A & B &#169;](javascript:alert(1))'
+		);
 
-		expect(ofType(nodes, 'image')).toEqual([
-			{ type: 'image', src: '/logo.png', alt: 'Company logo' }
-		]);
-		expect(ofType(nodes, 'text').map((text) => text.value)).toContain('Blocked pixel');
+		expect(ofType(nodes, 'image')).toEqual([{ type: 'image', src: '/logo.png', alt: 'A & B © ©' }]);
+		expect(ofType(nodes, 'text').map((text) => text.value)).toContain('Blocked A & B ©');
 	});
 
 	it('keeps placeholders in headings, lists, tables and link labels', () => {

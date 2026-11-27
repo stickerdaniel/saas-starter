@@ -183,7 +183,7 @@ describe('LegalMarkdown', () => {
 				'| :--- | :---: | ---: |',
 				'| a | b | c |',
 				'',
-				'![Logo](/logo.png)'
+				'![A & B &#169;](/logo.png)'
 			].join('\n')
 		);
 
@@ -196,5 +196,6 @@ describe('LegalMarkdown', () => {
 			[...document.querySelectorAll('th, td')].map((cell) => cell.getAttribute('align'))
 		).toEqual(['left', 'center', 'right', 'left', 'center', 'right']);
 		expect(document.querySelector('img')?.getAttribute('src')).toBe('/logo.png');
+		expect(document.querySelector('img')?.getAttribute('alt')).toBe('A & B ©');
 	});
 });
