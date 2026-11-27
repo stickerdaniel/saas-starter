@@ -245,13 +245,24 @@ const CANDIDATE_SUFFIXES = [
 	'.jsx',
 	'.json',
 	'/index.ts',
-	'/index.js'
+	'/index.tsx',
+	'/index.js',
+	'/index.jsx'
 ];
+const RUNTIME_EXTENSION = /\.(?:[cm]?js|jsx)$/;
+const TYPED_SOURCES = new Map([
+	['.mjs', ['.mts']],
+	['.cjs', ['.cts']],
+	['.jsx', ['.tsx']]
+]);
 
 function resolveTracked(path: string, tracked: ReadonlySet<string>): string {
 	if (tracked.has(path)) return path;
-	const base = path.replace(/\.[cm]?js$/, '');
-	for (const suffix of CANDIDATE_SUFFIXES) if (tracked.has(base + suffix)) return base + suffix;
+	const runtime = path.match(RUNTIME_EXTENSION)?.[0] ?? '';
+	const base = path.slice(0, path.length - runtime.length);
+	for (const suffix of TYPED_SOURCES.get(runtime) ?? CANDIDATE_SUFFIXES) {
+		if (tracked.has(base + suffix)) return base + suffix;
+	}
 	return path;
 }
 
@@ -428,7 +439,7 @@ function placeResolved(table: MoveTable, resolved: string, target: string): stri
 		return rule.to + resolved.slice(rule.from.length);
 	}
 	if (resolved === target) return placement.to;
-	const runtime = resolved.match(/\.[cm]?js$/)?.[0] ?? '';
+	const runtime = resolved.match(RUNTIME_EXTENSION)?.[0] ?? '';
 	const named = resolved.slice(0, resolved.length - runtime.length);
 	const omitted = target.slice(named.length);
 	return placement.to.endsWith(omitted)

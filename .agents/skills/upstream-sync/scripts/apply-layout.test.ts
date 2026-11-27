@@ -277,6 +277,43 @@ describe('apply-layout plans', () => {
 		]);
 	});
 
+	it('resolves a runtime extension to the TypeScript source of its kind', () => {
+		const moves = [
+			['only.mts', 'module.mts'],
+			['only.ts', 'script.ts'],
+			['other.cts', 'common.cts'],
+			['other.ts', 'plain.ts'],
+			['Thing.tsx', 'View.tsx'],
+			['Thing.ts', 'model.ts'],
+			['button/index.tsx', 'pane/index.tsx'],
+			['use.mts', 'use.mts'],
+			['use.cts', 'use.cts'],
+			['use.tsx', 'use.tsx']
+		].map(([from, to]) => ({ from: `voice/${from}`, to: `apps/voice/${to}`, owner: 'voice' }));
+		const root = repository({
+			'package.json': '{}',
+			'.upstream-sync.layout.ts': `export default { rules: ${JSON.stringify(moves)} };\n`,
+			'voice/only.mts': '',
+			'voice/only.ts': '',
+			'voice/other.cts': '',
+			'voice/other.ts': '',
+			'voice/Thing.tsx': '',
+			'voice/Thing.ts': '',
+			'voice/button/index.tsx': '',
+			'voice/use.mts': "import './only.mjs';\n",
+			'voice/use.cts': "require('./other.cjs');\n",
+			'voice/use.tsx': "import './Thing.jsx';\nimport './button';\n"
+		});
+		const specifiers = layout(root, '--specifiers');
+		expect(specifiers.status).toBe(0);
+		expect(specifiers.stdout.trim().split('\n').sort()).toEqual([
+			'apps/voice/use.cts\t./other.cjs\t./common.cjs',
+			'apps/voice/use.mts\t./only.mjs\t./module.mjs',
+			'apps/voice/use.tsx\t./Thing.jsx\t./View.jsx',
+			'apps/voice/use.tsx\t./button\t./pane'
+		]);
+	});
+
 	it('prints the forbidden pairs and fails when the table does not map the checkout', () => {
 		const root = repository({
 			'package.json': '{}',
