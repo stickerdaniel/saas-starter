@@ -118,6 +118,12 @@ describe('third-party license configuration', () => {
 			})
 		).toThrow('must be a path inside the repository');
 	});
+
+	it('rejects an extra package that names itself in via', () => {
+		expect(
+			parse({ extraPackages: [{ name: 'preact', components: ['client'], via: 'preact' }] })
+		).toThrow('extraPackages.0: "preact" names itself in "via".');
+	});
 });
 
 describe('generated notices', () => {

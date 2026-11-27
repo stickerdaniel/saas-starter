@@ -18,15 +18,18 @@
 		},
 		{
 			"name": "preact",
-			"components": ["client"]
+			"components": ["client"],
+			"via": "posthog-js"
 		},
 		{
 			"name": "fflate",
-			"components": ["client"]
+			"components": ["client"],
+			"via": "posthog-js"
 		},
 		{
 			"name": "jwt-decode",
-			"components": ["client", "server-worker"]
+			"components": ["client", "server-worker"],
+			"via": "@stickerdaniel/convex-autumn-svelte"
 		}
 	],
 	"packageOverrides": [

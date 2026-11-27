@@ -86,10 +86,14 @@ function toPosix(value: string): string {
 	return value.replaceAll('\\', '/');
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function readJson(file: string): Record<string, unknown> | null {
 	try {
 		const value: unknown = JSON.parse(readFileSync(file, 'utf8'));
-		return value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+		return isRecord(value) ? value : null;
 	} catch {
 		return null;
 	}
@@ -165,6 +169,67 @@ function findInstalledPackage(root: string, name: string): string | null {
 		if (parent === directory) return null;
 		directory = parent;
 	}
+}
+
+type ExtraPackage = ThirdPartyLicensesConfig['extraPackages'][number];
+
+const DEPENDENCY_MAPS = ['dependencies', 'optionalDependencies', 'peerDependencies'] as const;
+const BUNDLED_LISTS = ['bundledDependencies', 'bundleDependencies'] as const;
+
+function declaresDependency(manifest: Record<string, unknown>, name: string): boolean {
+	return (
+		DEPENDENCY_MAPS.some((kind) => {
+			const declared = manifest[kind];
+			return isRecord(declared) && Object.hasOwn(declared, name);
+		}) ||
+		BUNDLED_LISTS.some((kind) => {
+			const bundled = manifest[kind];
+			return Array.isArray(bundled) && bundled.includes(name);
+		})
+	);
+}
+
+function findExtraPackage(
+	root: string,
+	extra: ExtraPackage
+): string | { problem: string; fix: string } {
+	const dependsOn = `"via" to a dependency of this project that depends on ${extra.name},`;
+	if (!extra.via) {
+		return (
+			findInstalledPackage(root, extra.name) ?? {
+				problem: 'Listed in extraPackages but not installed.',
+				fix: `Install it, set ${dependsOn}`
+			}
+		);
+	}
+	const listed = `Listed in extraPackages with "via": "${extra.via}", but`;
+	const dependent = findInstalledPackage(root, extra.via);
+	if (!dependent) {
+		return {
+			problem: `${listed} ${extra.via} is not installed as a dependency of this project.`,
+			fix: `Set ${dependsOn}`
+		};
+	}
+	const dependentRoot = realpathSync(dependent);
+	const manifest = readJson(path.join(dependentRoot, 'package.json'));
+	if (!manifest) {
+		return {
+			problem: `${listed} the package.json of ${extra.via} is unreadable.`,
+			fix: `Reinstall ${extra.via},`
+		};
+	}
+	if (!declaresDependency(manifest, extra.name)) {
+		return {
+			problem: `${listed} ${extra.via} does not declare ${extra.name} as a dependency.`,
+			fix: `Set ${dependsOn}`
+		};
+	}
+	return (
+		findInstalledPackage(dependentRoot, extra.name) ?? {
+			problem: `${listed} ${extra.via} does not install it.`,
+			fix: `Set ${dependsOn}`
+		}
+	);
 }
 
 interface PhysicalPackage {
@@ -356,14 +421,14 @@ export function resolveThirdPartyNotices(options: ResolveOptions): ResolveResult
 	}
 
 	for (const extra of config.extraPackages) {
-		const directory = findInstalledPackage(root, extra.name);
-		if (!directory) {
+		const found = findExtraPackage(root, extra);
+		if (typeof found !== 'string') {
 			errors.push(
-				`${extra.name} [${extra.components.join(', ')}]\n  Listed in extraPackages but not installed. Install it or remove the entry from ${configFileName}.`
+				`${extra.name} [${extra.components.join(', ')}]\n  ${found.problem} ${found.fix} or remove the entry from ${configFileName}.`
 			);
 			continue;
 		}
-		for (const component of extra.components) addPhysical(directory, component);
+		for (const component of extra.components) addPhysical(found, component);
 	}
 
 	for (const item of [...unattributable].sort()) {

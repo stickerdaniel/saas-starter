@@ -400,6 +400,126 @@ describe('notice resolution', () => {
 	});
 });
 
+describe('extra packages shipped by a dependent', () => {
+	const vendored = { name: 'vendored', version: '1.0.0', license: 'MIT' };
+	const host = { name: 'host', version: '2.0.0', dependencies: { vendored: '^1.0.0' } };
+
+	function extra(via: string) {
+		return { extraPackages: [{ name: 'vendored', components: ['client'], via }] };
+	}
+
+	function refusal(problem: string) {
+		return `vendored [client]\n  Listed in extraPackages with "via": ${problem} Set "via" to a dependency of this project that depends on vendored, or remove the entry from third-party-licenses.config.json.`;
+	}
+
+	it('finds a package that only its dependent resolves, as in an isolated install', () => {
+		const store = 'node_modules/.store/host@2.0.0/node_modules';
+		const installed = installPackage(`${store}/host`, host);
+		installPackage(`${store}/vendored`, vendored, { LICENSE: 'Vendored license' });
+		symlinkSync(installed, path.join(root, 'node_modules/host'), 'dir');
+		const result = resolve([], extra('host'));
+		expect(result.errors).toEqual([]);
+		expect(result.entries.map(({ id, notices }) => ({ id, notices }))).toEqual([
+			{ id: 'npm:vendored@1.0.0', notices: [{ label: 'LICENSE', text: 'Vendored license' }] }
+		]);
+	});
+
+	it('names the via field when the project does not install the dependent', () => {
+		installPackage('node_modules/vendored', vendored, { LICENSE: 'Vendored license' });
+		const { errors, entries } = resolve([], extra('host'));
+		expect(entries).toEqual([]);
+		expect(errors).toEqual([
+			refusal('"host", but host is not installed as a dependency of this project.')
+		]);
+	});
+
+	it('takes the version the dependent installs over another installed one', () => {
+		installPackage('node_modules/vendored', { ...vendored, version: '2.0.0' }, { LICENSE: 'v2' });
+		installPackage('node_modules/host', host);
+		installPackage('node_modules/host/node_modules/vendored', vendored, { LICENSE: 'v1' });
+		const result = resolve([], extra('host'));
+		expect(result.errors).toEqual([]);
+		expect(result.entries.map(({ id }) => id)).toEqual(['npm:vendored@1.0.0']);
+	});
+
+	it('refuses a via that does not depend on the package, whatever version sits beside it', () => {
+		installPackage('node_modules/vendored', { ...vendored, version: '2.0.0' }, { LICENSE: 'v2' });
+		installPackage('node_modules/other', { name: 'other', version: '1.0.0' });
+		const { errors, entries } = resolve([], extra('other'));
+		expect(entries).toEqual([]);
+		expect(errors).toEqual([
+			refusal('"other", but other does not declare vendored as a dependency.')
+		]);
+	});
+
+	it('refuses a via whose dependency maps lack a package named like an inherited property', () => {
+		const inherited = {
+			extraPackages: [{ name: 'constructor', components: ['client'], via: 'other' }]
+		};
+		installPackage('node_modules/constructor', { name: 'constructor', version: '2.0.0' });
+		installPackage('node_modules/other', { name: 'other', version: '1.0.0', dependencies: {} });
+		const { errors, entries } = resolve([], inherited);
+		expect(entries).toEqual([]);
+		expect(errors).toEqual([
+			'constructor [client]\n  Listed in extraPackages with "via": "other", but other does not declare constructor as a dependency. Set "via" to a dependency of this project that depends on constructor, or remove the entry from third-party-licenses.config.json.'
+		]);
+	});
+
+	it('refuses a via whose dependency map is a list, for a package named like a list property', () => {
+		const listed = { extraPackages: [{ name: 'length', components: ['client'], via: 'other' }] };
+		installPackage('node_modules/length', { name: 'length', version: '2.0.0' });
+		installPackage('node_modules/other', { name: 'other', version: '1.0.0', dependencies: [] });
+		const { errors, entries } = resolve([], listed);
+		expect(entries).toEqual([]);
+		expect(errors).toEqual([
+			'length [client]\n  Listed in extraPackages with "via": "other", but other does not declare length as a dependency. Set "via" to a dependency of this project that depends on length, or remove the entry from third-party-licenses.config.json.'
+		]);
+	});
+
+	it.each(['bundledDependencies', 'bundleDependencies'])(
+		'accepts a dependent that ships the package under %s',
+		(kind) => {
+			installPackage('node_modules/host', { name: 'host', version: '2.0.0', [kind]: ['vendored'] });
+			installPackage('node_modules/host/node_modules/vendored', vendored, {
+				LICENSE: 'Vendored license'
+			});
+			const result = resolve([], extra('host'));
+			expect(result.errors).toEqual([]);
+			expect(result.entries.map(({ id }) => id)).toEqual(['npm:vendored@1.0.0']);
+		}
+	);
+
+	it.each(['{ "name": "host", ', '[]'])(
+		'names the manifest of the dependent when it holds %s',
+		(manifest) => {
+			write('node_modules/host/package.json', manifest);
+			installPackage('node_modules/host/node_modules/vendored', vendored, {
+				LICENSE: 'Vendored license'
+			});
+			const { errors, entries } = resolve([], extra('host'));
+			expect(entries).toEqual([]);
+			expect(errors).toEqual([
+				'vendored [client]\n  Listed in extraPackages with "via": "host", but the package.json of host is unreadable. Reinstall host, or remove the entry from third-party-licenses.config.json.'
+			]);
+		}
+	);
+
+	it.each(['dependencies', 'optionalDependencies', 'peerDependencies'])(
+		'accepts a dependent that names the package under %s',
+		(kind) => {
+			installPackage('node_modules/host', {
+				name: 'host',
+				version: '2.0.0',
+				[kind]: { vendored: '^1.0.0' }
+			});
+			installPackage('node_modules/vendored', vendored, { LICENSE: 'Vendored license' });
+			const result = resolve([], extra('host'));
+			expect(result.errors).toEqual([]);
+			expect(result.entries.map(({ id }) => id)).toEqual(['npm:vendored@1.0.0']);
+		}
+	);
+});
+
 describe('catalogue serialization', () => {
 	it('produces identical bytes regardless of input order', () => {
 		const files = ['zeta', 'alpha', 'mid'].map((name) =>
