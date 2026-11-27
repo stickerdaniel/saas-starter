@@ -22,11 +22,8 @@ export class SupportContext {
 	readonly conversation: SupportConversation;
 	readonly handoff: SupportHandoffCommands;
 	readonly notifications: SupportNotificationCommands;
-	/**
-	 * Holds the widget's text and files and settles its sends, while its view comes and goes with the panel.
-	 * Replaced by the next session's composer when a session ends under a mounted root.
-	 */
-	composer: ChatComposer;
+	/** Holds the widget's text and files and settles its sends, while its view comes and goes with the panel. */
+	readonly composer: ChatComposer;
 
 	/** @param composer the surface's composer when it outlives this root; one is made otherwise. */
 	constructor(isAiUsable: () => boolean = () => true, composer?: ChatComposer) {

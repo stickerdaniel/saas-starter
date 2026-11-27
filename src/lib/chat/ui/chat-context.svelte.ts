@@ -112,15 +112,6 @@ export class ChatUIContext implements ComposerView {
 		}
 	}
 
-	/**
-	 * Lets go of what the composer holds, because its session ended. Runs once
-	 * per session end, so a surface that hands its view over during the sweep
-	 * can call it before the old view goes.
-	 */
-	forgetPersistedState(): void {
-		this.composer.forgetPersistedState();
-	}
-
 	/** User messages use userAlignment, every other role the opposite side. */
 	getAlignment(role: MessageRole): ChatAlignment {
 		if (role === 'user') return this.userAlignment;

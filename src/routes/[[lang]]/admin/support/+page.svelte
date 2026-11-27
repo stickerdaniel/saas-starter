@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
 	import SEOHead from '#lib/components/SEOHead.svelte';
 	import * as v from 'valibot';
 	import { useSearchParams } from 'runed/kit';
@@ -23,7 +22,7 @@
 		adminSupportUIContext
 	} from '#lib/hooks/admin-support-ui.svelte.ts';
 	import { adminCache } from '#lib/hooks/admin-cache.svelte.ts';
-	import { acquireChatComposer } from '#lib/chat/ui/chat-composer.svelte.ts';
+	import { chatComposerFor } from '#lib/chat/ui/chat-composer.svelte.ts';
 	import { browser } from '$app/env';
 	import { authClient } from '#lib/auth-client.js';
 
@@ -34,16 +33,10 @@
 
 	// The composer with its drafts lives outside {#key threadId}, so drafts
 	// and a reply refused after its thread was left survive thread switches, and
-	// outside this page while one of its replies is open. A session that ends
-	// while the page stays open hands over the next session's owner, and the
-	// thread view is rebuilt around it below.
-	let sendLease = $state.raw(
-		acquireChatComposer('admin-support', {
-			storeFiles: true,
-			renewed: (next) => (sendLease = next)
-		})
-	);
-	onDestroy(() => sendLease.release());
+	// outside this page, so a reply still open when the page is left settles into
+	// the next visit. A session that ends while the page stays open empties it in
+	// place.
+	const composer = chatComposerFor('admin-support', { storeFiles: true });
 
 	// Filter state schema (thread managed separately to avoid reload on selection)
 	const filterSchema = v.object({
@@ -206,16 +199,14 @@
 
 			<Pane defaultSize={50} minSize={30}>
 				{#if threadId}
-					{#key sendLease.owner}
-						{#key threadId}
-							<ThreadChat
-								{threadId}
-								initialThread={selectedThread}
-								{canImpersonate}
-								viewerId={adminUserId}
-								composer={sendLease.owner}
-							/>
-						{/key}
+					{#key threadId}
+						<ThreadChat
+							{threadId}
+							initialThread={selectedThread}
+							{canImpersonate}
+							viewerId={adminUserId}
+							{composer}
+						/>
 					{/key}
 				{:else}
 					<div
@@ -272,16 +263,14 @@
 
 			<Pane defaultSize={70} minSize={50}>
 				{#if threadId}
-					{#key sendLease.owner}
-						{#key threadId}
-							<ThreadChat
-								{threadId}
-								initialThread={selectedThread}
-								{canImpersonate}
-								viewerId={adminUserId}
-								composer={sendLease.owner}
-							/>
-						{/key}
+					{#key threadId}
+						<ThreadChat
+							{threadId}
+							initialThread={selectedThread}
+							{canImpersonate}
+							viewerId={adminUserId}
+							{composer}
+						/>
 					{/key}
 				{:else}
 					<div
@@ -318,17 +307,15 @@
 			<!-- Chat (slides over thread list from right) -->
 			<SlidingPanel open={!!threadId} surface="background">
 				{#if threadId}
-					{#key sendLease.owner}
-						{#key threadId}
-							<ThreadChat
-								{threadId}
-								initialThread={selectedThread}
-								{canImpersonate}
-								viewerId={adminUserId}
-								onBackClick={clearThread}
-								composer={sendLease.owner}
-							/>
-						{/key}
+					{#key threadId}
+						<ThreadChat
+							{threadId}
+							initialThread={selectedThread}
+							{canImpersonate}
+							viewerId={adminUserId}
+							onBackClick={clearThread}
+							{composer}
+						/>
 					{/key}
 				{/if}
 			</SlidingPanel>

@@ -12,14 +12,15 @@ export const ATTACHMENT_STORAGE_PREFIX = 'attachments:';
 
 const PREFIXES = [DRAFT_STORAGE_PREFIX, ATTACHMENT_STORAGE_PREFIX];
 
-/** A composer that is on screen right now and holds more than storage does. */
+/** A composer that holds more than storage does, or keeps its own copy of it. */
 export interface PersistedChatHolder {
 	/** Let go of everything belonging to the session that is ending. */
 	forgetPersistedState(): void;
 }
 
 /**
- * The composers currently mounted.
+ * The composers that hear about a session end: every surface composer of this
+ * document, and every other composer while it is mounted.
  *
  * Structural, and registered by the holder itself, so this module stays free of
  * anything it would otherwise have to import back.

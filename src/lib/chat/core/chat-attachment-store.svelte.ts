@@ -236,6 +236,12 @@ export class ChatAttachmentStore {
 		if (JSON.stringify(next) !== JSON.stringify(previous)) this.stored.current = next;
 	}
 
+	/** Drop every stored attachment of the surface now, without waiting for storage to be swept. */
+	clear(): void {
+		this.stamps.clear();
+		if (Object.keys(this.parse()).length > 0) this.stored.current = {};
+	}
+
 	/** Drop what the vacuum may already have collected. */
 	private fresh(record: StoredRecord): StoredRecord {
 		const cutoff = Date.now() - MAX_AGE_MS;
