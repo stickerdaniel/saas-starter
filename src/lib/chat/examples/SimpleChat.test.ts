@@ -4,6 +4,7 @@ import type * as Svelte from 'svelte';
 import { ConvexClient } from 'convex/browser';
 import { getFunctionName } from 'convex/server';
 import en from '../../../i18n/en.json';
+import { clearPersistedChatState } from '../core/chat-persisted-state.ts';
 import { ChatUIContext } from '../ui/chat-context.svelte.ts';
 import { capturedChatMessages } from '../ui/test-fixtures/CapturedChatMessages.svelte';
 import ChatTestProvider from '../ui/test-fixtures/ChatTestProvider.svelte';
@@ -35,6 +36,7 @@ beforeEach(() => {
 afterEach(async () => {
 	if (component) await unmount(component);
 	component = undefined;
+	clearPersistedChatState();
 	await client.close();
 	localStorage.clear();
 	vi.restoreAllMocks();
@@ -187,6 +189,49 @@ describe('SimpleChat', () => {
 		provider.setContentProps({ threadId: 'thread-a' });
 		await tick();
 		expect(textareaValue()).toBe('Refused in thread A\n\nTyped since in thread A');
+	});
+
+	it('shows a refusal in a SimpleChat mounted again on its thread', async () => {
+		const pending = Promise.withResolvers<never>();
+		vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
+		mountChat('thread-a');
+		await tick();
+		const { button } = await enterMessage('Refused after a remount');
+		button.click();
+		await tick();
+
+		await unmount(component!);
+		component = undefined;
+		mountChat('thread-a');
+		await tick();
+		expect(textareaValue()).toBe('');
+
+		pending.reject(new Error('Send rejected'));
+		await vi.waitFor(() => expect(textareaValue()).toBe('Refused after a remount'));
+	});
+
+	it('empties the composer at a session end and settles the next session through a remount', async () => {
+		const pending = Promise.withResolvers<never>();
+		vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
+		mountChat('thread-a');
+		await tick();
+		await setComposerValue('Typed in the ended session');
+
+		clearPersistedChatState();
+		await tick();
+		expect(textareaValue()).toBe('');
+
+		const { button } = await enterMessage('Sent in the next session');
+		button.click();
+		await tick();
+		await unmount(component!);
+		component = undefined;
+		mountChat('thread-a');
+		await tick();
+		expect(textareaValue()).toBe('');
+
+		pending.reject(new Error('Send rejected'));
+		await vi.waitFor(() => expect(textareaValue()).toBe('Sent in the next session'));
 	});
 
 	it.each([
