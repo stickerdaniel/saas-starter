@@ -22,4 +22,5 @@ export const resetOAuthRegistrationLimit = registeredFunctions.resetOAuthRegistr
 export const seedAiChatHistoryRows = registeredFunctions.seedAiChatHistoryRows;
 export const seedAuditLogRows = registeredFunctions.seedAuditLogRows;
 export const seedSupportNotificationClaim = registeredFunctions.seedSupportNotificationClaim;
+export const verifyAccessToken = registeredFunctions.verifyAccessToken;
 export const verifyTestUserEmail = registeredFunctions.verifyTestUserEmail;

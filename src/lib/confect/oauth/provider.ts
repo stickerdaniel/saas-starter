@@ -1,5 +1,8 @@
 import type { GenericCtx } from '@convex-dev/better-auth';
-import { oauthProvider } from '@better-auth/oauth-provider';
+import { getOAuthProviderApi, oauthProvider } from '@better-auth/oauth-provider';
+import type { BetterAuthPlugin } from 'better-auth';
+import { createAuthEndpoint, isAPIError } from 'better-auth/api';
+import * as Schema from 'effect/Schema';
 import { internal } from '../../convex/_generated/api';
 import type { DataModel } from '../../convex/_generated/dataModel';
 import { currentEpoch } from './grants';
@@ -33,3 +36,29 @@ export const oauthProviderOptions = (ctx: GenericCtx<DataModel>) => ({
 
 export const createOAuthProvider = (ctx: GenericCtx<DataModel>) =>
 	oauthProvider(oauthProviderOptions(ctx));
+
+export const mcpAccess = (provider: ReturnType<typeof createOAuthProvider>) =>
+	({
+		id: 'mcp-access',
+		endpoints: {
+			mcpAccessVerify: createAuthEndpoint(
+				'/mcp-access/verify',
+				{
+					method: 'POST',
+					body: Schema.toStandardSchemaV1(Schema.Struct({ token: Schema.String })),
+					metadata: { SERVER_ONLY: true }
+				},
+				async (endpointCtx) => {
+					try {
+						return await getOAuthProviderApi(
+							endpointCtx,
+							provider.options
+						).requireActiveAccessToken(endpointCtx.body.token);
+					} catch (error) {
+						if (isAPIError(error)) return null;
+						throw error;
+					}
+				}
+			)
+		}
+	}) satisfies BetterAuthPlugin;

@@ -57,7 +57,8 @@ const serialSpecs = [
 	'**/admin-settings.spec.ts',
 	'**/admin-settings-table.spec.ts',
 	'**/oauth-authorization.spec.ts',
-	'**/oauth-connections.spec.ts'
+	'**/oauth-connections.spec.ts',
+	'**/mcp-endpoint.spec.ts'
 ];
 type E2EProject = Project<PlaywrightTestOptions, PlaywrightWorkerOptions & WorkerAccountOptions>;
 

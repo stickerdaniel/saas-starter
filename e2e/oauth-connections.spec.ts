@@ -49,7 +49,7 @@ test('a connection shows in the apps tab and Revoke ends it', async ({ page, req
 	const tab = await openAppsTab(page);
 	const block = connection(page, 'Revoked client');
 	await expect(block).toHaveCount(1);
-	await expect(block.getByRole('definition')).toHaveText(['View and change', today]);
+	await expect(block.getByRole('definition')).toHaveText(['View and change', 'Never', today]);
 
 	await block.getByRole('button', { name: 'Revoke access for Revoked client' }).click();
 	const dialog = page.getByRole('alertdialog');

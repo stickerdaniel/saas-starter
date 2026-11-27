@@ -53,6 +53,7 @@ import type * as files_vacuum from "../files/vacuum.js";
 import type * as http from "../http.js";
 import type * as localDev from "../localDev.js";
 import type * as messages from "../messages.js";
+import type * as oauth_access from "../oauth/access.js";
 import type * as oauth_cleanup from "../oauth/cleanup.js";
 import type * as oauth_connections from "../oauth/connections.js";
 import type * as oauth_metadata from "../oauth/metadata.js";
@@ -121,6 +122,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   localDev: typeof localDev;
   messages: typeof messages;
+  "oauth/access": typeof oauth_access;
   "oauth/cleanup": typeof oauth_cleanup;
   "oauth/connections": typeof oauth_connections;
   "oauth/metadata": typeof oauth_metadata;

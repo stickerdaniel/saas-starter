@@ -5,3 +5,4 @@ export const getPasskeyNudgeDismissal = registeredFunctions.getPasskeyNudgeDismi
 export const hasPassword = registeredFunctions.hasPassword;
 export const setPassword = registeredFunctions.setPassword;
 export const viewer = registeredFunctions.viewer;
+export const viewerAs = registeredFunctions.viewerAs;

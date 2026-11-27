@@ -35,6 +35,7 @@ import convexAccessFirstRule from './eslint/rules/convex-access-first.js';
 import convexEffectQuerySafetyRule from './eslint/rules/convex-effect-query-safety.js';
 import confectDefinitionImportsRule from './eslint/rules/confect-definition-imports.js';
 import noSourceTextReadRule from './eslint/rules/no-source-text-read.js';
+import requireSessionStoreCleanupRule from './eslint/rules/require-session-store-cleanup.js';
 import { enforcedShadcnConfig } from './eslint/shadcn-policy.js';
 import {
 	CONFECT_LIBRARY_FUNCTIONS,
@@ -89,6 +90,7 @@ const CONFECT_PUBLIC_FUNCTIONS = {
 			'seedAiChatHistoryRows',
 			'seedAuditLogRows',
 			'seedSupportNotificationClaim',
+			'verifyAccessToken',
 			'verifyTestUserEmail'
 		].map((name) => [
 			`tests:${name}`,
@@ -165,7 +167,8 @@ const localPlugin = {
 		'convex-access-first': convexAccessFirstRule,
 		'convex-effect-query-safety': convexEffectQuerySafetyRule,
 		'confect-definition-imports': confectDefinitionImportsRule,
-		'no-source-text-read': noSourceTextReadRule
+		'no-source-text-read': noSourceTextReadRule,
+		'require-session-store-cleanup': requireSessionStoreCleanupRule
 	}
 };
 
@@ -675,6 +678,15 @@ export default defineConfig(
 		},
 		rules: {
 			'local/no-test-in-loop': 'error'
+		}
+	},
+	{
+		files: ['**/*.{test,spec}.?(c|m)[jt]s?(x)'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/require-session-store-cleanup': 'error'
 		}
 	},
 	// A test imports what it tests; reading production source as text pins its

@@ -13,6 +13,13 @@ export const signedInUser = (ctx: GenericCtx<DataModel>) =>
 		Effect.flatMap((user) => (user ? Effect.succeed(user) : Effect.fail(new Unauthenticated())))
 	);
 
+export const actingUser = (userId: string) => (ctx: GenericCtx<DataModel>) =>
+	Effect.promise(() => authComponent.getAnyUserById(ctx, userId)).pipe(
+		Effect.flatMap((user) =>
+			user && user.banned !== true ? Effect.succeed(user) : Effect.fail(new Unauthenticated())
+		)
+	);
+
 export default MiddlewareImpl.makeByFunctionType(databaseSchema, RequireUser, {
 	query: (effect) => Effect.provideServiceEffect(effect, CurrentUser, QueryCtx.use(signedInUser)),
 	mutation: (effect) =>
