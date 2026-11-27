@@ -64,9 +64,22 @@ const customNoticeSchema = v.pipe(
 	)
 );
 
+const extraPackageSchema = v.pipe(
+	v.strictObject({
+		name: text,
+		components,
+		via: v.optional(text)
+	}),
+	v.check(
+		(entry) => entry.via !== entry.name,
+		(issue) =>
+			`"${issue.input.name}" names itself in "via". Set "via" to a dependency of this project that depends on it.`
+	)
+);
+
 const configSchema = v.strictObject({
 	$schema: v.optional(v.string()),
-	extraPackages: v.optional(v.array(v.strictObject({ name: text, components })), []),
+	extraPackages: v.optional(v.array(extraPackageSchema), []),
 	packageOverrides: v.optional(v.array(packageOverrideSchema), []),
 	customNotices: v.optional(v.array(customNoticeSchema), [])
 });
