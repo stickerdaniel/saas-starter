@@ -7,9 +7,12 @@
  *   --renames      `<from>\t<to>` for each path that moves, `<from>\t-` for each one deleted
  *   --specifiers   `<file>\t<specifier>\t<new specifier>` for each import the move breaks
  *   --stragglers   tracked paths that still sit where the table moves them away from
+ *   --edges        `<from>\t<to>` for each pair the dependency rule forbids under the table;
+ *                  exits 1 when the table does not map the checkout
  *
  * The table is `layout/v3.ts` plus the product's `.upstream-sync.layout.ts`, whose default
- * export is `{ rules: MoveRule[] }` for the product's own roots.
+ * export is `{ rules: MoveRule[], knownEdges?: [from, to][] }` for the product's own roots and
+ * the forbidden pairs it keeps until its move.
  *
  * Usage:
  *   bun .agents/skills/upstream-sync/scripts/apply-layout.ts --check
@@ -28,6 +31,7 @@ import {
 	isStarterWorkspace,
 	ruleProblem,
 	WORKSPACES,
+	type EdgePair,
 	type LayoutExtension,
 	type MoveRule,
 	type MoveTable,
@@ -61,29 +65,87 @@ function isMoveRule(value: unknown): value is MoveRule {
 	);
 }
 
+function isEdgePair(value: unknown): value is EdgePair {
+	return (
+		Array.isArray(value) && value.length === 2 && value.every((end) => typeof end === 'string')
+	);
+}
+
 function isLayoutExtension(value: unknown): value is LayoutExtension {
-	const rules = (value as { rules?: unknown } | null | undefined)?.rules;
-	return Array.isArray(rules) && rules.every(isMoveRule);
+	const { rules, knownEdges } = (value ?? {}) as { rules?: unknown; knownEdges?: unknown };
+	return (
+		Array.isArray(rules) &&
+		rules.every(isMoveRule) &&
+		(knownEdges === undefined || (Array.isArray(knownEdges) && knownEdges.every(isEdgePair)))
+	);
+}
+
+export interface LoadedTable {
+	readonly table: MoveTable;
+	readonly refusals: readonly string[];
+	readonly extension: Partial<LayoutExtension> | undefined;
 }
 
 /** The base table joined with the product's rules in `checkout`, or the reasons it refuses them. */
-export async function loadTable(
-	checkout: string
-): Promise<{ table: MoveTable; refusals: readonly string[] }> {
+export async function loadTable(checkout: string): Promise<LoadedTable> {
 	const path = join(checkout, EXTENSION_FILE);
-	if (!existsSync(path)) return { table: createMoveTable(BASE_RULES), refusals: [] };
+	if (!existsSync(path)) {
+		return { table: createMoveTable(BASE_RULES), refusals: [], extension: undefined };
+	}
 	const extension: unknown = (await import(pathToFileURL(path).href)).default;
 	if (!isLayoutExtension(extension)) {
 		return {
 			table: createMoveTable(BASE_RULES),
-			refusals: [`${EXTENSION_FILE} must export default { rules: { from, to, owner }[] }`]
+			refusals: [
+				`${EXTENSION_FILE} must export default { rules: { from, to, owner }[], knownEdges?: [from, to][] }`
+			],
+			extension: {}
 		};
 	}
 	const refusals = extensionRefusals(extension.rules);
 	return {
 		table: createMoveTable(refusals.length ? BASE_RULES : [...BASE_RULES, ...extension.rules]),
-		refusals
+		refusals,
+		extension
 	};
+}
+
+export const UPSTREAM_CONTEXT = 'SAAS_STARTER_UPSTREAM';
+
+export interface Skip {
+	readonly skip: string;
+}
+
+export interface Ratchet extends LoadedTable {
+	readonly totality: 'strict' | Skip;
+	readonly knownEdges: readonly EdgePair[] | 'starter' | Skip;
+}
+
+export async function selectRatchet(
+	checkout: string,
+	env: NodeJS.ProcessEnv = process.env
+): Promise<Ratchet> {
+	const loaded = await loadTable(checkout);
+	if (loaded.extension) {
+		return {
+			...loaded,
+			totality: 'strict',
+			knownEdges:
+				loaded.extension.knownEdges ??
+				(loaded.refusals.length
+					? []
+					: {
+							skip: `${EXTENSION_FILE} has no knownEdges; list them with bun .agents/skills/upstream-sync/scripts/apply-layout.ts --edges`
+						})
+		};
+	}
+	if (env[UPSTREAM_CONTEXT] === '1') {
+		return { ...loaded, totality: 'strict', knownEdges: 'starter' };
+	}
+	const skip = {
+		skip: `${UPSTREAM_CONTEXT} is not 1 and ${EXTENSION_FILE} is absent, so the starter's table and known edges do not apply`
+	};
+	return { ...loaded, totality: skip, knownEdges: skip };
 }
 
 export interface TotalityReport {
@@ -320,6 +382,30 @@ export function forbiddenEdges(table: MoveTable, edges: readonly ImportEdge[]): 
 	});
 }
 
+const pairText = ([from, to]: EdgePair) => `${from} -> ${to}`;
+
+export function forbiddenPairs(table: MoveTable, edges: readonly ImportEdge[]): EdgePair[] {
+	const pairs = new Map<string, EdgePair>(
+		forbiddenEdges(table, edges).map(({ from, target }) => [
+			pairText([from, target]),
+			[from, target]
+		])
+	);
+	return [...pairs].sort(([a], [b]) => a.localeCompare(b)).map(([, pair]) => pair);
+}
+
+export function compareEdges(
+	found: readonly EdgePair[],
+	known: readonly EdgePair[]
+): { added: string[]; gone: string[] } {
+	const foundText = new Set(found.map(pairText));
+	const knownText = new Set(known.map(pairText));
+	return {
+		added: [...foundText].filter((pair) => !knownText.has(pair)),
+		gone: [...knownText].filter((pair) => !foundText.has(pair))
+	};
+}
+
 export interface SpecifierChange {
 	readonly file: string;
 	readonly specifier: string;
@@ -339,7 +425,9 @@ function placeResolved(table: MoveTable, resolved: string, target: string): stri
 /**
  * The import specifiers the move breaks, with their replacements. Inside one workspace a relative
  * specifier gets the relative path between the new places, and an alias stays for the workspace's
- * own imports map. Across workspaces a specifier becomes the package name and the path inside it.
+ * own imports map. Across workspaces a specifier becomes the package name and the path below the
+ * package's exported directory. A root file runs before any install, so it gets a relative path
+ * to every target.
  */
 export function plannedSpecifiers(
 	table: MoveTable,
@@ -359,20 +447,22 @@ export function plannedSpecifiers(
 			: posix.join(posix.dirname(edge.from), path);
 		const next = placeResolved(table, resolved, edge.target);
 		if (next === undefined) continue;
+		const physical = from.owner === 'root';
 		if (
+			!physical &&
 			from.owner !== to.owner &&
 			isStarterWorkspace(to.owner) &&
 			WORKSPACES[to.owner].name !== null
 		) {
-			const { name, root } = WORKSPACES[to.owner];
+			const { name, root, exports } = WORKSPACES[to.owner];
 			changes.push({
 				file: from.to,
 				specifier: edge.specifier,
-				next: `${name}/${next.slice(root.length)}${query}`
+				next: `${name}/${next.slice(root.length + exports.length)}${query}`
 			});
 			continue;
 		}
-		if (alias || posix.join(posix.dirname(from.to), path) === next) continue;
+		if ((alias && !physical) || posix.join(posix.dirname(from.to), path) === next) continue;
 		const relative = posix.relative(posix.dirname(from.to), next);
 		changes.push({
 			file: from.to,
@@ -390,13 +480,14 @@ async function main() {
 			check: { type: 'boolean', default: false },
 			renames: { type: 'boolean', default: false },
 			specifiers: { type: 'boolean', default: false },
-			stragglers: { type: 'boolean', default: false }
+			stragglers: { type: 'boolean', default: false },
+			edges: { type: 'boolean', default: false }
 		},
 		strict: true
 	});
 	const modes = Object.entries(values).filter(([, on]) => on);
 	if (modes.length !== 1) {
-		console.error('Pass exactly one of --check, --renames, --specifiers, --stragglers.');
+		console.error('Pass exactly one of --check, --renames, --specifiers, --stragglers, --edges.');
 		process.exit(2);
 	}
 	const checkout = spawnSync('git', ['rev-parse', '--show-toplevel'], {
@@ -410,13 +501,19 @@ async function main() {
 	}
 	const paths = trackedPaths(checkout);
 
-	if (values.check) {
+	if (values.check || values.edges) {
 		const report = checkTotality(table, paths);
-		console.log(`${paths.length} tracked paths, ${report.unmapped.length} unmapped paths`);
-		for (const path of report.unmapped) console.log(`  unmapped: ${path}`);
+		const log = values.check ? console.log : console.error;
+		log(`${paths.length} tracked paths, ${report.unmapped.length} unmapped paths`);
+		for (const path of report.unmapped) log(`  unmapped: ${path}`);
 		for (const [to, from] of report.sharedDestinations)
-			console.log(`  shared destination ${to}: ${from.join(', ')}`);
-		for (const line of report.splitSets) console.log(`  ${line}`);
+			log(`  shared destination ${to}: ${from.join(', ')}`);
+		for (const line of report.splitSets) log(`  ${line}`);
+		if (values.edges) {
+			for (const [from, to] of forbiddenPairs(table, readImportEdges(checkout, paths))) {
+				console.log(`${from}\t${to}`);
+			}
+		}
 		const failures =
 			report.unmapped.length + report.sharedDestinations.length + report.splitSets.length;
 		process.exit(failures ? 1 : 0);

@@ -2,12 +2,20 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { BASE_TABLE } from '../layout/v3';
-import { forbiddenEdges, loadTable, readImportEdges, trackedPaths } from './apply-layout';
+import { BASE_TABLE, type EdgePair } from '../layout/v3';
+import {
+	compareEdges,
+	forbiddenEdges,
+	forbiddenPairs,
+	readImportEdges,
+	selectRatchet,
+	trackedPaths
+} from './apply-layout';
 
 const CHECKOUT = resolve(import.meta.dirname, '../../../..');
 
-const KNOWN_EDGES: ReadonlyArray<readonly [from: string, to: string]> = [
+const KNOWN_EDGES: readonly EdgePair[] = [
+	['packages/create-saas-starter/test/process.test.ts', 'scripts/template-setup.ts'],
 	[
 		'src/lib/components/ui/confirm-dialog/confirm-dialog.svelte.test.ts',
 		'node_modules/svelte/src/index-client.js'
@@ -210,20 +218,17 @@ const pairs = (edges: ReadonlyArray<{ from: string; target: string }>) => [
 	...new Set(edges.map(({ from, target }) => `${from} -> ${target}`))
 ];
 
+const ratchet = await selectRatchet(CHECKOUT);
+
 describe('the workspace boundary', () => {
-	it('holds on this checkout except for the known edges', async () => {
-		const { table, refusals } = await loadTable(CHECKOUT);
-		expect(refusals).toEqual([]);
-		const found = pairs(forbiddenEdges(table, readImportEdges(CHECKOUT, trackedPaths(CHECKOUT))));
-		const known = KNOWN_EDGES.map(([from, to]) => `${from} -> ${to}`);
-		expect(
-			found.filter((edge) => !known.includes(edge)),
-			'new forbidden edges'
-		).toEqual([]);
-		expect(
-			known.filter((edge) => !found.includes(edge)),
-			'known edges that are gone'
-		).toEqual([]);
+	it('holds on this checkout except for the known edges', (context) => {
+		const known = ratchet.knownEdges === 'starter' ? KNOWN_EDGES : ratchet.knownEdges;
+		if ('skip' in known) return context.skip(known.skip);
+		expect(ratchet.refusals).toEqual([]);
+		const found = forbiddenPairs(ratchet.table, readImportEdges(CHECKOUT, trackedPaths(CHECKOUT)));
+		const { added, gone } = compareEdges(found, known);
+		expect(added, 'new forbidden edges').toEqual([]);
+		expect(gone, 'known edges that are gone').toEqual([]);
 	});
 });
 
@@ -266,6 +271,23 @@ describe('forbiddenEdges', () => {
 			'src/lib/components/ui/x/kit.ts -> $app/navigation',
 			'src/lib/components/ui/x/read.test.ts -> src/routes/layout.css',
 			'src/lib/components/ui/x/svelte.test.ts -> node_modules/svelte/src/index-client.js'
+		]);
+	});
+
+	it('lets every workspace read the repository tools and none read the root', () => {
+		const { root, paths } = tree({
+			'package.json': '{}',
+			'scripts/git-context.ts': '',
+			'scripts/static-checks.ts': "import { gitContext } from './git-context';\n",
+			'scripts/dev.ts':
+				"import { gitContext } from './git-context';\nimport { run } from './static-checks';\n",
+			'scripts/template-setup.ts': "import { gitContext } from './git-context';\n",
+			'packages/create-saas-starter/test/setup.test.ts':
+				"readFileSync(join(import.meta.dirname, '../../../scripts/template-setup.ts'));\n"
+		});
+		expect(pairs(forbiddenEdges(BASE_TABLE, readImportEdges(root, paths))).sort()).toEqual([
+			'packages/create-saas-starter/test/setup.test.ts -> scripts/template-setup.ts',
+			'scripts/dev.ts -> scripts/static-checks.ts'
 		]);
 	});
 });

@@ -10,15 +10,31 @@
 import { spawnSync } from 'node:child_process';
 
 export const WORKSPACES = {
-	web: { root: 'apps/web/', name: '@repo/web' },
-	backend: { root: 'packages/backend/', name: '@repo/backend' },
-	ui: { root: 'packages/ui/', name: '@repo/ui' },
-	emails: { root: 'packages/emails/', name: '@repo/emails' },
-	'product-config': { root: 'packages/product-config/', name: '@repo/product-config' },
-	'eslint-plugin': { root: 'packages/eslint-plugin/', name: 'eslint-plugin-saas-starter' },
-	'create-saas-starter': { root: 'packages/create-saas-starter/', name: 'create-saas-starter' },
-	root: { root: '', name: null }
-} as const;
+	web: { root: 'apps/web/', name: '@repo/web', exports: '' },
+	backend: { root: 'packages/backend/', name: '@repo/backend', exports: '' },
+	ui: { root: 'packages/ui/', name: '@repo/ui', exports: '' },
+	emails: { root: 'packages/emails/', name: '@repo/emails', exports: '' },
+	'product-config': {
+		root: 'packages/product-config/',
+		name: '@repo/product-config',
+		exports: ''
+	},
+	tooling: { root: 'packages/tooling/', name: '@repo/tooling', exports: 'src/' },
+	'eslint-plugin': {
+		root: 'packages/eslint-plugin/',
+		name: 'eslint-plugin-saas-starter',
+		exports: ''
+	},
+	'create-saas-starter': {
+		root: 'packages/create-saas-starter/',
+		name: 'create-saas-starter',
+		exports: ''
+	},
+	root: { root: '', name: null, exports: '' }
+} as const satisfies Record<
+	string,
+	{ readonly root: string; readonly name: string | null; readonly exports: string }
+>;
 
 export type StarterWorkspace = keyof typeof WORKSPACES;
 
@@ -32,9 +48,9 @@ export interface MoveRule<O extends Owner = Owner> {
 }
 
 /**
- * Who may import whom. Every workspace may also reach `SHARED_EDGES`: the lint rules for
- * development, and the root, which is no package and holds the operations the whole checkout
- * shares.
+ * Who may import whom. Every workspace may also reach `SHARED_EDGES`, the lint rules and the
+ * repository tools, for development. No workspace may read the root, which is no package; the
+ * root may read every workspace by a relative path.
  */
 export const ALLOWED_EDGES = {
 	'product-config': [],
@@ -42,14 +58,24 @@ export const ALLOWED_EDGES = {
 	emails: ['ui', 'product-config'],
 	backend: ['emails', 'product-config'],
 	web: ['backend', 'ui', 'emails', 'product-config'],
+	tooling: [],
 	'eslint-plugin': [],
 	'create-saas-starter': [],
-	root: ['web', 'backend', 'ui', 'emails', 'product-config', 'eslint-plugin', 'create-saas-starter']
+	root: [
+		'web',
+		'backend',
+		'ui',
+		'emails',
+		'product-config',
+		'tooling',
+		'eslint-plugin',
+		'create-saas-starter'
+	]
 } as const satisfies Record<StarterWorkspace, readonly StarterWorkspace[]>;
 
 export const SHARED_EDGES = [
 	'eslint-plugin',
-	'root'
+	'tooling'
 ] as const satisfies readonly StarterWorkspace[];
 
 type Reachable<W extends StarterWorkspace> =
@@ -112,6 +138,14 @@ function files<W extends StarterWorkspace>(
 	names: readonly string[]
 ): Array<MoveRule<W>> {
 	return names.map((name) => ({ from: from + name, to: to + name, owner }));
+}
+
+function file<W extends StarterWorkspace>(
+	owner: W,
+	from: string,
+	to: `${Root<W>}${string}`
+): MoveRule<W> {
+	return { from, to, owner };
 }
 
 function stay<W extends StarterWorkspace>(owner: W, paths: readonly string[]): Array<MoveRule<W>> {
@@ -210,15 +244,9 @@ const ROOT_SCRIPTS = [
 	'create-worktree.ts',
 	'export-profile.ts',
 	'export-profile.test.ts',
-	'git-context.ts',
-	'git-context.test.ts',
-	'git-context.staged-files.test.ts',
 	'github-expression.ts',
-	'path-sets.ts',
-	'path-sets.test.ts',
 	'prune-worktrees.ts',
 	'prune-worktrees.test.ts',
-	'required.ts',
 	'static-checks.ts',
 	'static-checks.test.ts',
 	'static-checks.compat-contract.test.ts',
@@ -235,17 +263,27 @@ const ROOT_SCRIPTS = [
 	'template-setup.test.ts',
 	'template-setup.integration.test.ts',
 	'terminal-output.ts',
-	'test-executable.ts',
 	'terminal-output.test.ts',
 	'upstream-report-scope.ts',
 	'upstream-report-scope.test.ts',
 	'upstream-report-scope.contract.test.ts',
+	'workflow-artifacts.test.ts',
+	'workflow-release-downloads.test.ts'
+];
+
+const TOOLING_SCRIPTS = [
+	'git-context.ts',
+	'git-context.test.ts',
+	'git-context.staged-files.test.ts',
+	'path-sets.ts',
+	'path-sets.test.ts',
+	'private-checkout.test.ts',
+	'required.ts',
+	'test-executable.ts',
 	'vitest-git-env.ts',
 	'vitest-settings.ts',
 	'windows-job.ts',
-	'windows-job-runner.ps1',
-	'workflow-artifacts.test.ts',
-	'workflow-release-downloads.test.ts'
+	'windows-job-runner.ps1'
 ];
 
 const WEB_SCRIPTS = [
@@ -301,6 +339,8 @@ const WEB_SCRIPTS = [
 	'inline-styles.ts',
 	'kit-generated-hmr.ts',
 	'kit-generated-hmr.test.ts',
+	'legal-document.ts',
+	'legal-document.test.ts',
 	'locale-parity.test.ts',
 	'locale-register.test.ts',
 	'log-safe-origin.test.ts',
@@ -312,7 +352,6 @@ const WEB_SCRIPTS = [
 	'og-image-url.test.ts',
 	'playwright-selection.test.ts',
 	'prerender-sync.test.ts',
-	'private-checkout.test.ts',
 	'pwa-manifest.test.ts',
 	'security-headers-sync.contract.test.ts',
 	'source-tree.ts',
@@ -464,6 +503,13 @@ export const BASE_RULES: ReadonlyArray<MoveRule<StarterWorkspace>> = [
 		'i18n/static-translations.generated.ts'
 	]),
 
+	...files('tooling', 'scripts/', 'packages/tooling/src/', TOOLING_SCRIPTS),
+	file(
+		'tooling',
+		'scripts/__fixtures__/static-checks/private-checkout.ts',
+		'packages/tooling/src/private-checkout.ts'
+	),
+
 	...stay('eslint-plugin', ['packages/eslint-plugin/']),
 	...stay('create-saas-starter', ['packages/create-saas-starter/']),
 	{ from: 'packages/create-saas-starter/bun.lock', to: null, owner: 'create-saas-starter' }
@@ -501,9 +547,12 @@ export function createMoveTable<O extends Owner>(rules: ReadonlyArray<MoveRule<O
 	return { rules, place };
 }
 
+export type EdgePair = readonly [from: string, to: string];
+
 /** The default export of a product's `.upstream-sync.layout.ts`. */
 export interface LayoutExtension {
 	readonly rules: readonly MoveRule[];
+	readonly knownEdges?: readonly EdgePair[];
 }
 
 export const BASE_TABLE = createMoveTable(BASE_RULES);

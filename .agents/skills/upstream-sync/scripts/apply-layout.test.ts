@@ -13,7 +13,15 @@ import {
 	type MoveRule,
 	type StarterWorkspace
 } from '../layout/v3';
-import { checkTotality } from './apply-layout';
+import {
+	checkTotality,
+	compareEdges,
+	forbiddenPairs,
+	readImportEdges,
+	selectRatchet,
+	trackedPaths,
+	UPSTREAM_CONTEXT
+} from './apply-layout';
 
 vi.setConfig({ testTimeout: 60_000 });
 
@@ -66,8 +74,12 @@ function addFiles(root: string, files: Record<string, string>, commit?: string) 
 
 const layout = (cwd: string, mode: string) => run(cwd, 'bun', [SCRIPT, mode]);
 
+const ratchet = await selectRatchet(CHECKOUT);
+
 describe('apply-layout --check', () => {
-	it('maps every tracked path of this checkout', () => {
+	it('maps every tracked path of this checkout', (context) => {
+		if (ratchet.totality !== 'strict') return context.skip(ratchet.totality.skip);
+		expect(ratchet.refusals).toEqual([]);
 		const result = layout(CHECKOUT, '--check');
 		expect(result.stdout).toMatch(/ tracked paths, 0 unmapped paths\n$/);
 		expect(result.status).toBe(0);
@@ -181,7 +193,7 @@ describe('layoutOf', () => {
 
 describe('apply-layout plans', () => {
 	it('lists paths left at a flat location after the move', () => {
-		const root = repository({ 'apps/web/src/app.ts': '', 'scripts/required.ts': '' });
+		const root = repository({ 'apps/web/src/app.ts': '', 'scripts/static-checks.ts': '' });
 		expect(layout(root, '--stragglers')).toMatchObject({ status: 0, stdout: '' });
 		addFiles(root, { 'src/late.ts': '' });
 		expect(layout(root, '--stragglers')).toMatchObject({ status: 1, stdout: 'src/late.ts\n' });
@@ -197,12 +209,107 @@ describe('apply-layout plans', () => {
 			'src/lib/emails/templates/types.ts':
 				"import type { F } from '../../confect/support/fields';\n",
 			'src/lib/components/ui/button/index.ts': '',
-			'src/routes/page.ts': "import { Button } from '#lib/components/ui/button/index.js';\n"
+			'src/routes/page.ts': "import { Button } from '#lib/components/ui/button/index.js';\n",
+			'src/lib/content/legal-metadata.ts': '',
+			'scripts/path-sets.ts': '',
+			'scripts/export-profile.ts': "import { pathSets } from './path-sets';\n",
+			'scripts/template-setup.ts':
+				"import { isIsoCalendarDate } from '../src/lib/content/legal-metadata';\nimport { pathSets } from './path-sets';\nimport { button } from '#lib/components/ui/button/index.js';\n",
+			'scripts/dev.ts': "import { pathSets } from './path-sets';\n"
 		});
 		expect(layout(root, '--specifiers').stdout.trim().split('\n').sort()).toEqual([
+			'apps/web/scripts/dev.ts\t./path-sets\t@repo/tooling/path-sets',
 			'apps/web/src/routes/page.ts\t#lib/components/ui/button/index.js\t@repo/ui/src/components/ui/button/index.js',
 			'packages/backend/confect/x.ts\t../effect/errors\t../shared/effect/errors',
-			'packages/emails/src/templates/types.ts\t../../confect/support/fields\t@repo/backend/confect/support/fields'
+			'packages/emails/src/templates/types.ts\t../../confect/support/fields\t@repo/backend/confect/support/fields',
+			'scripts/export-profile.ts\t./path-sets\t../packages/tooling/src/path-sets',
+			'scripts/template-setup.ts\t#lib/components/ui/button/index.js\t../packages/ui/src/components/ui/button/index.js',
+			'scripts/template-setup.ts\t../src/lib/content/legal-metadata\t../apps/web/src/lib/content/legal-metadata',
+			'scripts/template-setup.ts\t./path-sets\t../packages/tooling/src/path-sets'
 		]);
+	});
+
+	it('prints the forbidden pairs and fails when the table does not map the checkout', () => {
+		const root = repository({
+			'package.json': '{}',
+			'scripts/static-checks.ts': '',
+			'scripts/dev.ts': "import { run } from './static-checks';\n"
+		});
+		expect(layout(root, '--edges')).toMatchObject({
+			status: 0,
+			stdout: 'scripts/dev.ts\tscripts/static-checks.ts\n'
+		});
+		addFiles(root, { 'stray/notes.md': '' });
+		const unmapped = layout(root, '--edges');
+		expect(unmapped).toMatchObject({
+			status: 1,
+			stdout: 'scripts/dev.ts\tscripts/static-checks.ts\n'
+		});
+		expect(unmapped.stderr).toContain('unmapped: stray/notes.md');
+	});
+});
+
+describe('selectRatchet', () => {
+	const copy = { 'package.json': JSON.stringify({ name: 'saas-starter' }), 'src/app.ts': '' };
+	const extension = (body: string) =>
+		`export default { rules: [{ from: 'voice/', to: 'apps/voice/', owner: 'voice' }]${body} };\n`;
+
+	it('holds the starter table and known edges under the upstream context', async () => {
+		const root = repository(copy);
+		expect(await selectRatchet(root, { [UPSTREAM_CONTEXT]: '1' })).toMatchObject({
+			totality: 'strict',
+			knownEdges: 'starter'
+		});
+	});
+
+	it('skips both checks in an unmarked copy without the upstream context', async () => {
+		const root = repository({ ...copy, 'stray/notes.md': '' });
+		const selected = await selectRatchet(root, {});
+		const skip = { skip: expect.stringContaining(UPSTREAM_CONTEXT) };
+		expect(selected).toMatchObject({ totality: skip, knownEdges: skip });
+		expect(layout(root, '--check')).toMatchObject({ status: 1 });
+	});
+
+	it('holds totality in a marked product with an extension file', async () => {
+		const root = repository({
+			...copy,
+			'.upstream-sync.json': '{}',
+			'.upstream-sync.layout.ts': extension(''),
+			'voice/server.ts': '',
+			'desktop/main.ts': ''
+		});
+		const selected = await selectRatchet(root, {});
+		expect(selected).toMatchObject({
+			totality: 'strict',
+			knownEdges: { skip: expect.stringContaining('apply-layout.ts --edges') }
+		});
+		expect(checkTotality(selected.table, trackedPaths(root)).unmapped).toEqual(['desktop/main.ts']);
+	});
+
+	it("compares a product's forbidden pairs with its own knownEdges", async () => {
+		const root = repository({
+			...copy,
+			'.upstream-sync.layout.ts': extension(
+				", knownEdges: [['src/lib/components/ui/a.ts', 'src/routes/x.ts']]"
+			),
+			'voice/server.ts': '',
+			'src/routes/x.ts': '',
+			'src/lib/components/ui/a.ts': "import '../../../routes/x';\n"
+		});
+		const found = async () => {
+			const selected = await selectRatchet(root, { [UPSTREAM_CONTEXT]: '1' });
+			const known = selected.knownEdges;
+			if (known === 'starter' || 'skip' in known) throw new Error('no product list selected');
+			return compareEdges(
+				forbiddenPairs(selected.table, readImportEdges(root, trackedPaths(root))),
+				known
+			);
+		};
+		expect(await found()).toEqual({ added: [], gone: [] });
+		addFiles(root, { 'src/lib/components/ui/b.ts': "import '../../../routes/x';\n" });
+		expect(await found()).toEqual({
+			added: ['src/lib/components/ui/b.ts -> src/routes/x.ts'],
+			gone: []
+		});
 	});
 });
