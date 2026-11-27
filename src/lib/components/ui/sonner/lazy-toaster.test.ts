@@ -183,5 +183,84 @@ describe('LazyToaster', () => {
 			flushSync();
 			expect(fallbackWith('Consent not saved')).toHaveLength(0);
 		});
+
+		function closeButton(message: string): HTMLButtonElement | null | undefined {
+			return fallbackWith(message)[0]?.querySelector<HTMLButtonElement>(
+				'button[aria-label="aria.close"]'
+			);
+		}
+
+		it('runs the close callbacks of an undo toast as the renderer does', async () => {
+			failRenderer();
+			const expired = { onAutoClose: vi.fn(), onDismiss: vi.fn() };
+			const closed = { onAutoClose: vi.fn(), onDismiss: vi.fn() };
+			const undone = { onAutoClose: vi.fn(), onDismiss: vi.fn() };
+			const undo = vi.fn();
+			toast('Passkey deleted', { duration: 5000, ...expired });
+			toast('Second passkey deleted', { duration: Number.POSITIVE_INFINITY, ...closed });
+			toast('Third passkey deleted', {
+				duration: Number.POSITIVE_INFINITY,
+				action: { label: 'Undo', onClick: undo },
+				...undone
+			});
+			flushSync();
+			await settle();
+
+			vi.advanceTimersByTime(5000);
+			flushSync();
+			expect(expired.onAutoClose).toHaveBeenCalledOnce();
+			expect(expired.onDismiss).not.toHaveBeenCalled();
+
+			closeButton('Second passkey deleted')?.click();
+			flushSync();
+			expect(closed.onDismiss).toHaveBeenCalledOnce();
+			expect(closed.onAutoClose).not.toHaveBeenCalled();
+
+			[...(fallbackWith('Third passkey deleted')[0]?.querySelectorAll('button') ?? [])]
+				.find((button) => button.textContent?.trim() === 'Undo')
+				?.click();
+			flushSync();
+			expect(undo).toHaveBeenCalledOnce();
+			expect(fallbackWith('Third passkey deleted')).toHaveLength(0);
+			expect(undone.onAutoClose).not.toHaveBeenCalled();
+			expect(undone.onDismiss).not.toHaveBeenCalled();
+		});
+
+		it('keeps a toast while the tab is hidden or the pointer is on it', async () => {
+			failRenderer();
+			toast('Upload finished', { duration: 4000 });
+			flushSync();
+			await settle();
+
+			setHidden(true);
+			vi.advanceTimersByTime(60_000);
+			flushSync();
+			expect(fallbackWith('Upload finished')).toHaveLength(1);
+
+			setHidden(false);
+			const notice = fallbackWith('Upload finished')[0];
+			expect(notice).toBeDefined();
+			notice?.dispatchEvent(new PointerEvent('pointerenter'));
+			vi.advanceTimersByTime(60_000);
+			flushSync();
+			expect(fallbackWith('Upload finished')).toHaveLength(1);
+
+			notice?.dispatchEvent(new PointerEvent('pointerleave'));
+			vi.advanceTimersByTime(4000);
+			flushSync();
+			expect(fallbackWith('Upload finished')).toHaveLength(0);
+		});
+
+		it('offers no close button while a toast is loading', async () => {
+			failRenderer();
+			toast.loading('Saving recipients');
+			toast('Required notice', { dismissible: false });
+			flushSync();
+			await settle();
+
+			expect(fallbackWith('Saving recipients')).toHaveLength(1);
+			expect(closeButton('Saving recipients')).toBeNull();
+			expect(closeButton('Required notice')).toBeNull();
+		});
 	});
 });

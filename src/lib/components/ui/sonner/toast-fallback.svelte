@@ -9,11 +9,44 @@
 	const toasts = $derived(toast.getActiveToasts().filter((item) => typeof item.title === 'string'));
 
 	function dismissAfterDuration(item: ToastT) {
-		return () => {
+		return (node: HTMLElement) => {
 			const duration = item.duration ?? 4000;
 			if (item.type === 'loading' || !Number.isFinite(duration)) return;
-			const timer = setTimeout(() => toast.dismiss(item.id), duration);
-			return () => clearTimeout(timer);
+			let remaining = duration;
+			let startedAt = 0;
+			let timer: ReturnType<typeof setTimeout> | undefined;
+			let hovered = false;
+			const expire = () => {
+				item.onAutoClose?.(item);
+				toast.dismiss(item.id);
+			};
+			const sync = () => {
+				const running = !document.hidden && !hovered;
+				if (running && timer === undefined) {
+					startedAt = Date.now();
+					timer = setTimeout(expire, remaining);
+				} else if (!running && timer !== undefined) {
+					clearTimeout(timer);
+					timer = undefined;
+					remaining -= Date.now() - startedAt;
+				}
+			};
+			const hover = (value: boolean) => () => {
+				hovered = value;
+				sync();
+			};
+			const enter = hover(true);
+			const leave = hover(false);
+			document.addEventListener('visibilitychange', sync);
+			node.addEventListener('pointerenter', enter);
+			node.addEventListener('pointerleave', leave);
+			sync();
+			return () => {
+				clearTimeout(timer);
+				document.removeEventListener('visibilitychange', sync);
+				node.removeEventListener('pointerenter', enter);
+				node.removeEventListener('pointerleave', leave);
+			};
 		};
 	}
 </script>
@@ -48,14 +81,19 @@
 						{action.label}
 					</button>
 				{/if}
-				<Button
-					variant="ghost"
-					size="icon-sm"
-					aria-label={$t('aria.close')}
-					onclick={() => toast.dismiss(item.id)}
-				>
-					<XIcon />
-				</Button>
+				{#if item.type !== 'loading' && item.dismissible !== false}
+					<Button
+						variant="ghost"
+						size="icon-sm"
+						aria-label={$t('aria.close')}
+						onclick={() => {
+							item.onDismiss?.(item);
+							toast.dismiss(item.id);
+						}}
+					>
+						<XIcon />
+					</Button>
+				{/if}
 			</div>
 		{/each}
 	</section>
