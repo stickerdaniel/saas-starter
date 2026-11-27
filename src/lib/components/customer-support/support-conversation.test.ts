@@ -580,6 +580,33 @@ describe('SupportConversation', () => {
 		expect(mutation.mock.calls[1]?.[1]).toMatchObject({ threadId: 'thread-warm', prompt: 'hello' });
 	});
 
+	it.each(['resolve', 'reject'] as const)(
+		'commits a send one microtask after its mutation settles on %s',
+		async (outcome) => {
+			const sent = deferred<void>();
+			const defect = new Error('provider detail');
+			conversation.setThread('thread-1');
+
+			const send = conversation.sendMessage(clientWith(vi.fn(() => sent.promise)), 'hello');
+			const settled = send.then(
+				(result) => result,
+				(error: unknown) => error
+			);
+			if (outcome === 'resolve') sent.resolve();
+			else sent.reject(defect);
+			await Promise.resolve();
+
+			expect(conversation.isSending).toBe(false);
+			if (outcome === 'resolve') {
+				expect(conversation.isAwaitingStream).toBe(true);
+				await expect(settled).resolves.toEqual({ threadId: 'thread-1', threadCreated: false });
+			} else {
+				expect(conversation.error).toBe('send_failed');
+				await expect(settled).resolves.toBe(defect);
+			}
+		}
+	);
+
 	it('reads the handoff a transition delivers before the send result settles', async () => {
 		const convex = convexTransport();
 		conversation.setThread('thread-1');
