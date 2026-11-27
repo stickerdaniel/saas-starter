@@ -502,7 +502,8 @@ function aliasEntries(imports: readonly AliasImport[]): Map<string, AliasEntry> 
 				(a, b) =>
 					b.count - a.count ||
 					a.entry.key.length - b.entry.key.length ||
-					(a.entry.root < b.entry.root ? -1 : 1)
+					a.entry.root.localeCompare(b.entry.root) ||
+					a.entry.key.localeCompare(b.entry.key)
 			)[0]!.entry
 		])
 	);
@@ -512,6 +513,7 @@ function aliasEntries(imports: readonly AliasImport[]): Map<string, AliasEntry> 
  * The import specifiers the move breaks, with their replacements. Inside one workspace a relative
  * specifier gets the relative path between the new places. An alias stays while the one prefix
  * entry its workspace keeps for it still reaches the target, and gets the relative path otherwise.
+ * An imports map reaches no other workspace, so an alias into one never stays.
  * Across workspaces a specifier becomes the package name and the path below the package's exported
  * directory. A root file runs before any install, so it gets a relative path to every target.
  */
@@ -551,7 +553,7 @@ export function plannedSpecifiers(
 				next,
 				exported,
 				aliased: alias !== undefined,
-				prefix: physical || exported !== undefined ? undefined : alias?.[0]
+				prefix: from.owner === to.owner && !physical ? alias?.[0] : undefined
 			}
 		];
 	});

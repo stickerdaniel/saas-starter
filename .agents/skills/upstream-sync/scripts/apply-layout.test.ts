@@ -14,9 +14,12 @@ import {
 	type StarterWorkspace
 } from '../layout/v3';
 import {
+	aliasMap,
 	checkTotality,
 	compareEdges,
 	forbiddenPairs,
+	loadTable,
+	plannedSpecifiers,
 	readImportEdges,
 	selectRatchet,
 	trackedPaths,
@@ -312,6 +315,50 @@ describe('apply-layout plans', () => {
 			'apps/voice/use.ts\t#voice/area/old.js\t./moved/old.js',
 			'apps/voice/use.ts\t#voice/old.js\t./renamed.js'
 		]);
+	});
+
+	it('gives an alias into another product workspace a relative path', () => {
+		const root = repository({
+			'package.json': JSON.stringify({ imports: { '#voice/*': './voice/*' } }),
+			'.upstream-sync.layout.ts': `export default { rules: [
+				{ from: 'voice/', to: 'apps/voice/', owner: 'voice' },
+				{ from: 'desktop/', to: 'apps/desktop/', owner: 'desktop' }
+			] };\n`,
+			'voice/item.ts': '',
+			'voice/use.ts': "import '#voice/item.js';\n",
+			'desktop/use.ts': "import '#voice/item.js';\n"
+		});
+		const specifiers = layout(root, '--specifiers');
+		expect(specifiers.status).toBe(0);
+		expect(specifiers.stdout.trim().split('\n')).toEqual([
+			'apps/desktop/use.ts\t#voice/item.js\t../voice/item.js'
+		]);
+	});
+
+	it('plans the same alias rewrites for every order of the tracked paths', async () => {
+		const moves = [
+			['a/f.ts', 'c/f.ts'],
+			['b/g.ts', 'c/g.ts'],
+			['a/use.ts', 'a/use.ts'],
+			['b/use.ts', 'b/use.ts']
+		].map(([from, to]) => ({ from: `voice/${from}`, to: `apps/voice/${to}`, owner: 'voice' }));
+		const root = repository({
+			'package.json': JSON.stringify({ imports: { '#voice/*': './voice/*' } }),
+			'.upstream-sync.layout.ts': `export default { rules: ${JSON.stringify(moves)} };\n`,
+			'voice/a/f.ts': '',
+			'voice/b/g.ts': '',
+			'voice/a/use.ts': "import '#voice/a/f.js';\n",
+			'voice/b/use.ts': "import '#voice/b/g.js';\n"
+		});
+		const { table } = await loadTable(root);
+		const paths = trackedPaths(root);
+		const plan = (order: readonly string[]) =>
+			plannedSpecifiers(table, readImportEdges(root, order), aliasMap(root));
+		const rewritten = [
+			{ file: 'apps/voice/b/use.ts', specifier: '#voice/b/g.js', next: '../c/g.js' }
+		];
+		expect(plan(paths)).toEqual(rewritten);
+		expect(plan([...paths].reverse())).toEqual(rewritten);
 	});
 
 	it('resolves a runtime extension to the TypeScript source of its kind', () => {
