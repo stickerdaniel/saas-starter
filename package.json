@@ -174,7 +174,7 @@
 		"@typescript-eslint/parser": "8.73.0",
 		"@typescript/native": "npm:typescript@7.0.2",
 		"@vitejs/devtools": "0.8.3",
-		"bits-ui": "2.20.2",
+		"bits-ui": "2.21.0",
 		"bun-types": "1.4.5",
 		"clsx": "2.1.1",
 		"convex": "1.51.0",
