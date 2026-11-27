@@ -287,6 +287,25 @@ describe('apply-layout plans', () => {
 		]);
 	});
 
+	it('rewrites an alias whose target a rule renames and keeps one whose target keeps its name', () => {
+		const root = repository({
+			'package.json': JSON.stringify({ imports: { '#voice/*': './voice/*' } }),
+			'.upstream-sync.layout.ts': `export default { rules: [
+				{ from: 'voice/old.ts', to: 'apps/voice/renamed.ts', owner: 'voice' },
+				{ from: 'voice/kept.ts', to: 'apps/voice/kept.ts', owner: 'voice' },
+				{ from: 'voice/use.ts', to: 'apps/voice/use.ts', owner: 'voice' }
+			] };\n`,
+			'voice/old.ts': '',
+			'voice/kept.ts': '',
+			'voice/use.ts': "import '#voice/old.js';\nimport '#voice/kept.js';\n"
+		});
+		const specifiers = layout(root, '--specifiers');
+		expect(specifiers.status).toBe(0);
+		expect(specifiers.stdout.trim().split('\n')).toEqual([
+			'apps/voice/use.ts\t#voice/old.js\t./renamed.js'
+		]);
+	});
+
 	it('resolves a runtime extension to the TypeScript source of its kind', () => {
 		const moves = [
 			['only.mts', 'module.mts'],

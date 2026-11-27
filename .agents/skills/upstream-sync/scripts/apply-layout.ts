@@ -452,7 +452,7 @@ function placeResolved(table: MoveTable, resolved: string, target: string): stri
 /**
  * The import specifiers the move breaks, with their replacements. Inside one workspace a relative
  * specifier gets the relative path between the new places, and an alias stays for the workspace's
- * own imports map. Across workspaces a specifier becomes the package name and the path below the
+ * own imports map while its target keeps the name the specifier ends with. Across workspaces a specifier becomes the package name and the path below the
  * package's exported directory. A root file runs before any install, so it gets a relative path
  * to every target.
  */
@@ -489,7 +489,10 @@ export function plannedSpecifiers(
 			});
 			continue;
 		}
-		if ((alias && !physical) || posix.join(posix.dirname(from.to), path) === next) continue;
+		const kept = alias
+			? !physical && posix.basename(next) === posix.basename(path)
+			: posix.join(posix.dirname(from.to), path) === next;
+		if (kept) continue;
 		const relative = posix.relative(posix.dirname(from.to), next);
 		changes.push({
 			file: from.to,
