@@ -150,7 +150,14 @@ function chatSurface({
 		};
 	}
 
-	return { owner, drafts, store, release, sends, onSend, open: openComposer };
+	/** What a surface keyed by the composer's session does at its end: a new view, then the old one goes. */
+	async function remount(view: Awaited<ReturnType<typeof openComposer>>) {
+		const next = await openComposer(view.core.threadId, view.core);
+		await view.close();
+		return next;
+	}
+
+	return { owner, drafts, store, release, sends, onSend, open: openComposer, remount };
 }
 
 /** A surface whose composer comes from the document's registry, the way a page gets it. */
@@ -724,12 +731,12 @@ describe('surface lifetime', () => {
 
 	it('sends, restores and cleans up after each of two session ends on a surface that stays mounted', async () => {
 		const chat = registeredSurface(`settlement-${crypto.randomUUID()}`, { persistent: false });
-		const composer = await chat.open('thread-a');
+		let composer = await chat.open('thread-a');
 
 		for (const [round, attached] of ['a', 'b'].entries()) {
 			await composer.send(`old ${round}`, attached);
 			clearPersistedChatState();
-			await tick();
+			composer = await chat.remount(composer);
 			expect(composer.text()).toBe('');
 			expect(composer.attachments()).toEqual([]);
 
@@ -750,15 +757,16 @@ describe('surface lifetime', () => {
 
 	it('sends nothing for a click in the same tick as the session end, then only the text of the next session', async () => {
 		const chat = registeredSurface(`settlement-${crypto.randomUUID()}`);
-		const composer = await chat.open('thread-a');
-		await composer.send('open before the end');
-		await composer.type('typed before the end');
+		const ended = await chat.open('thread-a');
+		await ended.send('open before the end');
+		await ended.type('typed before the end');
 
 		clearPersistedChatState();
-		composer.button().click();
+		ended.button().click();
 		await settleWork();
 		expect(chat.onSend).toHaveBeenCalledOnce();
 
+		const composer = await chat.remount(ended);
 		chat.sends[0]!.reject(new Error('refused'));
 		await settleWork();
 		await composer.send('next session');
@@ -891,9 +899,9 @@ describe.each(['accepted', 'refused'] as const)(
 	(outcome) => {
 		it('releases a known refusal at the next session end and the open send once at most', async () => {
 			const chat = registeredSurface(`settlement-${crypto.randomUUID()}`, { persistent: false });
-			const composer = await chat.open('thread-a');
+			let composer = await chat.open('thread-a');
 			clearPersistedChatState();
-			await tick();
+			composer = await chat.remount(composer);
 
 			await composer.send('A', 'a');
 			await composer.type('B');
@@ -907,7 +915,7 @@ describe.each(['accepted', 'refused'] as const)(
 			expect(chat.release).not.toHaveBeenCalled();
 
 			clearPersistedChatState();
-			await tick();
+			composer = await chat.remount(composer);
 			expect(chat.release).toHaveBeenCalledExactlyOnceWith(fileA);
 
 			settleB(outcome);
@@ -950,10 +958,10 @@ describe.each(['accepted', 'refused'] as const)(
 describe('a surface composer kept past its session end with a send still open', () => {
 	it('restores a refusal of the next session at once and releases the old files on their refusal', async () => {
 		const chat = registeredSurface(`settlement-${crypto.randomUUID()}`, { persistent: false });
-		const composer = await chat.open('thread-a');
+		let composer = await chat.open('thread-a');
 		await composer.send('old session', 'a');
 		clearPersistedChatState();
-		await tick();
+		composer = await chat.remount(composer);
 
 		await composer.send('next session');
 		chat.sends[1]!.reject(new Error('refused'));

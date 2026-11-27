@@ -9,6 +9,7 @@ import { flushSync, mount, tick, unmount, type Component } from 'svelte';
 import type * as Svelte from 'svelte';
 import type { ConvexClient } from 'convex/browser';
 import { getFunctionName, type FunctionReference } from 'convex/server';
+import { api } from '#lib/convex/_generated/api.js';
 import { clearPersistedChatState } from '../core/chat-persisted-state.ts';
 import type { ChatMessage, ChatMessagesArgs, MessageStatus } from '../core/types.js';
 import ChatTestProvider from './test-fixtures/ChatTestProvider.svelte';
@@ -131,12 +132,17 @@ function fakeConvex() {
 			return Object.assign(unsubscribe, { unsubscribe, getCurrentValue: () => undefined });
 		},
 		query: vi.fn(async () => ({})),
-		mutation: pending,
+		mutation: vi.fn((_mutation: FunctionReference<'mutation'>, _args: unknown) => pending()),
 		action: pending
 	};
 	return {
 		client: client as unknown as ConvexClient,
 		threads,
+		/** The calls of `mutation` so far. */
+		calls: (mutation: FunctionReference<'mutation'>) =>
+			client.mutation.mock.calls.filter(
+				([called]) => getFunctionName(called) === getFunctionName(mutation)
+			),
 		/** The message list subscriptions open now, to answer after they should be gone. */
 		listSubscriptions: () => [...subscriptions].filter(isList),
 		page,
@@ -236,6 +242,39 @@ afterEach(async () => {
 	});
 });
 
+/**
+ * Type into the view on screen and press Send right after the session ends,
+ * before Svelte remounts anything, then check the view that replaces it.
+ */
+async function typeAndSendBeforeTheRemount(
+	surface: string,
+	reply: FunctionReference<'mutation'>
+): Promise<void> {
+	const [ended] = outsideChatbar<HTMLTextAreaElement>('textarea');
+	clearPersistedChatState();
+	ended!.value = 'typed after the end';
+	ended!.dispatchEvent(new Event('input', { bubbles: true }));
+	ended!.dispatchEvent(
+		new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+	);
+	await settle();
+
+	expect(convex.calls(reply)).toHaveLength(0);
+	expect(localStorage.getItem(`drafts:${surface}`) ?? '').not.toContain('typed after the end');
+	const [next] = outsideChatbar<HTMLTextAreaElement>('textarea');
+	expect(next).not.toBe(ended);
+	expect(next!.value).toBe('');
+
+	next!.value = 'typed in the next session';
+	next!.dispatchEvent(new Event('input', { bubbles: true }));
+	await tick();
+	outsideChatbar<HTMLButtonElement>(`button[aria-label="${en.chat.aria.send}"]`)[0]!.click();
+	await settle();
+	expect(convex.calls(reply)).toHaveLength(1);
+	expect(JSON.stringify(convex.calls(reply)[0]![1])).toContain('typed in the next session');
+	expect(JSON.stringify(convex.calls(reply)[0]![1])).not.toContain('typed after the end');
+}
+
 /** Whether the "Talk to human" suggestion is on screen; a hidden one stays rendered, see-through. */
 const handoffOffered = () => {
 	const labels = [...document.querySelectorAll('span')].filter(
@@ -269,6 +308,12 @@ describe('the open support widget at a session end', () => {
 		expect(handoffOffered()).toBe(true);
 	});
 
+	it('takes no input and sends nothing from the ended view before it remounts', async () => {
+		convex.threads.set('thread-a', exchange('old question', 'old answer'));
+		await enter(CustomerSupport, '/en');
+		await typeAndSendBeforeTheRemount('support', api.support.messages.sendMessage);
+	});
+
 	it('follows the next session to the bottom after the reader scrolled up in the ended one', async () => {
 		convex.threads.set('thread-a', exchange('old question', 'old answer'));
 		await enter(CustomerSupport, '/en');
@@ -288,6 +333,12 @@ describe('the open support widget at a session end', () => {
 });
 
 describe('the open AI chat page at a session end', () => {
+	it('takes no input and sends nothing from the ended view before it remounts', async () => {
+		convex.threads.set('thread-a', exchange('old question', 'old answer'));
+		await enter(AIChatPage, '/en/app/ai-chat');
+		await typeAndSendBeforeTheRemount('ai-chat', api.aiChat.messages.sendMessage);
+	});
+
 	it('closes an open attachment menu and shows nothing the ended session sees later', async () => {
 		convex.threads.set('thread-a', exchange('old question', 'old answer'));
 		await enter(AIChatPage, '/en/app/ai-chat');
