@@ -225,7 +225,10 @@ export async function connectByRequest(
 	{
 		accept,
 		...options
-	}: Omit<AuthorizationOptions, 'redirectUri'> & { readonly accept?: string } = {}
+	}: Omit<AuthorizationOptions, 'redirectUri'> & {
+		readonly accept?: string;
+		readonly redirectUri?: never;
+	} = {}
 ) {
 	const start = authorization(metadata, clientId, scope, options);
 	const authorize = await request.get(start.url, { maxRedirects: 0 });
