@@ -3,7 +3,7 @@ import { runLocalConfectDev } from './confect-dev';
 import { watchAuthoredContent } from './generate-authored-content';
 import { portlessOwnsPort, preflightOrExit, resolveTestPort } from './dev-ports';
 import { localConvexMode } from './local-convex-env';
-import { invalidateLocalTestBackendUrl } from '../e2e/utils/convex-url';
+import { invalidateLocalTestBackendUrl } from './test-backend-url';
 
 export interface TestServerLaunchOptions<T> {
 	testPort: number;
@@ -31,7 +31,7 @@ async function main(): Promise<void> {
 	if (process.env.PUBLIC_CONVEX_URL) {
 		console.warn(
 			`[dev:test] WARNING: PUBLIC_CONVEX_URL=${process.env.PUBLIC_CONVEX_URL} is set in your env. ` +
-				`Local test backend file (.convex/.test-backend-url) will be used instead — see e2e/utils/convex-url.ts. ` +
+				`Local test backend file (.convex/.test-backend-url) will be used instead. See scripts/test-backend-url.ts. ` +
 				`Remove PUBLIC_CONVEX_URL from .env.test to silence this warning.`
 		);
 	}

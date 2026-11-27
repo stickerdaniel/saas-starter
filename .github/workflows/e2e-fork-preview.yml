@@ -27,6 +27,7 @@ concurrency:
 jobs:
   prepare:
     outputs:
+      e2e: ${{ steps.profile.outputs.e2e }}
       url: ${{ steps.metadata.outputs.url }}
       convex-url: ${{ steps.metadata.outputs.convex-url }}
       convex-site-url: ${{ steps.metadata.outputs.convex-site-url }}
@@ -68,6 +69,12 @@ jobs:
           # Don't leave the read-write pull_request_target token in .git/config
           # where the untrusted checkout's install scripts could grab it.
           persist-credentials: false
+
+      - name: Select preview test profile
+        id: profile
+        env:
+          RUN_E2E: ${{ hashFiles('playwright.config.ts') != '' }}
+        run: echo "e2e=$RUN_E2E" >> "$GITHUB_OUTPUT"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -120,6 +127,7 @@ jobs:
           fi
 
       - name: Fetch E2E config from preview
+        if: steps.profile.outputs.e2e == 'true'
         run: |
           set -euo pipefail
           echo "Fetching config from: ${PREVIEW_URL}/.well-known/e2e-config.json"
@@ -132,6 +140,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Wait for Convex backend readiness
+        if: steps.profile.outputs.e2e == 'true'
         run: |
           echo "Waiting for Convex backend at: ${PUBLIC_CONVEX_URL}"
           # A cold preview backend can take about a minute to boot (the
@@ -166,6 +175,7 @@ jobs:
           exit 1
 
       - name: Export discovered target
+        if: steps.profile.outputs.e2e == 'true'
         id: metadata
         run: |
           {
@@ -175,6 +185,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Prepare safe browser partition
+        if: steps.profile.outputs.e2e == 'true'
         id: partition
         env:
           E2E_PUBLIC_SHARDS: ${{ vars.E2E_PUBLIC_SHARDS }}
@@ -183,6 +194,7 @@ jobs:
   exclusive:
     name: Exclusive preview coverage
     needs: prepare
+    if: needs.prepare.outputs.e2e == 'true'
     runs-on: ${{ vars.E2E_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 25
     environment: fork-preview
@@ -214,7 +226,7 @@ jobs:
   public:
     name: Public preview shard ${{ matrix.shard }}
     needs: prepare
-    if: needs.prepare.outputs.count != '1'
+    if: needs.prepare.outputs.e2e == 'true' && needs.prepare.outputs.count != '1'
     runs-on: ${{ vars.E2E_RUNNER || 'ubuntu-latest' }}
     timeout-minutes: 15
     environment: fork-preview
@@ -263,15 +275,21 @@ jobs:
           EXCLUSIVE: ${{ needs.exclusive.result }}
           PUBLIC: ${{ needs.public.result }}
           COUNT: ${{ needs.prepare.outputs.count }}
+          E2E: ${{ needs.prepare.outputs.e2e }}
         run: |
-          test "$PREPARE" = success && test "$EXCLUSIVE" = success
+          test "$PREPARE" = success
+          if [ "$E2E" = false ]; then exit 0; fi
+          test "$EXCLUSIVE" = success
           if [ "$COUNT" = 1 ]; then test "$PUBLIC" = skipped; else test "$PUBLIC" = success; fi
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+      - if: needs.prepare.outputs.e2e != 'false'
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - if: needs.prepare.outputs.e2e != 'false'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: e2e-${{ github.run_id }}-${{ github.run_attempt }}-*
           path: e2e-evidence
       - name: Reconcile actual execution against complete inventory
+        if: needs.prepare.outputs.e2e != 'false'
         run: bun scripts/e2e-ci.ts reconcile e2e-evidence
       - name: Report complete verdict
         if: always()
@@ -279,13 +297,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           STATE: ${{ job.status == 'success' && 'success' || 'failure' }}
+          E2E: ${{ needs.prepare.outputs.e2e }}
         run: |
+          DESCRIPTION="Fork preview ($STATE)"
+          if [ "$E2E" = false ]; then DESCRIPTION="Fork preview ($STATE, no E2E suite)"; fi
           for CONTEXT in "E2E Tests" "Workers Builds: saas-starter"; do
             REPORTED=false
             for attempt in 1 2 3; do
               if gh api "repos/${{ github.repository }}/statuses/$HEAD_SHA" \
                 -f state="$STATE" -f context="$CONTEXT" \
-                -f description="Fork preview ($STATE)" \
+                -f description="$DESCRIPTION" \
                 -f target_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"; then
                 REPORTED=true
                 break

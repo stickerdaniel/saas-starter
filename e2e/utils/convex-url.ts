@@ -1,6 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { setTimeout as sleep } from 'node:timers/promises';
+import { testBackendUrlFile, testSiteUrlFile } from '../../scripts/test-backend-url';
+export { invalidateLocalTestBackendUrl } from '../../scripts/test-backend-url';
 
 const DEFAULT_PUBLICATION_TIMEOUT_MS = 90_000;
 const DEFAULT_POLL_INTERVAL_MS = 100;
@@ -10,19 +12,6 @@ export interface ConvexUrlPublicationOptions {
 	pollIntervalMs?: number;
 	resolve?: () => string | undefined;
 	resolveLocalTest?: () => string | undefined;
-}
-
-function testBackendUrlFile(cwd = process.cwd()): string {
-	return path.join(cwd, '.convex', '.test-backend-url');
-}
-
-function testSiteUrlFile(cwd = process.cwd()): string {
-	return path.join(cwd, '.convex', '.test-site-url');
-}
-
-export function invalidateLocalTestBackendUrl(cwd = process.cwd()): void {
-	fs.rmSync(testBackendUrlFile(cwd), { force: true });
-	fs.rmSync(testSiteUrlFile(cwd), { force: true });
 }
 
 export function resolveConvexSiteUrl(cwd = process.cwd()): string | undefined {

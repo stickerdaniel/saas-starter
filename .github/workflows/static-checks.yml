@@ -137,7 +137,9 @@ jobs:
           fi
       # Unit Tests runs this too, but docs/deployment/previews.md tells forks to require only this job.
       - name: Check that the committed icons match static/logo.svg
-        run: bun vitest --config vitest.tooling.config.ts --run scripts/generate-logos.test.ts
+        run: |
+          bun run generate:logos
+          test -z "$(git status --porcelain=v1 --untracked-files=all -- static)"
       # Refuses to remove a Convex function that deployed app code still calls
       # (see https://github.com/stickerdaniel/saas-starter/issues/789). The PR run
       # checks its candidate; later target changes require integration inspection.
@@ -188,9 +190,11 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun scripts/static-checks.ts --ci --scope types
       - name: Run the Effect suites under Bun's test runner
+        if: hashFiles('src/lib/effect/*.test.ts') != ''
         run: bun run test:bun
       # The unit shards run this too, but a matrix without tooling rows would skip it there.
       - name: Check that every Vitest project runs in the unit shards
+        if: hashFiles('scripts/workflow-artifacts.test.ts') != ''
         run: bun vitest --config vitest.tooling.config.ts --run scripts/workflow-artifacts.test.ts -t 'runs every Vitest project as one complete set of shards'
 
   browser-fixtures:
@@ -328,7 +332,7 @@ jobs:
         env:
           GIT_NO_LAZY_FETCH: '1'
         run: bun install --frozen-lockfile --ignore-scripts
-      - if: steps.scope.outputs.run != 'false'
+      - if: steps.scope.outputs.run != 'false' && hashFiles('.agents/skills/upstream-report/scripts/*.test.ts') != ''
         env:
           GIT_NO_LAZY_FETCH: '1'
         run: bun run test:upstream-report
