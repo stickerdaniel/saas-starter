@@ -42,7 +42,7 @@ export const protectedResourceMetadataUrl = () =>
 export const protectedResourceMetadata = () => ({
 	resource: mcpResourceUrl(),
 	authorization_servers: [issuerUrl()],
-	scopes_supported: [...RESOURCE_SCOPES],
+	scopes_supported: [...OAUTH_SCOPES],
 	bearer_methods_supported: ['header']
 });
 
