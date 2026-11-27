@@ -1,4 +1,4 @@
-import type { ChildProcess } from 'node:child_process';
+import { spawnSync, type ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { chmod, copyFile, mkdir, mkdtemp, readFile, realpath, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -32,6 +32,7 @@ function options(overrides: Partial<ResolvedOptions> = {}): ResolvedOptions {
 		yes: true,
 		trustTemplate: true,
 		skipInstall: false,
+		withTests: false,
 		dryRun: false,
 		...overrides
 	};
@@ -234,27 +235,27 @@ describe('process contract', () => {
 		).toEqual([
 			'run',
 			'setup',
-			'--slug',
-			'project',
-			'--repo',
-			'owner/project',
-			'--brand',
-			'Quoted " Project',
-			'--company',
-			'Company & Sons',
-			'--operator',
-			'Operator Name',
-			'--street',
-			'Unicode Straße 1',
-			'--postal-code',
-			'50667',
-			'--city',
-			'Köln',
-			'--country',
-			'DE',
-			'--email',
-			'local@example.test'
+			'--slug=project',
+			'--repo=owner/project',
+			'--brand=Quoted " Project',
+			'--company=Company & Sons',
+			'--operator=Operator Name',
+			'--street=Unicode Straße 1',
+			'--postal-code=50667',
+			'--city=Köln',
+			'--country=DE',
+			'--email=local@example.test'
 		]);
+	});
+
+	it('hands setup a value that starts with a dash in a form its flag reader accepts', () => {
+		const [, , ...flags] = setupArguments(options({ brand: '--Winter', company: '-Acme' }));
+		const setup = path.resolve(import.meta.dirname, '../../../scripts/template-setup.ts');
+
+		expect(spawnSync('bun', [setup, ...flags, '--help'], { encoding: 'utf8' })).toMatchObject({
+			status: 0,
+			stderr: ''
+		});
 	});
 
 	it('runs public setup before frozen installation and marks setup completion between them', async () => {
@@ -277,7 +278,7 @@ describe('process contract', () => {
 			})
 		).resolves.toBe('ready');
 		expect(events).toEqual([
-			'run setup --slug project --repo owner/project --brand Quoted " Project',
+			'run setup --slug=project --repo=owner/project --brand=Quoted " Project',
 			'setup-complete',
 			'install --frozen-lockfile'
 		]);

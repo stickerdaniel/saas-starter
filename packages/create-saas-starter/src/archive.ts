@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { Header, Parser, Pax, type ReadEntry } from 'tar';
-import { isReservedWindowsDeviceName } from './options.js';
+import { isPathSetNameList, pathSets, type PathSetName } from '../../../scripts/path-sets.ts';
+import { CLI_VERSION, isReservedWindowsDeviceName } from './options.js';
 import { MAX_ARCHIVE_BYTES } from './template.js';
 
 export const MAX_DECOMPRESSED_BYTES = 64 * 1024 * 1024;
@@ -494,6 +495,21 @@ export async function validateTemplateArchive(
 		})),
 		sha256: createHash('sha256').update(compressed).digest('hex')
 	};
+}
+
+/** The path sets the template revision can leave out, from `templateProfiles` in its `package.json`. */
+export function templateProfiles(archive: ValidatedArchive, revision: string): PathSetName[] {
+	const manifest = archive.files.find((entry) => entry.path === 'package.json')!;
+	const { templateProfiles: value } = JSON.parse(manifest.data!.toString('utf8')) as {
+		templateProfiles?: unknown;
+	};
+	if (value === undefined) return [];
+	if (!isPathSetNameList(value)) {
+		throw new Error(
+			`Template revision ${revision} declares a templateProfiles value that create-saas-starter ${CLI_VERSION} does not accept. It accepts a list of distinct names from ${JSON.stringify(Object.keys(pathSets))}.`
+		);
+	}
+	return value;
 }
 
 export function archivePathForTarget(target: string, relativePath: string): string {

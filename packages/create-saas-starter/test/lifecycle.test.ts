@@ -1,14 +1,26 @@
 import { EventEmitter } from 'node:events';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { lstat, mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises';
+import {
+	lstat,
+	mkdir,
+	mkdtemp,
+	readdir,
+	readFile,
+	realpath,
+	rm,
+	rmdir,
+	writeFile
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { assertSupportedNodeVersion, runCli, type CliIo, type CliRuntime } from '../src/index.js';
 import { SCAFFOLD_MARKER } from '../src/archive.js';
+import { DEFAULT_TEMPLATE_SHA } from '../src/options.js';
 import { publishStagedTarget, updateMarker } from '../src/target.js';
 import { runProcess, runSetupAndInstall } from '../src/process.js';
-import { tarGz, validTemplateEntries } from './archive-fixture.js';
+import { tarGz, validTemplateEntries, type TarFixtureEntry } from './archive-fixture.js';
 import { cliChildWork, removeDirectories, settleChildWork } from './child-work.js';
 
 const temporaryDirectories: string[] = [];
@@ -456,5 +468,259 @@ describe('CLI lifecycle', () => {
 			scripts: { setup: expect.stringContaining('attack-ran') }
 		});
 		expect(messages.join('\n')).toContain(`Recovery files were preserved at ${recoveryPath}.`);
+	});
+});
+
+/** A template whose `package.json` holds `profiles`, JSON text, as `templateProfiles`. */
+function templateWithProfiles(profiles?: string): TarFixtureEntry[] {
+	const manifest = JSON.stringify({
+		templateSetupVersion: 2,
+		scripts: { setup: 'bun scripts/template-setup.ts' }
+	});
+	return [
+		...validTemplateEntries().map((entry) =>
+			entry.path === 'root/package.json'
+				? {
+						...entry,
+						data:
+							profiles === undefined
+								? manifest
+								: `${manifest.slice(0, -1)},"templateProfiles":${profiles}}`
+					}
+				: entry
+		),
+		{ path: 'root/src/example.test.ts', data: 'export {};' }
+	];
+}
+
+const LEGACY_NOTICE = `Template revision ${DEFAULT_TEMPLATE_SHA} cannot leave out the test suite, so the project includes it.`;
+
+describe('template profiles', () => {
+	/** Runs the CLI with fake setup and install children and records what they received. */
+	async function runProfile(
+		signal: AbortSignal,
+		entries: TarFixtureEntry[],
+		args: string[],
+		given: { setup?: number; install?: number; company?: string } = {}
+	) {
+		const { messages, cli } = await fixtureIo(signal);
+		vi.spyOn(globalThis, 'fetch').mockResolvedValue(responseFromBuffer(tarGz(entries)));
+		const children: string[][] = [];
+		let staging: string | undefined;
+		let list: string | undefined;
+		let listed: unknown;
+		let listDirectory: { mode: number; entries: string[] } | undefined;
+		const projectArguments = argumentsForProject(args).map((argument) =>
+			argument === 'Company' ? (given.company ?? argument) : argument
+		);
+		const code = await cli(projectArguments, {
+			runSetupAndInstall: async (input) => {
+				staging = input.target;
+				return await runSetupAndInstall({
+					...input,
+					run: async (command) => {
+						children.push(command.args);
+						const flag = '--archive-files=';
+						const handed = command.args.find((argument) => argument.startsWith(flag));
+						if (handed !== undefined) {
+							list = handed.slice(flag.length);
+							listed = JSON.parse(await readFile(list, 'utf8'));
+							listDirectory = {
+								mode: (await lstat(path.dirname(list))).mode & 0o777,
+								entries: await readdir(path.dirname(list))
+							};
+						}
+						const code = command.args[0] === 'run' ? given.setup : given.install;
+						return { code: code ?? 0, stdout: '', stderr: '' };
+					}
+				});
+			}
+		});
+		const [setup, ...installs] = children;
+		return {
+			code,
+			messages,
+			setup: setup!,
+			installs,
+			staging: staging!,
+			list,
+			listed,
+			listDirectory
+		};
+	}
+
+	it.for([
+		{ label: 'a repeated name', profiles: '["tests","tests"]' },
+		{ label: 'an unknown name', profiles: '["demo"]' },
+		{ label: 'a string', profiles: '"tests"' },
+		{ label: 'a number', profiles: '[1]' },
+		{
+			label: 'a list nested 12,000 deep',
+			profiles: `${'['.repeat(12_000)}"tests"${']'.repeat(12_000)}`
+		}
+	])(
+		'refuses templateProfiles with $label before staging and names the revision',
+		async ({ profiles }, { signal }) => {
+			const { messages, cli } = await fixtureIo(signal);
+			vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+				responseFromBuffer(tarGz(templateWithProfiles(profiles)))
+			);
+			const createStagingTarget = vi.fn(async () => 'unused');
+
+			await expect(cli(argumentsForProject(), { createStagingTarget })).resolves.toBe(1);
+			expect(createStagingTarget).not.toHaveBeenCalled();
+			expect(messages.join('\n')).toContain(
+				`Template revision ${DEFAULT_TEMPLATE_SHA} declares a templateProfiles value that create-saas-starter`
+			);
+		}
+	);
+
+	it('leaves the test suite out by default and hands setup the extracted files', async ({
+		signal
+	}) => {
+		const run = await runProfile(signal, templateWithProfiles('["tests"]'), []);
+
+		expect(run.code).toBe(0);
+		expect(run.setup.slice(-2)).toEqual(['--without-tests', `--archive-files=${run.list}`]);
+		expect(path.relative(run.staging, run.list!)).toMatch(/^\.\.[\\/]/);
+		expect(run.listDirectory?.entries).toEqual([path.basename(run.list!)]);
+		if (process.platform !== 'win32') expect(run.listDirectory?.mode).toBe(0o700);
+		expect(run.listed).toEqual([
+			'package.json',
+			'bun.lock',
+			'scripts/template-setup.ts',
+			'wrangler.toml',
+			'README.md',
+			'src/lib/config/site.ts',
+			'src/lib/config/legal.ts',
+			'src/lib/content/legal-content-dates.ts',
+			'src/lib/content/legal-metadata.ts',
+			'AGENTS.md',
+			'.agents/skills/example/SKILL.md',
+			'scripts/executable.ts',
+			'src/example.test.ts',
+			'CLAUDE.md',
+			'.claude/skills/example/SKILL.md'
+		]);
+		expect(run.installs).toEqual([['install'], ['install', '--frozen-lockfile']]);
+		await expect(lstat(path.dirname(run.list!))).rejects.toMatchObject({ code: 'ENOENT' });
+		expect(run.messages).not.toContain(LEGACY_NOTICE);
+	});
+
+	it.for([
+		{ label: 'a template without templateProfiles', profiles: undefined, args: [], notice: true },
+		{ label: '--with-tests', profiles: '["tests"]', args: ['--with-tests'], notice: false }
+	])('creates the full project for $label', async ({ profiles, args, notice }, { signal }) => {
+		const run = await runProfile(signal, templateWithProfiles(profiles), args);
+
+		expect(run.code).toBe(0);
+		expect(run.setup).not.toContain('--without-tests');
+		expect(run.setup.filter((argument) => argument.startsWith('--archive-files'))).toEqual([]);
+		expect(run.installs).toEqual([['install', '--frozen-lockfile']]);
+		expect(run.messages.filter((message) => message === LEGACY_NOTICE)).toHaveLength(
+			notice ? 1 : 0
+		);
+	});
+
+	it('keeps the list after a failed setup and prints the commands that repeat setup', async ({
+		signal
+	}) => {
+		const run = await runProfile(signal, templateWithProfiles('["tests"]'), [], {
+			setup: 1,
+			company: "O'Neil & Co"
+		});
+
+		expect(run.code).toBe(1);
+		expect(run.installs).toEqual([]);
+		await expect(readFile(run.list!, 'utf8')).resolves.toContain('src/example.test.ts');
+		temporaryDirectories.push(run.staging);
+		await rm(run.list!);
+		await rmdir(path.dirname(run.list!));
+		const heading = run.messages.indexOf(
+			'To repeat setup without the test suite, run these commands:'
+		);
+		const [navigation, command] = run.messages.slice(heading + 1);
+		expect(heading).not.toBe(-1);
+		expect(run.setup).toContain("--company=O'Neil & Co");
+		if (process.platform === 'win32') {
+			expect(navigation).toBe(`Set-Location -LiteralPath '${run.staging}'`);
+			expect(command).toMatch(/^bun run setup --slug=project /);
+			expect(command).toContain(" '--company=O''Neil & Co' ");
+			expect(command?.endsWith(` --without-tests '--archive-files=${run.list}'`)).toBe(true);
+		} else {
+			const typed = (line: string) =>
+				execFileSync('sh', ['-c', `printf '%s\\0' ${line}`], { encoding: 'utf8' })
+					.split('\0')
+					.slice(0, -1);
+			expect(typed(navigation!)).toEqual(['cd', run.staging]);
+			expect(typed(command!)).toEqual(['bun', ...run.setup]);
+		}
+	});
+
+	it('prints no install command when publication fails', async ({ signal }) => {
+		const { messages, cli } = await fixtureIo(signal);
+		vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+			responseFromBuffer(tarGz(templateWithProfiles('["tests"]')))
+		);
+		let staging: string | undefined;
+
+		const code = await cli(argumentsForProject(), {
+			runSetupAndInstall: async (input) => {
+				staging = input.target;
+				await input.onSetupComplete();
+				return 'ready';
+			},
+			publishStagedTarget: async () => {
+				throw new Error('The target could not be published.');
+			}
+		});
+
+		expect(code).toBe(1);
+		temporaryDirectories.push(staging!);
+		expect(messages).toContain('Error: The target could not be published.');
+		expect(messages.filter((message) => message.startsWith('bun '))).toEqual([]);
+	});
+
+	it.for([
+		{
+			label: 'the two install commands after a project without tests',
+			args: [],
+			commands: ['bun install', 'bun install --frozen-lockfile']
+		},
+		{ label: 'no install command after a project with tests', args: ['--with-tests'], commands: [] }
+	])('prints $label failed to install', async ({ args, commands }, { signal }) => {
+		const run = await runProfile(signal, templateWithProfiles('["tests"]'), args, { install: 1 });
+
+		expect(run.code).toBe(1);
+		temporaryDirectories.push(run.staging);
+		expect(run.messages.filter((message) => message.startsWith('bun '))).toEqual(commands);
+		expect(
+			run.messages.includes(
+				'Setup left out the test suite. To install the dependencies, run these commands:'
+			)
+		).toBe(commands.length > 0);
+	});
+
+	it.for([
+		{
+			label: 'without tests and --skip-install',
+			args: ['--skip-install'],
+			lines: [
+				'Run bun install before starting the app.',
+				'Then run bun install --frozen-lockfile to check the lockfile.'
+			]
+		},
+		{
+			label: 'with tests and --skip-install',
+			args: ['--skip-install', '--with-tests'],
+			lines: ['Run bun install --frozen-lockfile before starting the app.']
+		},
+		{ label: 'without tests after its installs', args: [], lines: [] },
+		{ label: 'with tests after its install', args: ['--with-tests'], lines: [] }
+	])('prints the install commands a project $label needs', async ({ args, lines }, { signal }) => {
+		const run = await runProfile(signal, templateWithProfiles('["tests"]'), args);
+
+		expect(run.code).toBe(0);
+		expect(run.messages.filter((message) => message.includes('bun install'))).toEqual(lines);
 	});
 });

@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 
 import { realpathSync } from 'node:fs';
+import { rm, rmdir } from 'node:fs/promises';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { validateTemplateArchive } from './archive.js';
+import { templateProfiles, validateTemplateArchive } from './archive.js';
 import {
 	CLI_VERSION,
 	HELP_TEXT,
@@ -17,7 +19,7 @@ import {
 	resolveOptions,
 	type PromptAdapter
 } from './prompts.js';
-import { runSetupAndInstall, verifyBun } from './process.js';
+import { installSteps, runSetupAndInstall, setupArguments, verifyBun } from './process.js';
 import {
 	createStagingTarget,
 	initialMarker,
@@ -28,6 +30,7 @@ import {
 	updateMarker,
 	validateArchiveTargetPaths,
 	writeArchive,
+	writeArchiveList,
 	type ScaffoldMarker,
 	type ScaffoldPhase
 } from './target.js';
@@ -94,9 +97,22 @@ function legalReminder(options: Awaited<ReturnType<typeof resolveOptions>>): str
 	return 'Review the generated legal identity values before publishing or deploying the project.';
 }
 
+function quoted(value: string, platform: NodeJS.Platform = process.platform): string {
+	if (platform === 'win32') return `'${value.replaceAll("'", "''")}'`;
+	return `'${value.replaceAll("'", "'\\''")}'`;
+}
+
 function navigation(target: string, platform: NodeJS.Platform = process.platform): string {
-	if (platform === 'win32') return `Set-Location -LiteralPath '${target.replaceAll("'", "''")}'`;
-	return `cd '${target.replaceAll("'", "'\\''")}'`;
+	return platform === 'win32'
+		? `Set-Location -LiteralPath ${quoted(target, platform)}`
+		: `cd ${quoted(target, platform)}`;
+}
+
+/** A command line for the user's shell: a plain argument stays bare, any other is quoted. */
+function commandLine(command: string, args: string[]): string {
+	return [command, ...args.map((arg) => (/^[\w./-][\w./=-]*$/.test(arg) ? arg : quoted(arg)))].join(
+		' '
+	);
 }
 
 export async function runCli(
@@ -113,6 +129,7 @@ export async function runCli(
 	};
 	const removeInterruptListener = listenForInterrupt(onSigint, io.interrupts);
 	let recoveryPath: string | undefined;
+	let recovery: string[] = [];
 	let marker: ScaffoldMarker | undefined;
 	let phase: ScaffoldPhase = 'files';
 	try {
@@ -152,6 +169,13 @@ export async function runCli(
 		throwIfAborted(controller.signal);
 		const archive = await validateTemplateArchive(compressed);
 		throwIfAborted(controller.signal);
+		const canOmitTests = templateProfiles(archive, resolved.sha).includes('tests');
+		if (!canOmitTests && !options.withTests) {
+			io.stdout(
+				`Template revision ${resolved.sha} cannot leave out the test suite, so the project includes it.`
+			);
+		}
+		const withoutTests = canOmitTests && !options.withTests;
 		validateArchiveTargetPaths(target.path, archive);
 		await confirmTemplateTrust(
 			resolved.sha,
@@ -179,21 +203,40 @@ export async function runCli(
 		recoveryPath = staging;
 		validateArchiveTargetPaths(staging, archive);
 		await writeArchive(staging, archive, controller.signal);
+		const archiveList = withoutTests ? await writeArchiveList(staging, archive) : undefined;
 		phase = 'setup';
 		marker = await runtime.updateMarker(staging, marker, 'incomplete', phase);
+		if (archiveList) {
+			recovery = [
+				'To repeat setup without the test suite, run these commands:',
+				navigation(staging),
+				commandLine('bun', setupArguments(options, archiveList))
+			];
+		}
 
 		const state = await runtime.runSetupAndInstall({
 			bun: bun.executable,
 			environment: bun.environment,
 			target: staging,
 			options,
+			archiveList,
 			signal: controller.signal,
 			onSetupComplete: async () => {
+				if (archiveList) {
+					await rm(archiveList, { force: true }).catch(() => {});
+					await rmdir(path.dirname(archiveList)).catch(() => {});
+					recovery = [
+						'Setup left out the test suite. To install the dependencies, run these commands:',
+						navigation(staging),
+						...installSteps(true).map((args) => commandLine('bun', args))
+					];
+				}
 				phase = 'install';
 				marker = await runtime.updateMarker(staging, marker!, 'incomplete', phase);
 			}
 		});
 		throwIfAborted(controller.signal);
+		if (state === 'ready') recovery = [];
 		phase = 'complete';
 		marker = await runtime.updateMarker(staging, marker, state, phase);
 		throwIfAborted(controller.signal);
@@ -207,8 +250,12 @@ export async function runCli(
 
 		io.stdout(`Created ${options.brand} at ${target.path}`);
 		io.stdout(navigation(target.path));
-		if (state === 'needs-install')
-			io.stdout('Run bun install --frozen-lockfile before starting the app.');
+		if (state === 'needs-install') {
+			const [first, ...checks] = installSteps(withoutTests);
+			io.stdout(`Run bun ${first.join(' ')} before starting the app.`);
+			for (const check of checks)
+				io.stdout(`Then run bun ${check.join(' ')} to check the lockfile.`);
+		}
 		io.stdout('Run bun run dev and open the URL it prints.');
 		io.stdout(
 			'The generated README lists the seeded local test account. Use it only for local development.'
@@ -226,6 +273,7 @@ export async function runCli(
 					? `Scaffolding interrupted. Recovery files were preserved at ${recoveryPath}.`
 					: 'Scaffolding interrupted before recovery files were created.'
 			);
+			for (const line of recovery) io.stderr(line);
 			return 130;
 		}
 		if (error instanceof PromptCancelledError) return 130;
@@ -240,6 +288,7 @@ export async function runCli(
 				`Recovery files were preserved at ${recoveryPath}. Resolve the reported phase and continue manually.`
 			);
 		}
+		for (const line of recovery) io.stderr(line);
 		return 1;
 	} finally {
 		removeInterruptListener();

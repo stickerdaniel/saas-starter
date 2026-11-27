@@ -429,6 +429,21 @@ export async function writeArchive(
 	}
 }
 
+/**
+ * Writes the JSON list of the files `writeArchive` extracted for `bun run setup --archive-files`
+ * and returns its path. The list is alone in a new directory next to `staging`, outside the
+ * project, so no other user of a shared staging root can take its name first.
+ */
+export async function writeArchiveList(
+	staging: string,
+	archive: ValidatedArchive
+): Promise<string> {
+	const list = path.join(await mkdtemp(`${staging}.archive-files-`), 'files.json');
+	const files = archive.files.filter((entry) => entry.type === 'file').map((entry) => entry.path);
+	await writeExclusive(list, `${JSON.stringify(files)}\n`, 0o600);
+	return list;
+}
+
 export async function updateMarker(
 	target: string,
 	marker: ScaffoldMarker,

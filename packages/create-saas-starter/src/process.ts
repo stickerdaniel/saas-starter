@@ -250,18 +250,13 @@ export async function verifyBun(
 	return { executable, environment: filtered };
 }
 
-export function setupArguments(options: ResolvedOptions): string[] {
-	const args = [
-		'run',
-		'setup',
-		'--slug',
-		options.slug,
-		'--repo',
-		options.repo,
-		'--brand',
-		options.brand
-	];
+/** `archiveList`, the list of extracted files, asks setup to leave out the test suite. */
+export function setupArguments(options: ResolvedOptions, archiveList?: string): string[] {
+	const args = ['run', 'setup'];
 	for (const [flag, value] of [
+		['--slug', options.slug],
+		['--repo', options.repo],
+		['--brand', options.brand],
 		['--company', options.company],
 		['--operator', options.operator],
 		['--street', options.street],
@@ -270,9 +265,16 @@ export function setupArguments(options: ResolvedOptions): string[] {
 		['--country', options.country],
 		['--email', options.email]
 	] as const) {
-		if (value !== undefined) args.push(flag, value);
+		if (value !== undefined) args.push(`${flag}=${value}`);
 	}
+	if (archiveList !== undefined) args.push('--without-tests', `--archive-files=${archiveList}`);
 	return args;
+}
+
+/** The Bun arguments that install a project, in order. A project without tests rewrites bun.lock first. */
+export function installSteps(withoutTests: boolean): [string[], ...string[][]] {
+	const frozen = ['install', '--frozen-lockfile'];
+	return withoutTests ? [['install'], frozen] : [frozen];
 }
 
 export async function runSetupAndInstall(input: {
@@ -280,29 +282,32 @@ export async function runSetupAndInstall(input: {
 	environment: NodeJS.ProcessEnv;
 	target: string;
 	options: ResolvedOptions;
+	archiveList?: string;
 	signal: AbortSignal;
 	onSetupComplete: () => Promise<void>;
 	run?: typeof runProcess;
 }): Promise<'ready' | 'needs-install'> {
 	const run = input.run ?? runProcess;
 	const setup = await run(
-		{ command: input.bun, args: setupArguments(input.options), env: input.environment },
+		{
+			command: input.bun,
+			args: setupArguments(input.options, input.archiveList),
+			env: input.environment
+		},
 		{ cwd: input.target, env: input.environment, signal: input.signal }
 	);
 	if (setup.code === 130) throw new Error('Scaffolding aborted.');
 	if (setup.code !== 0) throw new Error(`Template setup failed with exit code ${setup.code}.`);
 	await input.onSetupComplete();
 	if (input.options.skipInstall) return 'needs-install';
-	const install = await run(
-		{
-			command: input.bun,
-			args: ['install', '--frozen-lockfile'],
-			env: input.environment
-		},
-		{ cwd: input.target, env: input.environment, signal: input.signal }
-	);
-	if (install.code === 130) throw new Error('Scaffolding aborted.');
-	if (install.code !== 0)
-		throw new Error(`Dependency installation failed with exit code ${install.code}.`);
+	for (const args of installSteps(input.archiveList !== undefined)) {
+		const install = await run(
+			{ command: input.bun, args, env: input.environment },
+			{ cwd: input.target, env: input.environment, signal: input.signal }
+		);
+		if (install.code === 130) throw new Error('Scaffolding aborted.');
+		if (install.code !== 0)
+			throw new Error(`Dependency installation failed with exit code ${install.code}.`);
+	}
 	return 'ready';
 }
