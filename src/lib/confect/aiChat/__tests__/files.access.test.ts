@@ -1,21 +1,19 @@
 // @vitest-environment node
 /// <reference types="vite/client" />
 import { convexTest } from 'convex-test';
-import rateLimiterSchema from '../../../../../node_modules/@convex-dev/rate-limiter/dist/component/schema.js';
 import { ConvexError } from 'convex/values';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api, components, internal } from '../../../convex/_generated/api';
 import schema from '../../../convex/schema';
 import authSchema from '../../../convex-components/betterAuth/schema';
+import { preloadComponent } from '../../convexComponents.fixtures';
 import { convexModules, preloadModules } from '../../convexTest.modules';
 import { FILE_ERROR_CODES } from '../../files/errors';
 
 const betterAuthModules = await preloadModules(
 	import.meta.glob('../../../convex-components/betterAuth/**/*.ts')
 );
-const rateLimiterModules = await preloadModules(
-	import.meta.glob('../../../../../node_modules/@convex-dev/rate-limiter/dist/component/**/*.js')
-);
+const rateLimiterComponent = await preloadComponent.rateLimiter();
 
 const PREVIEW_BURST = 30;
 const DAY = 24 * 60 * 60 * 1000;
@@ -23,7 +21,7 @@ const DAY = 24 * 60 * 60 * 1000;
 const harness = () => {
 	const t = convexTest(schema, convexModules);
 	t.registerComponent('betterAuth', authSchema, betterAuthModules);
-	t.registerComponent('rateLimiter', rateLimiterSchema, rateLimiterModules);
+	rateLimiterComponent.register(t);
 	return t;
 };
 type Harness = ReturnType<typeof harness>;

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { TolgeeCore, TolgeeProvider } from '@tolgee/svelte';
 	import { FormatIcu } from '@tolgee/format-icu';
-	import en from '../../../../../i18n/en.json';
+	import { en } from '../../test-fixtures/catalog';
 	import Root from '../password.svelte';
 	import Input from '../password-input.svelte';
 	import Strength from '../password-strength.svelte';

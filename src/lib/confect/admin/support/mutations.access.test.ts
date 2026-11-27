@@ -1,12 +1,12 @@
 // @vitest-environment node
 /// <reference types="vite/client" />
 import { convexTest } from 'convex-test';
-import agentSchema from '../../../../../node_modules/@convex-dev/agent/dist/component/schema.js';
 import { ConvexError } from 'convex/values';
 import { describe, expect, it } from 'vitest';
 import { api, components, internal } from '../../../convex/_generated/api';
 import schema from '../../../convex/schema';
 import authSchema from '../../../convex-components/betterAuth/schema';
+import { preloadComponent } from '../../convexComponents.fixtures';
 import { convexModules, preloadModules } from '../../convexTest.modules';
 import { MAX_MESSAGE_FILES, MAX_MESSAGE_LENGTH } from '../../constants';
 import { ADMIN_ERROR_CODES, createAdminError } from '../errors';
@@ -15,14 +15,12 @@ import { ADMIN_SUPPORT_ERROR_CODES } from './errors';
 const betterAuthModules = await preloadModules(
 	import.meta.glob('../../../convex-components/betterAuth/**/*.ts')
 );
-const agentModules = await preloadModules(
-	import.meta.glob('../../../../../node_modules/@convex-dev/agent/dist/component/**/*.js')
-);
+const agentComponent = await preloadComponent.agent();
 
 const harness = () => {
 	const t = convexTest(schema, convexModules);
 	t.registerComponent('betterAuth', authSchema, betterAuthModules);
-	t.registerComponent('agent', agentSchema, agentModules);
+	agentComponent.register(t);
 	return t;
 };
 type Harness = ReturnType<typeof harness>;

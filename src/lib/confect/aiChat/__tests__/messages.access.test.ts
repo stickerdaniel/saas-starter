@@ -1,8 +1,6 @@
 // @vitest-environment node
 /// <reference types="vite/client" />
 import { convexTest } from 'convex-test';
-import agentSchema from '../../../../../node_modules/@convex-dev/agent/dist/component/schema.js';
-import rateLimiterSchema from '../../../../../node_modules/@convex-dev/rate-limiter/dist/component/schema.js';
 import { ConvexError } from 'convex/values';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, components } from '../../../convex/_generated/api';
@@ -10,18 +8,15 @@ import schema from '../../../convex/schema';
 import authSchema from '../../../convex-components/betterAuth/schema';
 import type { Id } from '../../../convex/_generated/dataModel';
 import { MAX_MESSAGE_FILES, MAX_MESSAGE_LENGTH } from '../../constants';
+import { preloadComponent } from '../../convexComponents.fixtures';
 import { convexModules, preloadModules } from '../../convexTest.modules';
 import { AI_CHAT_ERROR_CODES } from '../errors';
 
 const betterAuthModules = await preloadModules(
 	import.meta.glob('../../../convex-components/betterAuth/**/*.ts')
 );
-const agentModules = await preloadModules(
-	import.meta.glob('../../../../../node_modules/@convex-dev/agent/dist/component/**/*.js')
-);
-const rateLimiterModules = await preloadModules(
-	import.meta.glob('../../../../../node_modules/@convex-dev/rate-limiter/dist/component/**/*.js')
-);
+const agentComponent = await preloadComponent.agent();
+const rateLimiterComponent = await preloadComponent.rateLimiter();
 
 const MESSAGE_BURST = 5;
 const DAY = 24 * 60 * 60 * 1000;
@@ -31,8 +26,8 @@ const TITLE = 'aiChat/titles:generateThreadTitle';
 const harness = () => {
 	const t = convexTest(schema, convexModules);
 	t.registerComponent('betterAuth', authSchema, betterAuthModules);
-	t.registerComponent('agent', agentSchema, agentModules);
-	t.registerComponent('rateLimiter', rateLimiterSchema, rateLimiterModules);
+	agentComponent.register(t);
+	rateLimiterComponent.register(t);
 	return t;
 };
 type Harness = ReturnType<typeof harness>;

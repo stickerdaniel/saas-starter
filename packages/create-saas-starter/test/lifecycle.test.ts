@@ -1,15 +1,11 @@
-import { EventEmitter } from 'node:events';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { lstat, mkdir, mkdtemp, readdir, readFile, realpath, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { lstat, mkdir, readdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { assertSupportedNodeVersion, runCli, type CliIo, type CliRuntime } from '../src/index.js';
-import { SCAFFOLD_MARKER } from '../src/archive.js';
+import { assertSupportedNodeVersion, type CliRuntime } from '../src/index.js';
 import { DEFAULT_TEMPLATE_SHA } from '../src/options.js';
 import { createStagingTarget, publishStagedTarget, updateMarker } from '../src/target.js';
-import { runProcess, runSetupAndInstall } from '../src/process.js';
+import { runSetupAndInstall } from '../src/process.js';
 import {
 	changedEntries,
 	tarGz,
@@ -18,85 +14,20 @@ import {
 	workspaceTemplateEntries,
 	type TarFixtureEntry
 } from './archive-fixture.js';
-import { cliChildWork, removeDirectories, settleChildWork } from './child-work.js';
+import { removeDirectories, settleChildWork } from './child-work.js';
+import {
+	argumentsForProject,
+	fixtureIo,
+	markerAt,
+	responseFromBuffer,
+	temporaryDirectories
+} from './cli-fixture.js';
 
-const temporaryDirectories: string[] = [];
 afterEach(async () => {
 	await settleChildWork();
 	vi.restoreAllMocks();
 	await removeDirectories(temporaryDirectories);
 });
-
-function responseFromBuffer(buffer: Buffer): Response {
-	const body = buffer.buffer.slice(
-		buffer.byteOffset,
-		buffer.byteOffset + buffer.byteLength
-	) as ArrayBuffer;
-	return new Response(body);
-}
-
-function argumentsForProject(extra: string[] = []): string[] {
-	return [
-		'project',
-		'--slug',
-		'project',
-		'--repo',
-		'owner/project',
-		'--brand',
-		'Project',
-		'--company',
-		'Company',
-		'--operator',
-		'Operator',
-		'--street',
-		'1 Main Street',
-		'--postal-code',
-		'12345',
-		'--city',
-		'City',
-		'--country',
-		'US',
-		'--email',
-		'contact@example.test',
-		'--yes',
-		'--trust-template',
-		...extra
-	];
-}
-
-/** Every run here starts real Bun children, so `cli` binds the run to the test's signal. */
-async function fixtureIo(signal: AbortSignal): Promise<{
-	parent: string;
-	messages: string[];
-	interrupts: EventEmitter;
-	cli: (args: string[], runtime: Partial<CliRuntime>) => Promise<number>;
-}> {
-	const parent = await mkdtemp(path.join(tmpdir(), 'create-saas-starter-late-abort-'));
-	temporaryDirectories.push(parent);
-	const messages: string[] = [];
-	const interrupts = new EventEmitter();
-	const io: CliIo = {
-		stdout: (message) => messages.push(message),
-		stderr: (message) => messages.push(message),
-		stdin: process.stdin,
-		environment: process.env,
-		cwd: parent,
-		interrupts
-	};
-	return {
-		parent,
-		messages,
-		interrupts,
-		cli: (args, runtime) => cliChildWork(signal, interrupts, () => runCli(args, io, runtime))
-	};
-}
-
-async function markerAt(target: string): Promise<{ state: string; phase: string }> {
-	return JSON.parse(await readFile(path.join(target, SCAFFOLD_MARKER), 'utf8')) as {
-		state: string;
-		phase: string;
-	};
-}
 
 describe('Node.js version gate', () => {
 	it.each(['21.9.0', '22.16.1'])('refuses Node.js %s', (version) => {
@@ -111,111 +42,6 @@ describe('Node.js version gate', () => {
 });
 
 describe('CLI lifecycle', () => {
-	it.for(['workflow', 'child'] as const)(
-		'preserves incomplete setup when real %s removal fails',
-		async (target, { signal }) => {
-			const { parent, messages, cli } = await fixtureIo(signal);
-			const root = path.resolve(import.meta.dirname, '../../..');
-			const fixture = path.join(root, 'scripts/__fixtures__/template-setup');
-			const canonical = [
-				'package.json',
-				'bun.lock',
-				'README.md',
-				'wrangler.toml',
-				'src/lib/config/legal.ts',
-				'src/lib/config/site.ts',
-				'src/lib/content/legal-content-dates.ts'
-			];
-			// Setup runs and imports these live files.
-			const live = ['scripts/template-setup.ts', 'src/lib/content/legal-metadata.ts'];
-			const entries = validTemplateEntries().map((entry) => {
-				const relative = entry.path.slice('root/'.length);
-				if (canonical.includes(relative))
-					return { ...entry, data: readFileSync(path.join(fixture, relative)) };
-				if (live.includes(relative))
-					return { ...entry, data: readFileSync(path.join(root, relative)) };
-				return entry;
-			});
-			// Setup imports or rebrands these live files, so it needs them before reaching the faulted removal.
-			for (const relative of [
-				'scripts/export-profile.ts',
-				'scripts/path-sets.ts',
-				'static/manifest.webmanifest',
-				'src/app.html'
-			]) {
-				entries.push({
-					path: `root/${relative}`,
-					data: readFileSync(path.join(root, relative))
-				});
-			}
-			entries.push(
-				{ path: 'root/.github/workflows/create-saas-starter.yml', data: 'name: creator\n' },
-				{
-					path: 'root/packages/create-saas-starter/package.json',
-					data: '{"name":"create-saas-starter"}\n'
-				},
-				{
-					path: 'root/packages/create-saas-starter/src/index.ts',
-					data: 'export const creator = true;\n'
-				}
-			);
-			vi.spyOn(globalThis, 'fetch').mockResolvedValue(responseFromBuffer(tarGz(entries)));
-			const preload = path.join(parent, `fault-${target}.mjs`);
-			const receipt = `CREATOR_REMOVAL_FAULT_${target}`;
-			await writeFile(
-				preload,
-				`import { mock } from 'bun:test';\nimport * as fs from 'node:fs';\nconst original = fs.${target === 'workflow' ? 'unlinkSync' : 'rmSync'};\nmock.module('fs', () => ({ ...fs, ${target === 'workflow' ? 'unlinkSync' : 'rmSync'}(file, ...args) {\n if (String(file).replaceAll('\\\\', '/').endsWith('${target === 'workflow' ? '/.github/workflows/create-saas-starter.yml' : '/packages/create-saas-starter'}')) { console.error('${receipt}'); throw new Error('${receipt}'); }\n return original(file, ...args);\n} }));\n`
-			);
-			let recovery: string | undefined;
-			let installs = 0;
-			let publications = 0;
-			let faultHit = false;
-			const runtime: Partial<CliRuntime> = {
-				runSetupAndInstall: async (input) => {
-					recovery = input.target;
-					return await runSetupAndInstall({
-						...input,
-						run: async (command, options) => {
-							if (command.args[0] !== 'run') {
-								installs++;
-								throw new Error('Install reached');
-							}
-							const result = await runProcess(
-								{ ...command, env: { ...command.env, BUN_OPTIONS: `--preload=${preload}` } },
-								{
-									...options,
-									capture: true,
-									env: { ...options.env, BUN_OPTIONS: `--preload=${preload}` }
-								}
-							);
-							faultHit = result.stderr.includes(receipt);
-							return result;
-						}
-					});
-				},
-				publishStagedTarget: async (...input) => {
-					publications++;
-					return await publishStagedTarget(...input);
-				}
-			};
-			await expect(cli(argumentsForProject(), runtime)).resolves.toBe(1);
-			expect(faultHit).toBe(true);
-			expect(installs).toBe(0);
-			expect(publications).toBe(0);
-			expect(recovery).toBeDefined();
-			await expect(markerAt(recovery!)).resolves.toMatchObject({
-				state: 'incomplete',
-				phase: 'setup'
-			});
-			const generated = JSON.parse(
-				await readFile(path.join(recovery!, 'package.json'), 'utf8')
-			) as { scripts: Record<string, string> };
-			expect(generated.scripts).not.toHaveProperty('install:cli');
-			expect(messages.some((message) => message.startsWith('Created '))).toBe(false);
-			await expect(lstat(path.join(parent, 'project'))).rejects.toMatchObject({ code: 'ENOENT' });
-		}
-	);
-
 	it.for([
 		{ label: 'the default pin', args: [] },
 		{ label: 'an explicit ref', args: ['--ref', 'release'] }

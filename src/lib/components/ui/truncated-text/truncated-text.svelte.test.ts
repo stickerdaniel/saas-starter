@@ -1,10 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushSync, mount, tick, unmount } from 'svelte';
-import type * as Svelte from 'svelte';
 
 // Vitest resolves Svelte's server entry by default; use its real client runtime for mounting.
-vi.mock('svelte', () =>
-	vi.importActual<typeof Svelte>('../../../../../node_modules/svelte/src/index-client.js')
+vi.mock('svelte', async () =>
+	(await import('../test-fixtures/svelte-client')).importSvelteClient()
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
 

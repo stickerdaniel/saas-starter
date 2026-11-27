@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+
 export const sharedTestSettings = {
 	exclude: [
 		'e2e/**',
@@ -35,6 +37,6 @@ export const sharedTestSettings = {
 export const toolingTestSettings = {
 	name: 'tooling',
 	environment: 'node',
-	setupFiles: ['./scripts/vitest-git-env.ts'],
+	setupFiles: [fileURLToPath(new URL('./vitest-git-env.ts', import.meta.url))],
 	exclude: ['src/**']
 };

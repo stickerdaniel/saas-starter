@@ -1,27 +1,25 @@
 // @vitest-environment node
 /// <reference types="vite/client" />
 import { convexTest } from 'convex-test';
-import agentSchema from '../../../../../node_modules/@convex-dev/agent/dist/component/schema.js';
 import { mutationGeneric, type GenericDataModel, type GenericMutationCtx } from 'convex/server';
 import { v } from 'convex/values';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { components, internal } from '../../../convex/_generated/api';
 import schema from '../../../convex/schema';
-import { convexModules, preloadModules } from '../../convexTest.modules';
+import { preloadComponent } from '../../convexComponents.fixtures';
+import { convexModules } from '../../convexTest.modules';
 
-const agentModules = await preloadModules(
-	import.meta.glob('../../../../../node_modules/@convex-dev/agent/dist/component/**/*.js')
-);
+const agentComponent = await preloadComponent.agent();
 
 const skippedByComponent = new Set<string>();
 
-const agentFilesPath = Object.keys(agentModules).find((path) =>
-	path.endsWith('/component/files.js')
+const agentFilesPath = Object.keys(agentComponent.modules).find((path) =>
+	path.endsWith('/component/files.ts')
 );
 if (agentFilesPath === undefined) throw new Error('agent has no files module');
-const loadAgentFiles = agentModules[agentFilesPath];
+const loadAgentFiles = agentComponent.modules[agentFilesPath];
 
-agentModules[agentFilesPath] = async () => {
+agentComponent.modules[agentFilesPath] = async () => {
 	const files = (await loadAgentFiles()) as {
 		deleteFiles: {
 			_handler: (
@@ -52,7 +50,7 @@ const PURGE = 'files/owners:purge';
 
 const harness = () => {
 	const t = convexTest(schema, convexModules);
-	t.registerComponent('agent', agentSchema, agentModules);
+	agentComponent.register(t);
 	return t;
 };
 type Harness = ReturnType<typeof harness>;

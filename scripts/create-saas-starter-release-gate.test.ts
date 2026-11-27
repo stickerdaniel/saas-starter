@@ -6,10 +6,12 @@ import { createRequire } from 'node:module';
 import { devNull, tmpdir } from 'node:os';
 import path from 'node:path';
 import { gzipSync } from 'node:zlib';
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
-const REPOSITORY_ROOT = path.resolve(import.meta.dirname, '../../..');
+vi.setConfig({ testTimeout: process.platform === 'win32' ? 60_000 : 20_000 });
+
+const REPOSITORY_ROOT = path.resolve(import.meta.dirname, '..');
 const PACKAGE_PATH = 'packages/create-saas-starter';
 const PACKAGE_ROOT = path.join(REPOSITORY_ROOT, PACKAGE_PATH);
 const SOURCE_MANIFEST_TEXT = readFileSync(path.join(PACKAGE_ROOT, 'package.json'), 'utf8');

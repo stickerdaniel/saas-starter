@@ -127,7 +127,7 @@ describe('deletePathSets', () => {
 		const tracked = [
 			'e2e/public-a11y.spec.ts',
 			'e2e/utils/auth.ts',
-			'packages/create-saas-starter/test/release-gate.test.ts',
+			'packages/create-saas-starter/test/target.test.ts',
 			'scripts/__fixtures__/static-checks/private-checkout.ts'
 		];
 		mkdirSync(join(tree, 'e2e/utils'), { recursive: true });

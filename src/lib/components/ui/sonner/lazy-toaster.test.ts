@@ -1,9 +1,8 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushSync, mount, tick, unmount } from 'svelte';
-import type * as Svelte from 'svelte';
 
-vi.mock('svelte', () =>
-	vi.importActual<typeof Svelte>('../../../../../node_modules/svelte/src/index-client.js')
+vi.mock('svelte', async () =>
+	(await import('../test-fixtures/svelte-client')).importSvelteClient()
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
 vi.mock('#lib/theme.svelte.ts', () => ({ mode: { current: 'light' } }));

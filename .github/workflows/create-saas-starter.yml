@@ -8,6 +8,19 @@ on:
       - bun.lock
       - bunfig.toml
       - packages/create-saas-starter/**
+      - scripts/create-saas-starter.integration.test.ts
+      - scripts/create-saas-starter-marker-format.test.ts
+      - scripts/create-saas-starter-release-gate.test.ts
+      - scripts/create-saas-starter-workflows.test.ts
+      - vitest.tooling.config.ts
+      - tsconfig.tooling.json
+      - scripts/vitest-settings.ts
+      - scripts/vitest-git-env.ts
+      - scripts/git-context.ts
+      - .prettierrc
+      - .prettierignore
+      - src/app.html
+      - static/manifest.webmanifest
       - scripts/windows-job.ts
       - scripts/template-setup.ts
       - scripts/export-profile.ts
@@ -29,6 +42,19 @@ on:
       - bun.lock
       - bunfig.toml
       - packages/create-saas-starter/**
+      - scripts/create-saas-starter.integration.test.ts
+      - scripts/create-saas-starter-marker-format.test.ts
+      - scripts/create-saas-starter-release-gate.test.ts
+      - scripts/create-saas-starter-workflows.test.ts
+      - vitest.tooling.config.ts
+      - tsconfig.tooling.json
+      - scripts/vitest-settings.ts
+      - scripts/vitest-git-env.ts
+      - scripts/git-context.ts
+      - .prettierrc
+      - .prettierignore
+      - src/app.html
+      - static/manifest.webmanifest
       - scripts/windows-job.ts
       - scripts/template-setup.ts
       - scripts/export-profile.ts
@@ -106,10 +132,11 @@ jobs:
           PUBLIC_CONVEX_URL: https://placeholder.convex.cloud
           PUBLIC_CONVEX_SITE_URL: https://placeholder.convex.site
       - run: bun run --cwd packages/create-saas-starter typecheck
-      # The release gate tests fail instead of skipping here, because this
-      # entry has the npm that publishes.
       - if: hashFiles('packages/create-saas-starter/test/**/*.test.ts') != ''
         run: bun run --cwd packages/create-saas-starter test
+      # The release gate tests fail instead of skipping here, because this
+      # entry has the npm that publishes.
+      - run: bun vitest --config vitest.tooling.config.ts --run scripts/create-saas-starter.integration.test.ts scripts/create-saas-starter-marker-format.test.ts scripts/create-saas-starter-release-gate.test.ts scripts/create-saas-starter-workflows.test.ts
         env:
           CREATE_SAAS_STARTER_RELEASE_GATE_TEST: ${{ matrix.release_gate_test }}
       - run: bun run --cwd packages/create-saas-starter knip

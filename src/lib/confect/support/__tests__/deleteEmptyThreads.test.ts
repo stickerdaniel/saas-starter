@@ -1,11 +1,11 @@
 // @vitest-environment node
 /// <reference types="vite/client" />
 import { convexTest } from 'convex-test';
-import agentSchema from '../../../../../node_modules/@convex-dev/agent/dist/component/schema.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { components, internal } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
-import { convexModules, preloadModules } from '../../convexTest.modules';
+import { preloadComponent } from '../../convexComponents.fixtures';
+import { convexModules } from '../../convexTest.modules';
 import schema from '../../../convex/schema';
 import { supportAgent } from '../agent';
 import { EMPTY_THREAD_SWEEP_MAX_ATTEMPTS } from '../threadMaintenance';
@@ -13,13 +13,11 @@ import { EMPTY_THREAD_SWEEP_MAX_ATTEMPTS } from '../threadMaintenance';
 const DAY = 24 * 60 * 60 * 1000;
 const SWEEP_THREAD = 'support/threads:sweepEmptyThread';
 
-const agentModules = await preloadModules(
-	import.meta.glob('../../../../../node_modules/@convex-dev/agent/dist/component/**/*.js')
-);
+const agentComponent = await preloadComponent.agent();
 
 function createHarness() {
 	const t = convexTest(schema, convexModules);
-	t.registerComponent('agent', agentSchema, agentModules);
+	agentComponent.register(t);
 	return t;
 }
 
