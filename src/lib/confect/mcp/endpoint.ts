@@ -10,6 +10,7 @@ import * as Schema from 'effect/Schema';
 import type * as Tool from 'effect/ai/Tool';
 import * as McpProtocol from 'effect/ai/McpProtocol';
 import * as McpServer from 'effect/ai/McpServer';
+import * as HttpEffect from 'effect/http/HttpEffect';
 import * as HttpIncomingMessage from 'effect/http/HttpIncomingMessage';
 import * as HttpRouter from 'effect/http/HttpRouter';
 import type * as HttpServerError from 'effect/http/HttpServerError';
@@ -71,20 +72,21 @@ const originVerdict = (request: HttpServerRequest.HttpServerRequest): OriginVerd
 	return allowedBrowserOrigins().has(origin) ? { kind: 'allowed', origin } : { kind: 'refused' };
 };
 
-const corsHeaders = (verdict: OriginVerdict): Record<string, string> =>
-	verdict.kind === 'allowed'
-		? {
-				'Access-Control-Allow-Origin': verdict.origin,
+const answerToOrigin = (origin: string) =>
+	HttpEffect.appendPreResponseHandler((_request, response) =>
+		Effect.succeed(
+			HttpServerResponse.setHeaders(response, {
+				'Access-Control-Allow-Origin': origin,
 				'Access-Control-Expose-Headers': 'WWW-Authenticate',
 				Vary: 'Origin'
-			}
-		: {};
+			})
+		)
+	);
 
-const challenge = (verdict: OriginVerdict, status: 401 | 403, parameters: readonly string[]) =>
+const challenge = (status: 401 | 403, parameters: readonly string[]) =>
 	HttpServerResponse.empty({
 		status,
 		headers: {
-			...corsHeaders(verdict),
 			'WWW-Authenticate': `Bearer ${[
 				...parameters,
 				`resource_metadata="${protectedResourceMetadataUrl()}"`
@@ -98,7 +100,6 @@ const preflight = (verdict: OriginVerdict) =>
 		headers:
 			verdict.kind === 'allowed'
 				? {
-						...corsHeaders(verdict),
 						'Access-Control-Allow-Methods': 'POST, OPTIONS',
 						'Access-Control-Allow-Headers': ALLOWED_REQUEST_HEADERS,
 						'Access-Control-Max-Age': '600'
@@ -202,23 +203,21 @@ const guard = (functions: Functions, access: Layer.Layer<McpAccess, never, McpPr
 				if (verdict.kind === 'refused') {
 					return yield* refuse(request, HttpServerResponse.empty({ status: 403 }));
 				}
+				if (verdict.kind === 'allowed') yield* answerToOrigin(verdict.origin);
 				if (request.method === 'OPTIONS') return preflight(verdict);
 
 				const token = bearerToken(request);
-				if (Option.isNone(token)) return yield* refuse(request, challenge(verdict, 401, []));
+				if (Option.isNone(token)) return yield* refuse(request, challenge(401, []));
 				const accepted = yield* authenticate(functions, token.value);
 				if (Option.isNone(accepted)) {
-					return yield* refuse(request, challenge(verdict, 401, ['error="invalid_token"']));
+					return yield* refuse(request, challenge(401, ['error="invalid_token"']));
 				}
 				const { verified, now } = accepted.value;
 				yield* recordUse(functions, verified, verified.useRecordedAt, now);
 
 				const body = request.method === 'POST' ? yield* readBody(request) : undefined;
 				if (body?._tag === 'TooLarge') {
-					return yield* refuse(
-						request,
-						HttpServerResponse.empty({ status: 413, headers: corsHeaders(verdict) })
-					);
+					return yield* refuse(request, HttpServerResponse.empty({ status: 413 }));
 				}
 
 				const principal = McpPrincipal.of({
@@ -236,18 +235,17 @@ const guard = (functions: Functions, access: Layer.Layer<McpAccess, never, McpPr
 				if (Option.isSome(decision) && decision.value._tag === 'InsufficientScope') {
 					return yield* refuse(
 						request,
-						challenge(verdict, 403, [
+						challenge(403, [
 							'error="insufficient_scope"',
 							`scope="${decision.value.required.join(' ')}"`
 						])
 					);
 				}
 
-				const response = yield* httpEffect.pipe(
+				return yield* httpEffect.pipe(
 					Effect.provideService(McpPrincipal, principal),
 					Effect.provideService(McpAccess, rule)
 				);
-				return HttpServerResponse.setHeaders(response, corsHeaders(verdict));
 			}),
 		{ global: true }
 	);

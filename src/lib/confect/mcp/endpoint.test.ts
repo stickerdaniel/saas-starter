@@ -43,6 +43,7 @@ type Stubs = {
 	readonly userId?: string;
 	readonly principals?: Readonly<Record<string, Principal>>;
 	readonly useRecordedAt?: number | null;
+	readonly verifyError?: Error;
 	readonly viewer?: unknown;
 	readonly sendAs?: (args: unknown) => Promise<unknown>;
 };
@@ -54,6 +55,7 @@ const backend = ({
 	userId = USER._id,
 	principals = {},
 	useRecordedAt = Date.now(),
+	verifyError,
 	viewer = USER,
 	sendAs = () => Promise.resolve({ messageId: 'message-1' })
 }: Stubs) => {
@@ -66,6 +68,7 @@ const backend = ({
 			calls.push(name);
 			switch (name) {
 				case 'oauth/access:verify':
+					if (verifyError !== undefined) return Promise.reject(verifyError);
 					return Promise.resolve({
 						...(principals[verifiedToken(args).token] ?? { userId, scopes }),
 						clientId: 'client-1',
@@ -331,6 +334,40 @@ describe('origin policy', () => {
 		expect(response.headers.get('access-control-expose-headers')).toContain('WWW-Authenticate');
 		expect(response.headers.get('access-control-allow-credentials')).toBeNull();
 	});
+
+	it('answers the app origin with a challenge it can read', async () => {
+		const { authorization: _, ...unauthenticated } = baseHeaders;
+		const response = await endpoint({ scopes: READ }).handle(
+			new Request(MCP_URL, {
+				method: 'POST',
+				headers: { ...unauthenticated, origin: SITE },
+				body: envelope('tools/list', {})
+			})
+		);
+		expect(response.status).toBe(401);
+		expect(response.headers.get('www-authenticate')).toContain(METADATA_URL);
+		expect(response.headers.get('access-control-allow-origin')).toBe(SITE);
+		expect(response.headers.get('access-control-expose-headers')).toContain('WWW-Authenticate');
+	});
+
+	it.each<[string, Stubs, McpRoutesOptions]>([
+		['the token lookup', { scopes: READ, verifyError: new Error('lookup detail 135790') }, {}],
+		[
+			'the access rule',
+			{ scopes: READ },
+			{ access: Layer.effect(McpAccess, Effect.die(new Error('rule detail 135790'))) }
+		]
+	])(
+		'answers the app origin with CORS headers and no detail when %s fails',
+		async (_label, stubs, options) => {
+			const response = await endpoint(stubs, options).handle(
+				rpc({ method: 'tools/list', headers: { origin: SITE } })
+			);
+			expect(response.status).toBe(500);
+			expect(response.headers.get('access-control-allow-origin')).toBe(SITE);
+			expect(await response.text()).toBe('');
+		}
+	);
 
 	it.each(['https://foreign.example.test', 'null', 'not a url'])(
 		'refuses the Origin %s before the token check',
