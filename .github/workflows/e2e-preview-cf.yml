@@ -47,14 +47,16 @@ jobs:
       !contains(github.event.check_run.output.summary || '', 'Preview Alias URL') &&
       github.event.check_run.pull_requests[0]
     steps:
-      - name: Report skipped E2E status
+      - name: Report skipped E2E and Lighthouse statuses
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api repos/${{ github.repository }}/statuses/${{ github.event.check_run.head_sha || inputs.sha }} \
-            -f state=success \
-            -f context="E2E Tests" \
-            -f description="Skipped (production build, no preview)"
+          for context in "E2E Tests" "Lighthouse"; do
+            gh api repos/${{ github.repository }}/statuses/${{ github.event.check_run.head_sha || inputs.sha }} \
+              -f state=success \
+              -f context="$context" \
+              -f description="Skipped (production build, no preview)"
+          done
 
   # Resolve the required E2E status when the CF preview build does not succeed.
   # Without this, the required status would never arrive and would block
@@ -78,18 +80,24 @@ jobs:
           CONCLUSION: ${{ github.event.check_run.conclusion }}
           TARGET_URL: ${{ github.event.check_run.html_url }}
         run: |
-          for i in 1 2 3; do
-            gh api "repos/${{ github.repository }}/statuses/${HEAD_SHA}" \
-              -f state=failure \
-              -f context="E2E Tests" \
-              -f description="CF preview build ${CONCLUSION}, E2E skipped" \
-              -f target_url="$TARGET_URL" \
-              && exit 0
-            echo "Attempt $i failed, retrying in 5s..."
-            sleep 5
-          done
-          echo "::warning::Failed to report status after 3 attempts"
-          exit 1
+          report() {
+            for i in 1 2 3; do
+              gh api "repos/${{ github.repository }}/statuses/${HEAD_SHA}" \
+                -f state=failure \
+                -f context="$1" \
+                -f description="CF preview build ${CONCLUSION}, $2 skipped" \
+                -f target_url="$TARGET_URL" \
+                && return 0
+              echo "Attempt $i failed, retrying in 5s..."
+              sleep 5
+            done
+            echo "::warning::Failed to report the $1 status after 3 attempts"
+            return 1
+          }
+          rc=0
+          report "E2E Tests" E2E || rc=1
+          report Lighthouse Lighthouse || rc=1
+          exit "$rc"
 
   prepare:
     outputs:
@@ -303,6 +311,93 @@ jobs:
           count: ${{ needs.prepare.outputs.count }}
           cf-access-client-id: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           cf-access-client-secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+
+  lighthouse:
+    name: Lighthouse budget
+    needs: prepare
+    # Like aggregate: a cancelled run publishes nothing, a failed prepare publishes failure.
+    if: ${{ !cancelled() && needs.prepare.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      actions: write
+      contents: read
+      pull-requests: read
+      statuses: write
+    steps:
+      - name: Require a prepared preview
+        env:
+          PREPARE: ${{ needs.prepare.result }}
+        run: test "$PREPARE" = success
+      # The workflow's own commit supplies the audit script and budget, so a
+      # pull request head that predates them is audited too.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      # Leaves the output unset, so the audit runs, whenever the complete file
+      # list of the tested head is unknown.
+      - name: List the files the pull request changes
+        id: changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.check_run.pull_requests[0].number }}
+          HEAD_SHA: ${{ github.event.check_run.head_sha }}
+        run: |
+          [ -n "$PR" ] || exit 0
+          if ! pr=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}" --jq '"\(.head.sha) \(.changed_files)"'); then
+            echo "::warning::Could not read pull request ${PR}; auditing."
+            exit 0
+          fi
+          if [ "${pr% *}" != "$HEAD_SHA" ]; then
+            echo "::warning::Pull request ${PR} moved past ${HEAD_SHA}; auditing."
+            exit 0
+          fi
+          listing="$RUNNER_TEMP/pr-files.tsv"
+          if ! gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR}/files?per_page=100" \
+            --jq '.[] | "\(.filename)\t\(.previous_filename // "")"' > "$listing"; then
+            echo "::warning::Could not list the files of pull request ${PR}; auditing."
+            exit 0
+          fi
+          if [ "$(wc -l < "$listing" | tr -d ' ')" != "${pr#* }" ]; then
+            echo "::warning::Listed $(wc -l < "$listing") of ${pr#* } changed files; auditing."
+            exit 0
+          fi
+          tr '\t' '\n' < "$listing" | grep -v '^$' > "$RUNNER_TEMP/changed-files" || true
+          echo "files=$RUNNER_TEMP/changed-files" >> "$GITHUB_OUTPUT"
+      - name: Audit the landing page
+        id: audit
+        env:
+          URL: ${{ needs.prepare.outputs.url }}
+          CHANGED_FILES: ${{ steps.changes.outputs.files }}
+        run: bun scripts/lighthouse-budget.ts --url "$URL" --out lighthouse-reports ${CHANGED_FILES:+--changed-files "$CHANGED_FILES"}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: ${{ !cancelled() }}
+        with:
+          name: lighthouse-${{ github.run_id }}-${{ github.run_attempt }}
+          path: lighthouse-reports
+          if-no-files-found: ignore
+      - name: Cancel a failed audit that a newer push superseded
+        if: failure()
+        env: *supersession-env
+        run: *cancel-if-superseded
+      - name: Report the Lighthouse status
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.check_run.head_sha || inputs.sha }}
+          STATE: ${{ job.status == 'success' && 'success' || 'failure' }}
+          DESCRIPTION: ${{ steps.audit.outputs.description || 'Lighthouse audit did not finish' }}
+        run: |
+          for attempt in 1 2 3; do
+            if gh api "repos/${GITHUB_REPOSITORY}/statuses/$HEAD_SHA" \
+              -f state="$STATE" -f context=Lighthouse \
+              -f description="$DESCRIPTION" \
+              -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"; then exit 0; fi
+            echo "Status reporting attempt $attempt failed"
+            sleep 5
+          done
+          exit 1
 
   aggregate:
     name: Complete preview verdict

@@ -1,0 +1,22 @@
+{
+	"desktop": {
+		"minScore": 95,
+		"max": {
+			"first-contentful-paint": 700,
+			"largest-contentful-paint": 800,
+			"total-blocking-time": 100,
+			"cumulative-layout-shift": 0.01,
+			"speed-index": 1400
+		}
+	},
+	"mobile": {
+		"minScore": 80,
+		"max": {
+			"first-contentful-paint": 2500,
+			"largest-contentful-paint": 2800,
+			"total-blocking-time": 700,
+			"cumulative-layout-shift": 0.01,
+			"speed-index": 3000
+		}
+	}
+}
