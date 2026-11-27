@@ -96,12 +96,14 @@ test.describe('deploy stale-chunk recovery on the landing', () => {
 		});
 
 		let failedUrl: string | null = null;
+		let notFoundCount = 0;
 		await page.route('**/_app/immutable/**/*.js', async (route) => {
 			if (failedUrl) return route.fallback();
 			const response = await route.fetch();
 			const body = await response.text();
-			if (body.includes('support.screenshot.error.email_subject')) {
+			if (!failedUrl && body.includes('support.screenshot.error.email_subject')) {
 				failedUrl = route.request().url();
+				notFoundCount += 1;
 				return route.fulfill({ status: 404, body: '' });
 			}
 			return route.fulfill({ response, body });
@@ -113,6 +115,7 @@ test.describe('deploy stale-chunk recovery on the landing', () => {
 		});
 		await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 		expect(failedUrl).not.toBeNull();
+		expect(notFoundCount).toBe(1);
 
 		await expect.poll(() => preloadErrors.length).toBe(1);
 		const [firstDocument] = documents;
@@ -123,6 +126,6 @@ test.describe('deploy stale-chunk recovery on the landing', () => {
 
 		const failedImports = clientErrors.filter((message) => FAILED_IMPORT.test(message));
 		expect(failedImports.length).toBeLessThanOrEqual(1);
-		for (const message of failedImports) expect(message).toContain(failedUrl);
+		expect(failedImports.every((message) => message.endsWith(failedUrl ?? ''))).toBe(true);
 	});
 });

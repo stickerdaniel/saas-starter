@@ -26,3 +26,29 @@ test('the demo button opens support when clicked before the landing hydrates', a
 		timeout: 30_000
 	});
 });
+
+test('the demo button opens support after the landing hydrates', async ({ page }) => {
+	await page.goto('/en');
+	await expect(page.locator('#svelte-announcer')).toBeAttached({ timeout: 30_000 });
+	await page.getByRole('link', { name: 'Request a demo' }).click();
+
+	await expect(page).toHaveURL(/[?&]support=open(?:&|$)/);
+	await expect(page.getByRole('button', { name: 'Close feedback' })).toBeVisible({
+		timeout: 30_000
+	});
+});
+
+test('the support URL opens support on the landing', async ({ page }) => {
+	await page.goto('/en?support=open');
+	await expect(page.getByRole('button', { name: 'Close feedback' })).toBeVisible({
+		timeout: 30_000
+	});
+});
+
+test('the start button leads to sign-up', async ({ page }) => {
+	await page.goto('/en');
+	await expect(page.locator('#svelte-announcer')).toBeAttached({ timeout: 30_000 });
+	await page.getByRole('link', { name: 'Start Building' }).click();
+
+	await expect(page).toHaveURL(/\/en\/signup(?:[?#]|$)/);
+});
