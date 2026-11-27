@@ -111,6 +111,7 @@ export async function loadTable(checkout: string): Promise<LoadedTable> {
 }
 
 export const UPSTREAM_CONTEXT = 'SAAS_STARTER_UPSTREAM';
+export const UPSTREAM_REPOSITORY = 'stickerdaniel/saas-starter';
 
 export interface Skip {
 	readonly skip: string;
@@ -139,11 +140,11 @@ export async function selectRatchet(
 						})
 		};
 	}
-	if (env[UPSTREAM_CONTEXT] === '1') {
+	if (env[UPSTREAM_CONTEXT] === '1' || env.GITHUB_REPOSITORY === UPSTREAM_REPOSITORY) {
 		return { ...loaded, totality: 'strict', knownEdges: 'starter' };
 	}
 	const skip = {
-		skip: `${UPSTREAM_CONTEXT} is not 1 and ${EXTENSION_FILE} is absent, so the starter's table and known edges do not apply`
+		skip: `${EXTENSION_FILE} is absent and neither ${UPSTREAM_CONTEXT}=1 nor GITHUB_REPOSITORY=${UPSTREAM_REPOSITORY} is set, so the starter's table and known edges do not apply`
 	};
 	return { ...loaded, totality: skip, knownEdges: skip };
 }
@@ -209,7 +210,7 @@ export interface ImportEdge {
 	readonly kind: 'import' | 'kit' | 'path-read';
 }
 
-const SCANNED = /\.(?:[cm]?[jt]s|svelte)$/;
+const SCANNED = /\.(?:[cm]?[jt]s|[jt]sx|svelte)$/;
 const KIT = /^(?:\$app\/|\$env\/|\$service-worker$|@sveltejs\/kit(?:\/|$))/;
 const MODULE_CALLS = new Set([
 	'require',
@@ -240,6 +241,8 @@ const CANDIDATE_SUFFIXES = [
 	'.svelte.ts',
 	'.js',
 	'.svelte',
+	'.tsx',
+	'.jsx',
 	'.json',
 	'/index.ts',
 	'/index.js'
@@ -274,7 +277,12 @@ function scriptBlocks(path: string, text: string): Array<{ code: string; firstLi
 function references(path: string, text: string): Reference[] {
 	const found: Reference[] = [];
 	for (const { code, firstLine } of scriptBlocks(path, text)) {
-		const source = ts.createSourceFile(path, code, ts.ScriptTarget.Latest, false, ts.ScriptKind.TS);
+		const scriptKind = path.endsWith('.tsx')
+			? ts.ScriptKind.TSX
+			: path.endsWith('.jsx')
+				? ts.ScriptKind.JSX
+				: ts.ScriptKind.TS;
+		const source = ts.createSourceFile(path, code, ts.ScriptTarget.Latest, false, scriptKind);
 		const add = (node: ts.Node, value: string, kind: Reference['kind']) =>
 			found.push({
 				text: value,
@@ -419,7 +427,13 @@ function placeResolved(table: MoveTable, resolved: string, target: string): stri
 	if (rule.to !== null && rule.from.endsWith('/') && resolved.startsWith(rule.from)) {
 		return rule.to + resolved.slice(rule.from.length);
 	}
-	return posix.join(posix.dirname(placement.to), posix.basename(resolved));
+	if (resolved === target) return placement.to;
+	const runtime = resolved.match(/\.[cm]?js$/)?.[0] ?? '';
+	const named = resolved.slice(0, resolved.length - runtime.length);
+	const omitted = target.slice(named.length);
+	return placement.to.endsWith(omitted)
+		? placement.to.slice(0, placement.to.length - omitted.length) + runtime
+		: placement.to;
 }
 
 /**

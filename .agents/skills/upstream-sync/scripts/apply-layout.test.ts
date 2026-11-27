@@ -20,7 +20,8 @@ import {
 	readImportEdges,
 	selectRatchet,
 	trackedPaths,
-	UPSTREAM_CONTEXT
+	UPSTREAM_CONTEXT,
+	UPSTREAM_REPOSITORY
 } from './apply-layout';
 
 vi.setConfig({ testTimeout: 60_000 });
@@ -107,6 +108,22 @@ describe('apply-layout --check', () => {
 		expect(layout(root, '--renames').stdout.split('\n')).toContain(
 			'voice/server.ts\tapps/voice/server.ts'
 		);
+	});
+
+	it('refuses a product rule whose destination leaves the checkout', () => {
+		const root = repository({
+			'package.json': '{}',
+			'voice/main.ts': '',
+			'.upstream-sync.layout.ts': `export default { rules: [{ from: 'voice/main.ts', to: '../outside.ts', owner: 'voice' }] };\n`
+		});
+		const check = layout(root, '--check');
+		expect(check.status).toBe(1);
+		expect(check.stderr).toContain(
+			'voice/main.ts moves to "../outside.ts", which is no repository path'
+		);
+		const renames = layout(root, '--renames');
+		expect(renames.status).toBe(1);
+		expect(renames.stdout).not.toContain('../outside.ts');
 	});
 
 	it('refuses an extension rule that collides with a base rule', () => {
@@ -229,22 +246,55 @@ describe('apply-layout plans', () => {
 		]);
 	});
 
+	it('plans the same rewrite for a TSX importer as for a TS importer', () => {
+		const load = "export const load = () => import('../src/lib/config/site');\n";
+		const root = repository({
+			'package.json': '{}',
+			'.upstream-sync.layout.ts': `export default { rules: [{ from: 'desktop/', to: 'apps/desktop/', owner: 'desktop' }] };\n`,
+			'src/lib/config/site.ts': '',
+			'desktop/entry.ts': load,
+			'desktop/entry.tsx': `export const Hint = () => <p>Press \` to open</p>;\n${load}`
+		});
+		expect(layout(root, '--specifiers').stdout.trim().split('\n').sort()).toEqual([
+			'apps/desktop/entry.ts\t../src/lib/config/site\t@repo/product-config/src/config/site',
+			'apps/desktop/entry.tsx\t../src/lib/config/site\t@repo/product-config/src/config/site'
+		]);
+	});
+
+	it('plans the new name of a file that a rule renames', () => {
+		const root = repository({
+			'package.json': '{}',
+			'.upstream-sync.layout.ts': `export default { rules: [
+				{ from: 'voice/old.ts', to: 'apps/voice/renamed.ts', owner: 'voice' },
+				{ from: 'voice/use.ts', to: 'apps/voice/use.ts', owner: 'voice' }
+			] };\n`,
+			'voice/old.ts': '',
+			'voice/use.ts': "import { a } from './old';\nimport { b } from './old.js';\n"
+		});
+		expect(layout(root, '--specifiers').stdout.trim().split('\n').sort()).toEqual([
+			'apps/voice/use.ts\t./old\t./renamed',
+			'apps/voice/use.ts\t./old.js\t./renamed.js'
+		]);
+	});
+
 	it('prints the forbidden pairs and fails when the table does not map the checkout', () => {
 		const root = repository({
 			'package.json': '{}',
 			'scripts/static-checks.ts': '',
-			'scripts/dev.ts': "import { run } from './static-checks';\n"
+			'scripts/dev.ts': "import { run } from './static-checks';\n",
+			'src/routes/x.ts': '',
+			'src/lib/components/ui/hint.tsx':
+				"export const Hint = () => <p>Press ` to open</p>;\nexport const load = () => import('../../../routes/x');\n"
 		});
 		expect(layout(root, '--edges')).toMatchObject({
 			status: 0,
-			stdout: 'scripts/dev.ts\tscripts/static-checks.ts\n'
+			stdout:
+				'scripts/dev.ts\tscripts/static-checks.ts\nsrc/lib/components/ui/hint.tsx\tsrc/routes/x.ts\n'
 		});
 		addFiles(root, { 'stray/notes.md': '' });
 		const unmapped = layout(root, '--edges');
-		expect(unmapped).toMatchObject({
-			status: 1,
-			stdout: 'scripts/dev.ts\tscripts/static-checks.ts\n'
-		});
+		expect(unmapped.status).toBe(1);
+		expect(unmapped.stdout).toContain('scripts/dev.ts\tscripts/static-checks.ts\n');
 		expect(unmapped.stderr).toContain('unmapped: stray/notes.md');
 	});
 });
@@ -254,18 +304,27 @@ describe('selectRatchet', () => {
 	const extension = (body: string) =>
 		`export default { rules: [{ from: 'voice/', to: 'apps/voice/', owner: 'voice' }]${body} };\n`;
 
-	it('holds the starter table and known edges under the upstream context', async () => {
-		const root = repository(copy);
-		expect(await selectRatchet(root, { [UPSTREAM_CONTEXT]: '1' })).toMatchObject({
-			totality: 'strict',
-			knownEdges: 'starter'
-		});
+	it.each([
+		['the repository name alone', { GITHUB_REPOSITORY: UPSTREAM_REPOSITORY }, true],
+		['the variable alone', { [UPSTREAM_CONTEXT]: '1' }, true],
+		['another repository name', { GITHUB_REPOSITORY: 'someone/product' }, false],
+		['neither', {}, false]
+	])('holds the starter table and known edges with %s', async (_, env, upstream) => {
+		const selected = await selectRatchet(repository(copy), env);
+		const skip = {
+			skip: expect.stringMatching(new RegExp(`${UPSTREAM_CONTEXT}=1.*${UPSTREAM_REPOSITORY}`))
+		};
+		expect(selected).toMatchObject(
+			upstream
+				? { totality: 'strict', knownEdges: 'starter' }
+				: { totality: skip, knownEdges: skip }
+		);
 	});
 
 	it('skips both checks in an unmarked copy without the upstream context', async () => {
 		const root = repository({ ...copy, 'stray/notes.md': '' });
 		const selected = await selectRatchet(root, {});
-		const skip = { skip: expect.stringContaining(UPSTREAM_CONTEXT) };
+		const skip = { skip: expect.stringContaining(UPSTREAM_REPOSITORY) };
 		expect(selected).toMatchObject({ totality: skip, knownEdges: skip });
 		expect(layout(root, '--check')).toMatchObject({ status: 1 });
 	});

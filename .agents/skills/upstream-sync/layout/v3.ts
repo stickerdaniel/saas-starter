@@ -106,11 +106,21 @@ export function workspaceAt(path: string): StarterWorkspace {
 }
 
 /** Why `rule` cannot stand in a table, or `undefined` when it can. */
+function isRepositoryPath(path: string): boolean {
+	if (path === '') return true;
+	if (path.startsWith('/') || /^[A-Za-z]:/.test(path) || path.includes('\\')) return false;
+	const parts = (path.endsWith('/') ? path.slice(0, -1) : path).split('/');
+	return parts.every((part) => part !== '' && part !== '.' && part !== '..');
+}
+
 export function ruleProblem(rule: MoveRule): string | undefined {
-	if (rule.from === '' || rule.from.startsWith('/') || rule.from.split('/').includes('..')) {
+	if (rule.from === '' || !isRepositoryPath(rule.from)) {
 		return `"${rule.from}" is no repository path`;
 	}
 	if (rule.to === null) return undefined;
+	if (!isRepositoryPath(rule.to)) {
+		return `${rule.from} moves to "${rule.to}", which is no repository path`;
+	}
 	if (rule.from.endsWith('/') !== (rule.to === '' || rule.to.endsWith('/'))) {
 		return `${rule.from} moves a directory onto a file or a file onto a directory`;
 	}
