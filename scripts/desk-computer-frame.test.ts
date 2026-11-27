@@ -31,10 +31,10 @@ describe('desk computer stylesheet frame', () => {
 	});
 
 	it("carries a fork's theme tokens into the frame of each theme", () => {
-		const layout = sources.layout
+		const theme = sources.theme
 			.replace(/(:root \{[^}]*--background:)[^;]*;/, '$1 oklch(0.97 0.03 150);')
 			.replace(/(\.dark \{[^}]*--card:)[^;]*;/, '$1 oklch(0.25 0.05 150);');
-		const { light, dark } = frames(deskComputerFrameCss({ ...sources, layout }));
+		const { light, dark } = frames(deskComputerFrameCss({ ...sources, theme }));
 
 		expect(light).toContain('--background:oklch(0.97 0.03 150)');
 		expect(dark).toContain('--card:oklch(0.25 0.05 150)');
@@ -42,7 +42,7 @@ describe('desk computer stylesheet frame', () => {
 	});
 
 	it('names a token the figure uses that the theme no longer defines', () => {
-		const layout = sources.layout.replace(/--muted-foreground:[^;]*;/g, '');
-		expect(() => deskComputerFrameCss({ ...sources, layout })).toThrow('--muted-foreground');
+		const theme = sources.theme.replace(/--muted-foreground:[^;]*;/g, '');
+		expect(() => deskComputerFrameCss({ ...sources, theme })).toThrow('--muted-foreground');
 	});
 });

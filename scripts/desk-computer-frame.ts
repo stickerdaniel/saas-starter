@@ -7,8 +7,8 @@ const MODULE = 'virtual:desk-computer-frame.css';
 const COMPONENT_DIR = 'src/lib/components/desk-computer';
 const COMPONENT = `${COMPONENT_DIR}/DeskComputer.svelte`;
 const FIGURE = `${COMPONENT_DIR}/desk-computer.svg`;
-const LAYOUT = 'src/routes/layout.css';
-const SOURCES = [LAYOUT, COMPONENT, FIGURE];
+const THEME = 'src/lib/components/ui/tokens.css';
+const SOURCES = [THEME, COMPONENT, FIGURE];
 // The virtual stylesheet sits beside the component, so dev serves it from a source URL and
 // the build names the emitted asset after it.
 const FRAME = `${COMPONENT_DIR}/desk-computer-frame.css`;
@@ -17,8 +17,8 @@ type Tokens = Map<string, string>;
 
 /** The files the frame derives from, as text. */
 export interface FrameSources {
-	/** The app stylesheet with the theme's `:root`, `.dark` and `@theme` custom properties. */
-	layout: string;
+	/** The token stylesheet with the theme's `:root`, `.dark` and `@theme` custom properties. */
+	theme: string;
 	/** DeskComputer.svelte, whose `<style>` holds the anatomy tokens and paint rules. */
 	component: string;
 	/** The figure's markup. */
@@ -41,7 +41,7 @@ export async function readFrameSources(
 	};
 	const tailwindTheme = createRequire(`${root}/package.json`).resolve('tailwindcss/theme.css');
 	return {
-		layout: await read(LAYOUT),
+		theme: await read(THEME),
 		component: await read(COMPONENT),
 		figure: await read(FIGURE),
 		tailwindTheme: await readFile(tailwindTheme, 'utf8')
@@ -120,7 +120,7 @@ function reachable(css: string, tokens: Tokens): string {
 			if (value === undefined) {
 				if (fallback) continue;
 				throw new Error(
-					`The desk computer figure uses ${name}, which neither ${LAYOUT} (top-level :root, .dark or @theme) nor ${COMPONENT} defines.`
+					`The desk computer figure uses ${name}, which neither ${THEME} (top-level :root, .dark or @theme) nor ${COMPONENT} defines.`
 				);
 			}
 			picked.set(name, value);
@@ -162,12 +162,12 @@ export function deskComputerFrameCss(sources: FrameSources): string {
 	}
 	const [x, y, width, height] = viewBox as [number, number, number, number];
 
-	const layout = themeLayers(sources.layout);
+	const layers = themeLayers(sources.theme);
 	const { base, dark, paint } = componentRules(sources.component);
 	const light: Tokens = new Map([
 		...themeLayers(sources.tailwindTheme).theme,
-		...layout.theme,
-		...layout.root,
+		...layers.theme,
+		...layers.root,
 		...base
 	]);
 	// The image's viewBox extends below the figure and is sliced from the top left, so the
@@ -191,7 +191,7 @@ export function deskComputerFrameCss(sources: FrameSources): string {
 		`.desk-computer:empty{aspect-ratio:${width}/${height};contain:layout}` +
 		'.desk-computer:empty::before{content:"";position:absolute;top:0;left:0;width:100%;height:100%;height:round(up,100%,1px);' +
 		`background:url("${frame(light)}") 0 0/100% 100% no-repeat}` +
-		`.dark .desk-computer:empty::before{background-image:url("${frame(new Map([...light, ...layout.dark, ...dark]))}")}`
+		`.dark .desk-computer:empty::before{background-image:url("${frame(new Map([...light, ...layers.dark, ...dark]))}")}`
 	);
 }
 
