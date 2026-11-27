@@ -1,18 +1,21 @@
-import { createMcpHandler } from '@modelcontextprotocol/server';
+import * as ByteSize from 'effect/ByteSize';
 import * as Clock from 'effect/Clock';
 import * as Duration from 'effect/Duration';
 import * as Effect from 'effect/Effect';
-import * as Exit from 'effect/Exit';
 import * as Layer from 'effect/Layer';
 import * as Option from 'effect/Option';
 import * as Record from 'effect/Record';
+import * as Scheduler from 'effect/Scheduler';
 import * as Schema from 'effect/Schema';
-import * as Scope from 'effect/Scope';
 import type * as Tool from 'effect/ai/Tool';
-import type * as Toolkit from 'effect/ai/Toolkit';
+import * as McpProtocol from 'effect/ai/McpProtocol';
+import * as McpServer from 'effect/ai/McpServer';
+import * as HttpIncomingMessage from 'effect/http/HttpIncomingMessage';
 import * as HttpRouter from 'effect/http/HttpRouter';
+import type * as HttpServerError from 'effect/http/HttpServerError';
 import * as HttpServerRequest from 'effect/http/HttpServerRequest';
 import * as HttpServerResponse from 'effect/http/HttpServerResponse';
+import { syncScheduler } from '../../effect/scheduler';
 import type refs from '../_generated/refs';
 import { MutationRunner, QueryRunner } from '../_generated/services';
 import {
@@ -24,12 +27,13 @@ import {
 	USE_RECORD_INTERVAL
 } from '../oauth/resource';
 import { McpAccess, McpPrincipal, scopeAccess } from './access';
-import { toolkitServerFactory } from './bridge';
-import { MCP_SERVER } from './toolkit';
+import { AppToolkit, AppToolkitLive, MCP_SERVER } from './toolkit';
 
 export const MCP_PATH = '/mcp';
 
 export const MAX_BODY_BYTES = 1_048_576;
+
+const DRAIN_LIMIT_BYTES = 16 * MAX_BODY_BYTES;
 
 const ALLOWED_REQUEST_HEADERS = [
 	'Authorization',
@@ -43,6 +47,17 @@ const PUBLIC_DOCUMENT_HEADERS = {
 	'Access-Control-Allow-Origin': '*',
 	'Access-Control-Allow-Methods': 'GET, OPTIONS',
 	'Cache-Control': 'public, max-age=15, stale-while-revalidate=15, stale-if-error=86400'
+};
+
+type Functions = typeof refs;
+
+type AppTools = (typeof AppToolkit)['tools'];
+
+const appTools: Readonly<Record<string, Tool.Any>> = AppToolkit.tools;
+
+export type McpRoutesOptions = {
+	readonly handlers?: Layer.Layer<Tool.HandlersFor<AppTools>>;
+	readonly access?: Layer.Layer<McpAccess, never, McpPrincipal>;
 };
 
 type OriginVerdict =
@@ -65,8 +80,6 @@ const corsHeaders = (verdict: OriginVerdict): Record<string, string> =>
 			}
 		: {};
 
-const refusedOrigin = HttpServerResponse.empty({ status: 403 });
-
 const challenge = (verdict: OriginVerdict, status: 401 | 403, parameters: readonly string[]) =>
 	HttpServerResponse.empty({
 		status,
@@ -79,58 +92,45 @@ const challenge = (verdict: OriginVerdict, status: 401 | 403, parameters: readon
 		}
 	});
 
-const RpcHead = Schema.Struct({
-	method: Schema.String,
-	params: Schema.optional(Schema.Struct({ name: Schema.optional(Schema.Unknown) }))
-});
+const preflight = (verdict: OriginVerdict) =>
+	HttpServerResponse.empty({
+		status: 204,
+		headers:
+			verdict.kind === 'allowed'
+				? {
+						...corsHeaders(verdict),
+						'Access-Control-Allow-Methods': 'POST, OPTIONS',
+						'Access-Control-Allow-Headers': ALLOWED_REQUEST_HEADERS,
+						'Access-Control-Max-Age': '600'
+					}
+				: {}
+	});
 
-const decodeJson = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Unknown));
-
-const decodeHead = Schema.decodeUnknownOption(RpcHead);
-
-const calledToolNames = (body: string) => {
-	const json = Option.getOrUndefined(decodeJson(body));
-	const messages: readonly unknown[] = Array.isArray(json) ? json : [json];
-	return messages
-		.flatMap((message) => Option.toArray(decodeHead(message)))
-		.flatMap(({ method, params }) =>
-			method === 'tools/call' && typeof params?.name === 'string' ? [params.name] : []
-		);
+const discard = async (body: ReadableStream<Uint8Array> | null) => {
+	if (body === null || body.locked) return;
+	const reader = body.getReader();
+	let total = 0;
+	for (let next = await reader.read(); !next.done; next = await reader.read()) {
+		total += next.value.byteLength;
+		if (total > DRAIN_LIMIT_BYTES) {
+			reader.cancel().catch(() => undefined);
+			return;
+		}
+	}
 };
 
-type BoundedBody =
-	| { readonly tooLarge: true }
-	| { readonly tooLarge: false; readonly bytes: Uint8Array<ArrayBuffer> };
-
-const readBounded = (source: Request) =>
-	Effect.promise(async (): Promise<BoundedBody> => {
-		if (source.body === null) return { tooLarge: false, bytes: new Uint8Array(0) };
-		const reader = source.body.getReader();
-		const chunks: Uint8Array[] = [];
-		let total = 0;
-		for (;;) {
-			const next = await reader.read();
-			if (next.done) break;
-			total += next.value.byteLength;
-			if (total > MAX_BODY_BYTES) {
-				await reader.cancel();
-				return { tooLarge: true };
-			}
-			chunks.push(next.value);
-		}
-		const bytes = new Uint8Array(total);
-		let offset = 0;
-		for (const chunk of chunks) {
-			bytes.set(chunk, offset);
-			offset += chunk.byteLength;
-		}
-		return { tooLarge: false, bytes };
-	});
+const refuse = (
+	request: HttpServerRequest.HttpServerRequest,
+	response: HttpServerResponse.HttpServerResponse
+) =>
+	HttpServerRequest.toWeb(request).pipe(
+		Effect.flatMap((source) => Effect.tryPromise(() => discard(source.body))),
+		Effect.ignore,
+		Effect.as(response)
+	);
 
 const bearerToken = (request: HttpServerRequest.HttpServerRequest) =>
 	Option.fromNullishOr(/^Bearer\s+(\S+)$/iu.exec(request.headers['authorization'] ?? '')?.[1]);
-
-type Functions = typeof refs;
 
 const authenticate = (functions: Functions, token: string) =>
 	Effect.gen(function* () {
@@ -158,139 +158,129 @@ const recordUse = (
 				Effect.catchCause((cause) => Effect.logError('mcp use record failed', cause))
 			);
 
-const isEventStream = (response: Response) =>
-	response.headers.get('content-type')?.includes('text/event-stream') === true;
+type Body =
+	| { readonly _tag: 'Read'; readonly text: string }
+	| { readonly _tag: 'TooLarge' }
+	| { readonly _tag: 'Unreadable' };
 
-const passOn = (response: Response, verdict: OriginVerdict) =>
-	Effect.gen(function* () {
-		if (isEventStream(response)) {
-			return {
-				handedOn: true,
-				response: HttpServerResponse.setHeaders(
-					HttpServerResponse.fromWeb(response),
-					corsHeaders(verdict)
-				)
-			};
-		}
-		const headers = new Headers(response.headers);
-		headers.delete('content-length');
-		const options = {
-			status: response.status,
-			headers: { ...Object.fromEntries(headers), ...corsHeaders(verdict) }
-		};
-		if (response.body === null) {
-			return { handedOn: false, response: HttpServerResponse.empty(options) };
-		}
-		const bytes = new Uint8Array(yield* Effect.promise(() => response.arrayBuffer()));
-		return { handedOn: false, response: HttpServerResponse.uint8Array(bytes, options) };
-	});
+const isTooLarge = (error: HttpServerError.HttpServerError) =>
+	error.reason._tag === 'RequestParseError' && error.reason.reason === 'BodyTooLarge';
 
-type ToolServices = McpPrincipal | QueryRunner | MutationRunner;
-
-const serve =
-	<Tools extends Record<string, Tool.Any>>(
-		functions: Functions,
-		toolkit: Toolkit.Toolkit<Tools>,
-		handlers: Layer.Layer<Tool.HandlersFor<Tools>, never, ToolServices>
-	) =>
-	(request: HttpServerRequest.HttpServerRequest) =>
-		Effect.gen(function* () {
-			const verdict = originVerdict(request);
-			if (verdict.kind === 'refused') return refusedOrigin;
-
-			const token = bearerToken(request);
-			if (Option.isNone(token)) return challenge(verdict, 401, []);
-			const accepted = yield* authenticate(functions, token.value);
-			if (Option.isNone(accepted)) return challenge(verdict, 401, ['error="invalid_token"']);
-			const { verified, now } = accepted.value;
-			yield* recordUse(functions, verified, verified.useRecordedAt, now);
-
-			const source = yield* HttpServerRequest.toWeb(request).pipe(Effect.orDie);
-			const body = yield* readBounded(source);
-			if (body.tooLarge) {
-				return HttpServerResponse.empty({ status: 413, headers: corsHeaders(verdict) });
-			}
-
-			const principal = Layer.succeed(McpPrincipal, {
-				userId: verified.userId,
-				clientId: verified.clientId,
-				scopes: verified.scopes
-			});
-			const access = scopeAccess.pipe(Layer.provide(principal));
-
-			for (const name of calledToolNames(new TextDecoder().decode(body.bytes))) {
-				const tool = Record.get(toolkit.tools, name);
-				if (Option.isNone(tool)) continue;
-				const decision = yield* McpAccess.useSync((rule) => rule.decide(tool.value)).pipe(
-					Effect.provide(access)
-				);
-				if (decision._tag === 'InsufficientScope') {
-					return challenge(verdict, 403, [
-						'error="insufficient_scope"',
-						`scope="${decision.required.join(' ')}"`
-					]);
-				}
-			}
-
-			const tools = yield* Scope.fork(yield* Effect.scope);
-			const served = Effect.gen(function* () {
-				const factory = yield* toolkitServerFactory(toolkit, MCP_SERVER).pipe(
-					Effect.provide(Layer.mergeAll(handlers, access).pipe(Layer.provideMerge(principal))),
-					Scope.provide(tools)
-				);
-				const handler = createMcpHandler(factory, {
-					legacy: 'stateless',
-					responseMode: 'json',
-					maxRequestBodySize: MAX_BODY_BYTES
-				});
-				const rebuilt = new Request(source.url, {
-					method: source.method,
-					headers: source.headers,
-					body: source.method === 'GET' || source.method === 'HEAD' ? undefined : body.bytes,
-					signal: source.signal
-				});
-				const response = yield* Effect.promise(() => handler.fetch(rebuilt));
-				return yield* passOn(response, verdict);
-			});
-			const { response } = yield* served.pipe(
-				Effect.onExit((exit) =>
-					Exit.isSuccess(exit) && exit.value.handedOn ? Effect.void : Scope.close(tools, Exit.void)
-				)
-			);
-			return response;
-		});
-
-const preflight = (request: HttpServerRequest.HttpServerRequest) =>
-	Effect.sync(() => {
-		const verdict = originVerdict(request);
-		if (verdict.kind === 'refused') return refusedOrigin;
-		return HttpServerResponse.empty({
-			status: 204,
-			headers:
-				verdict.kind === 'allowed'
-					? {
-							...corsHeaders(verdict),
-							'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-							'Access-Control-Allow-Headers': ALLOWED_REQUEST_HEADERS,
-							'Access-Control-Max-Age': '600'
-						}
-					: {}
-		});
-	});
-
-export const mcpRoutes = <Tools extends Record<string, Tool.Any>>(
-	functions: Functions,
-	toolkit: Toolkit.Toolkit<Tools>,
-	handlers: Layer.Layer<Tool.HandlersFor<Tools>, never, ToolServices>
-) => {
-	const handle = serve(functions, toolkit, handlers);
-	return Layer.mergeAll(
-		HttpRouter.add('POST', MCP_PATH, handle),
-		HttpRouter.add('GET', MCP_PATH, handle),
-		HttpRouter.add('DELETE', MCP_PATH, handle),
-		HttpRouter.add('OPTIONS', MCP_PATH, preflight)
+const readBody = (request: HttpServerRequest.HttpServerRequest) =>
+	request.text.pipe(
+		Effect.provideService(HttpIncomingMessage.MaxBodySize, ByteSize.bytes(MAX_BODY_BYTES)),
+		Effect.map((text): Body => ({ _tag: 'Read', text })),
+		Effect.catch((error) =>
+			Effect.succeed<Body>(isTooLarge(error) ? { _tag: 'TooLarge' } : { _tag: 'Unreadable' })
+		)
 	);
-};
+
+const ToolCall = Schema.fromJsonString(
+	Schema.Struct({
+		method: Schema.Literal('tools/call'),
+		params: Schema.Struct({ name: Schema.String })
+	})
+);
+
+const decodeToolCall = Schema.decodeUnknownOption(ToolCall);
+
+const calledTool = (request: HttpServerRequest.HttpServerRequest, body: Body) =>
+	body._tag === 'Read' && request.headers['mcp-method'] === 'tools/call'
+		? decodeToolCall(body.text).pipe(
+				Option.map(({ params }) => params.name),
+				Option.filter((name) => request.headers['mcp-name'] === name),
+				Option.flatMap((name) => Record.get(appTools, name))
+			)
+		: Option.none();
+
+const guard = (functions: Functions, access: Layer.Layer<McpAccess, never, McpPrincipal>) =>
+	HttpRouter.middleware<{ provides: McpPrincipal | McpAccess }>()(
+		(httpEffect) =>
+			Effect.gen(function* () {
+				const request = yield* HttpServerRequest.HttpServerRequest;
+				const verdict = originVerdict(request);
+				if (verdict.kind === 'refused') {
+					return yield* refuse(request, HttpServerResponse.empty({ status: 403 }));
+				}
+				if (request.method === 'OPTIONS') return preflight(verdict);
+
+				const token = bearerToken(request);
+				if (Option.isNone(token)) return yield* refuse(request, challenge(verdict, 401, []));
+				const accepted = yield* authenticate(functions, token.value);
+				if (Option.isNone(accepted)) {
+					return yield* refuse(request, challenge(verdict, 401, ['error="invalid_token"']));
+				}
+				const { verified, now } = accepted.value;
+				yield* recordUse(functions, verified, verified.useRecordedAt, now);
+
+				const body = request.method === 'POST' ? yield* readBody(request) : undefined;
+				if (body?._tag === 'TooLarge') {
+					return yield* refuse(
+						request,
+						HttpServerResponse.empty({ status: 413, headers: corsHeaders(verdict) })
+					);
+				}
+
+				const principal = McpPrincipal.of({
+					userId: verified.userId,
+					clientId: verified.clientId,
+					scopes: verified.scopes
+				});
+				const rule = yield* Effect.service(McpAccess).pipe(
+					Effect.provide(access, { local: true }),
+					Effect.provideService(McpPrincipal, principal)
+				);
+
+				const tool = body === undefined ? Option.none() : calledTool(request, body);
+				const decision = Option.map(tool, rule.decide);
+				if (Option.isSome(decision) && decision.value._tag === 'InsufficientScope') {
+					return yield* refuse(
+						request,
+						challenge(verdict, 403, [
+							'error="insufficient_scope"',
+							`scope="${decision.value.required.join(' ')}"`
+						])
+					);
+				}
+
+				const response = yield* httpEffect.pipe(
+					Effect.provideService(McpPrincipal, principal),
+					Effect.provideService(McpAccess, rule)
+				);
+				return HttpServerResponse.setHeaders(response, corsHeaders(verdict));
+			}),
+		{ global: true }
+	);
+
+const accessVisibility = McpServer.visibility(({ target }) =>
+	McpAccess.useSync((rule) =>
+		Option.match(Record.get(appTools, target), {
+			onNone: () => false,
+			onSome: (tool) => rule.decide(tool)._tag === 'Allowed'
+		})
+	)
+);
+
+export const mcpRoutes = (functions: Functions, options: McpRoutesOptions = {}) =>
+	Layer.unwrap(
+		Effect.sync(() =>
+			McpServer.layerHttpRequestScoped({
+				name: MCP_SERVER.name,
+				version: MCP_SERVER.version,
+				path: MCP_PATH,
+				protocols: [McpProtocol.v2026_07_28],
+				allowedOrigins: [...allowedBrowserOrigins()],
+				registrations: McpServer.toolkit(AppToolkit).pipe(
+					Layer.provide(accessVisibility.layer),
+					Layer.provide(options.handlers ?? AppToolkitLive(functions))
+				)
+			})
+		)
+	).pipe(
+		Layer.orDie,
+		Layer.provide(Layer.succeed(Scheduler.Scheduler, syncScheduler())),
+		Layer.provide(guard(functions, options.access ?? scopeAccess))
+	);
 
 const metadataDocument = Effect.sync(() =>
 	HttpServerResponse.jsonUnsafe(protectedResourceMetadata(), { headers: PUBLIC_DOCUMENT_HEADERS })

@@ -1,28 +1,30 @@
 // @vitest-environment node
 import { MutationRunner, QueryRunner } from '@confect/server';
-import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { getFunctionName, type FunctionReference } from 'convex/server';
 import { ConvexError } from 'convex/values';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
+import * as Option from 'effect/Option';
 import * as Schema from 'effect/Schema';
-import * as Tool from 'effect/ai/Tool';
-import * as Toolkit from 'effect/ai/Toolkit';
 import * as HttpRouter from 'effect/http/HttpRouter';
 import * as HttpServer from 'effect/http/HttpServer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RateLimited } from '../../effect/errors';
 import refs from '../_generated/refs';
-import { mcpRoutes } from './endpoint';
-import { AppToolkit, AppToolkitLive } from './toolkit';
+import { McpAccess, type AccessDecision } from './access';
+import { MAX_BODY_BYTES, mcpRoutes, type McpRoutesOptions } from './endpoint';
+import { AppToolkit } from './toolkit';
 
 const SITE = 'https://app.example.test';
 const CONVEX_SITE = 'https://deployment.example.test';
 const MCP_URL = `${CONVEX_SITE}/mcp`;
-const MODERN = '2026-07-28';
-const LEGACY = '2025-11-25';
+const METADATA_URL = `${CONVEX_SITE}/.well-known/oauth-protected-resource/mcp`;
+const REVISION = '2026-07-28';
 const READ = ['mcp:read'];
 const READ_WRITE = ['mcp:read', 'mcp:write'];
+const READ_TOOLS = ['get_account', 'list_community_messages'];
+const ALL_TOOLS = [...READ_TOOLS, 'post_community_message'];
+const WRITE_CHALLENGE = `Bearer error="insufficient_scope", scope="mcp:read mcp:write", resource_metadata="${METADATA_URL}"`;
 
 const USER = {
 	_id: 'user-1',
@@ -37,13 +39,25 @@ const USER = {
 type Stubs = {
 	readonly scopes: readonly string[];
 	readonly userId?: string;
+	readonly useRecordedAt?: number | null;
+	readonly viewer?: unknown;
 	readonly sendAs?: (args: unknown) => Promise<unknown>;
 };
 
-const services = ({ scopes, userId = USER._id, sendAs }: Stubs) => {
+const backend = ({
+	scopes,
+	userId = USER._id,
+	useRecordedAt = Date.now(),
+	viewer = USER,
+	sendAs = () => Promise.resolve({ messageId: 'message-1' })
+}: Stubs) => {
+	const calls: string[] = [];
+	const sent: unknown[] = [];
 	const runQuery = vi.fn();
 	runQuery.mockImplementation((reference: FunctionReference<'query', 'internal'>) => {
-		switch (getFunctionName(reference)) {
+		const name = getFunctionName(reference);
+		calls.push(name);
+		switch (name) {
 			case 'oauth/access:verify':
 				return Promise.resolve({
 					userId,
@@ -52,116 +66,145 @@ const services = ({ scopes, userId = USER._id, sendAs }: Stubs) => {
 					expiresAt: Date.now() + 3_600_000,
 					grant: '0',
 					audience: MCP_URL,
-					useRecordedAt: Date.now()
+					useRecordedAt
 				});
 			case 'users:viewerAs':
-				return Promise.resolve(USER);
+				return Promise.resolve(viewer);
 			case 'messages:listAs':
 				return Promise.resolve([]);
 		}
-		return Promise.reject(new Error(`unexpected query ${getFunctionName(reference)}`));
+		return Promise.reject(new Error(`unexpected query ${name}`));
 	});
 	const runMutation = vi.fn();
 	runMutation.mockImplementation(
-		(reference: FunctionReference<'mutation', 'internal'>, args: unknown) =>
-			getFunctionName(reference) === 'messages:sendAs' && sendAs
-				? sendAs(args)
-				: Promise.reject(new Error(`unexpected mutation ${getFunctionName(reference)}`))
+		(reference: FunctionReference<'mutation', 'internal'>, args: unknown) => {
+			const name = getFunctionName(reference);
+			calls.push(name);
+			switch (name) {
+				case 'oauth/connections:recordUse':
+					return Promise.resolve(null);
+				case 'messages:sendAs':
+					sent.push(args);
+					return sendAs(args);
+			}
+			return Promise.reject(new Error(`unexpected mutation ${name}`));
+		}
 	);
-	return Layer.mergeAll(QueryRunner.layer(runQuery), MutationRunner.layer(runMutation)).pipe(
-		Layer.build,
-		Effect.scoped,
-		Effect.runSync
-	);
+	const context = Layer.mergeAll(
+		QueryRunner.layer(runQuery),
+		MutationRunner.layer(runMutation)
+	).pipe(Layer.build, Effect.scoped, Effect.runSync);
+	const count = (name: string) => calls.filter((call) => call === name).length;
+	return { context, sent, count };
 };
 
-const webHandler = <Tools extends Record<string, Tool.Any>>(
-	toolkit: Toolkit.Toolkit<Tools>,
-	handlers: Parameters<typeof mcpRoutes<Tools>>[2]
-) =>
-	HttpRouter.toWebHandler(
-		mcpRoutes(refs, toolkit, handlers).pipe(Layer.provide(HttpServer.layerServices)),
+const endpoint = (stubs: Stubs, options?: McpRoutesOptions) => {
+	const { handler } = HttpRouter.toWebHandler(
+		mcpRoutes(refs, options).pipe(Layer.provide(HttpServer.layerServices)),
 		{ disableLogger: true }
 	);
-
-const appHandler = (stubs: Stubs) => {
-	const { handler } = webHandler(AppToolkit, AppToolkitLive(refs));
-	const context = services(stubs);
-	return (request: Request) => handler(request, context);
+	const server = backend(stubs);
+	return { ...server, handle: (request: Request) => handler(request, server.context) };
 };
 
-const rpc = (era: 'modern' | 'legacy', method: string, params: Record<string, unknown> = {}) => {
-	const headers: Record<string, string> = {
-		authorization: 'Bearer token',
-		'content-type': 'application/json',
-		accept: 'application/json, text/event-stream',
-		'mcp-protocol-version': era === 'modern' ? MODERN : LEGACY
-	};
-	if (era === 'modern') {
-		headers['mcp-method'] = method;
-		if (typeof params.name === 'string') headers['mcp-name'] = params.name;
-	}
-	const body = {
+type Rpc = {
+	readonly method: string;
+	readonly params?: Record<string, unknown>;
+	readonly headers?: Record<string, string>;
+	readonly signal?: AbortSignal;
+};
+
+const routingHeaders = (method: string, params: Record<string, unknown>) => ({
+	'mcp-method': method,
+	...(typeof params.name === 'string' ? { 'mcp-name': params.name } : {})
+});
+
+const envelope = (method: string, params: Record<string, unknown>) =>
+	JSON.stringify({
 		jsonrpc: '2.0',
 		id: 1,
 		method,
-		params:
-			era === 'modern'
-				? {
-						...params,
-						_meta: {
-							'io.modelcontextprotocol/protocolVersion': MODERN,
-							'io.modelcontextprotocol/clientCapabilities': {}
-						}
-					}
-				: params
-	};
-	return { headers, body: JSON.stringify(body) };
+		params: {
+			...params,
+			_meta: {
+				'io.modelcontextprotocol/protocolVersion': REVISION,
+				'io.modelcontextprotocol/clientCapabilities': {}
+			}
+		}
+	});
+
+const baseHeaders = {
+	authorization: 'Bearer token',
+	'content-type': 'application/json',
+	accept: 'application/json, text/event-stream',
+	'mcp-protocol-version': REVISION
 };
 
-const post = (era: 'modern' | 'legacy', method: string, params?: Record<string, unknown>) => {
-	const { headers, body } = rpc(era, method, params);
-	return (
-		init: { readonly headers?: Record<string, string>; readonly signal?: AbortSignal } = {}
-	) =>
-		new Request(MCP_URL, {
-			method: 'POST',
-			headers: { ...headers, ...init.headers },
-			body,
-			signal: init.signal
-		});
-};
+const post = (body: string, headers: Record<string, string>, signal?: AbortSignal) =>
+	new Request(MCP_URL, {
+		method: 'POST',
+		headers: { ...baseHeaders, ...headers },
+		body,
+		signal
+	});
+
+const rpc = ({ method, params = {}, headers = {}, signal }: Rpc) =>
+	post(envelope(method, params), { ...routingHeaders(method, params), ...headers }, signal);
+
+const callWrite = (headers: Record<string, string> = {}) =>
+	rpc({
+		method: 'tools/call',
+		params: { name: 'post_community_message', arguments: { body: 'hello' } },
+		headers
+	});
+
+const ToolList = Schema.Struct({
+	result: Schema.Struct({
+		tools: Schema.Array(
+			Schema.Struct({
+				name: Schema.String,
+				title: Schema.optional(Schema.String),
+				annotations: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
+			})
+		)
+	})
+});
 
 const CallResult = Schema.Struct({
 	result: Schema.Struct({
-		isError: Schema.optional(Schema.Boolean),
+		isError: Schema.Boolean,
+		structuredContent: Schema.optional(Schema.Unknown),
 		content: Schema.Array(Schema.Struct({ type: Schema.String, text: Schema.String }))
 	})
 });
 
+const JsonRpcError = Schema.Struct({
+	error: Schema.Struct({ code: Schema.Number, message: Schema.String })
+});
+
+const decodeList = Schema.decodeUnknownSync(Schema.fromJsonString(ToolList));
 const decodeCall = Schema.decodeUnknownSync(Schema.fromJsonString(CallResult));
+const decodeError = Schema.decodeUnknownOption(Schema.fromJsonString(JsonRpcError));
 
-const ERAS = [
-	['legacy', { mode: 'legacy' }],
-	['modern', { mode: { pin: MODERN } }]
-] as const;
+const errorCode = (body: string) =>
+	Option.getOrNull(Option.map(decodeError(body), ({ error }) => error.code));
 
-const connect = async (
-	handle: (request: Request) => Promise<Response>,
-	negotiation: (typeof ERAS)[number][1]
-) => {
-	const client = new Client(
-		{ name: 'endpoint-test', version: '0.0.0' },
-		{ versionNegotiation: negotiation }
-	);
-	await client.connect(
-		new StreamableHTTPClientTransport(new URL(MCP_URL), {
-			requestInit: { headers: { authorization: 'Bearer token' } },
-			fetch: (input, init) => handle(new Request(input, init))
-		})
-	);
-	return client;
+const listedTools = async (handle: (request: Request) => Promise<Response>) => {
+	const response = await handle(rpc({ method: 'tools/list' }));
+	expect(response.status).toBe(200);
+	return decodeList(await response.text()).result.tools;
 };
+
+const listedNames = async (handle: (request: Request) => Promise<Response>) =>
+	(await listedTools(handle)).map((tool) => tool.name).sort();
+
+const refusingWrites = Layer.succeed(
+	McpAccess,
+	McpAccess.of({
+		decide: (tool): AccessDecision =>
+			tool.name === 'post_community_message' ? { _tag: 'Refused' } : { _tag: 'Allowed' }
+	})
+);
 
 beforeEach(() => {
 	vi.stubEnv('SITE_URL', SITE);
@@ -173,84 +216,51 @@ afterEach(() => {
 });
 
 describe('tool list', () => {
-	it.each(ERAS)('follows the scopes of the principal in the %s era', async (era, negotiation) => {
-		const read = await connect(appHandler({ scopes: READ }), negotiation);
-		const both = await connect(appHandler({ scopes: READ_WRITE }), negotiation);
-		expect(read.getProtocolEra()).toBe(era);
-		expect((await read.listTools()).tools.map((tool) => tool.name).sort()).toEqual([
-			'get_account',
-			'list_community_messages'
-		]);
-		expect((await both.listTools()).tools.map((tool) => tool.name).sort()).toEqual([
-			'get_account',
-			'list_community_messages',
-			'post_community_message'
-		]);
+	it('follows the scopes of the principal', async () => {
+		expect(await listedNames(endpoint({ scopes: READ }).handle)).toEqual(READ_TOOLS);
+		expect(await listedNames(endpoint({ scopes: READ_WRITE }).handle)).toEqual(ALL_TOOLS);
 	});
 
 	it('lists each tool with its title at both places and the four hints', async () => {
-		const client = await connect(appHandler({ scopes: READ_WRITE }), ERAS[1][1]);
-		const { tools } = await client.listTools();
+		const tools = await listedTools(endpoint({ scopes: READ_WRITE }).handle);
 		expect(tools).toHaveLength(3);
 		for (const tool of tools) {
-			expect(tool.title).toEqual(expect.any(String));
-			expect(tool.annotations?.title).toBe(tool.title);
+			expect(tool.title, tool.name).toEqual(expect.any(String));
+			expect(tool.annotations?.title, tool.name).toBe(tool.title);
 			for (const hint of ['readOnlyHint', 'destructiveHint', 'idempotentHint', 'openWorldHint']) {
-				expect(tool.annotations).toHaveProperty(hint, expect.any(Boolean));
+				expect(tool.annotations, `${tool.name} ${hint}`).toHaveProperty(hint, expect.any(Boolean));
 			}
 		}
 	});
 });
 
-describe('scope challenge', () => {
-	const list = { jsonrpc: '2.0', id: 1, method: 'tools/list' };
-	const write = {
-		jsonrpc: '2.0',
-		id: 2,
-		method: 'tools/call',
-		params: { name: 'post_community_message', arguments: { body: 'hello' } }
-	};
-	const batch = (messages: readonly unknown[]) =>
-		new Request(MCP_URL, {
-			method: 'POST',
-			headers: rpc('legacy', 'tools/call').headers,
-			body: JSON.stringify(messages)
-		});
-
-	it('refuses a legacy batch that calls a tool beyond the scopes of the principal', async () => {
-		const sendAs = vi.fn();
-		const response = await appHandler({ scopes: READ, sendAs })(batch([list, write]));
-		expect(response.status).toBe(403);
-		expect(response.headers.get('www-authenticate')).toBe(
-			`Bearer error="insufficient_scope", scope="mcp:read mcp:write", resource_metadata="${CONVEX_SITE}/.well-known/oauth-protected-resource/mcp"`
+describe('tool result', () => {
+	it('returns the account as structured content and as one JSON text block', async () => {
+		const response = await endpoint({ scopes: READ }).handle(
+			rpc({ method: 'tools/call', params: { name: 'get_account', arguments: {} } })
 		);
-		expect(sendAs).not.toHaveBeenCalled();
+		const account = { userId: USER._id, name: USER.name, email: USER.email, image: null };
+		expect(decodeCall(await response.text()).result).toEqual({
+			isError: false,
+			structuredContent: account,
+			content: [{ type: 'text', text: JSON.stringify(account) }]
+		});
 	});
 
-	it('hands a legacy batch within the scopes of the principal to the SDK', async () => {
-		const response = await appHandler({ scopes: READ })(batch([list]));
-		expect(response.status).toBe(200);
-		expect(await response.text()).toContain('list_community_messages');
-	});
-});
-
-describe('acting user', () => {
 	it('posts each message as the principal of its own request', async () => {
-		const received: unknown[] = [];
-		const sendAs = (args: unknown) => {
-			received.push(args);
-			return Promise.resolve({ messageId: 'message-1' });
-		};
+		const sent: unknown[] = [];
 		for (const userId of ['user-1', 'user-2']) {
-			const response = await appHandler({ scopes: READ_WRITE, userId, sendAs })(
-				post('modern', 'tools/call', {
-					name: 'post_community_message',
-					arguments: { body: `from ${userId}` }
-				})()
+			const server = endpoint({ scopes: READ_WRITE, userId });
+			const response = await server.handle(
+				rpc({
+					method: 'tools/call',
+					params: { name: 'post_community_message', arguments: { body: `from ${userId}` } }
+				})
 			);
-			expect(decodeCall(await response.text()).result.isError).toBeUndefined();
+			expect(decodeCall(await response.text()).result.isError).toBe(false);
+			sent.push(...server.sent);
 		}
-		expect(received).toEqual([
+		expect(sent).toEqual([
 			{ userId: 'user-1', body: 'from user-1' },
 			{ userId: 'user-2', body: 'from user-2' }
 		]);
@@ -259,18 +269,16 @@ describe('acting user', () => {
 
 describe('tool errors', () => {
 	const send = (sendAs: () => Promise<unknown>) =>
-		appHandler({ scopes: READ_WRITE, sendAs })(
-			post('modern', 'tools/call', { name: 'post_community_message', arguments: { body: 'hi' } })()
-		);
+		endpoint({ scopes: READ_WRITE, sendAs }).handle(callWrite());
 
-	it('returns a declared failure of the twin as a tool error with its text', async () => {
+	it('returns a declared failure of the twin as a tool error with its code', async () => {
 		const response = await send(() =>
 			Promise.reject(new ConvexError({ code: 'RATE_LIMITED', retryAfter: 30_000 }))
 		);
-		expect(decodeCall(await response.text()).result).toEqual({
-			isError: true,
-			content: [{ type: 'text', text: 'Rate limited. Retry in 30 s.' }]
-		});
+		const { result } = decodeCall(await response.text());
+		expect(result.isError).toBe(true);
+		expect(result.content).toHaveLength(1);
+		expect(result.content[0]?.text).toContain('RATE_LIMITED');
 	});
 
 	it.each([
@@ -279,26 +287,27 @@ describe('tool errors', () => {
 			() => Promise.reject(new RateLimited({ retryAfter: 987_654_000 }))
 		],
 		['a plain defect', () => Promise.reject(new Error('defect detail 987654'))]
-	])('redacts %s as an internal error', async (_label, sendAs) => {
+	])('returns %s as an internal error without its message', async (_label, sendAs) => {
 		const body = await (await send(sendAs)).text();
 		expect(decodeCall(body).result).toEqual({
 			isError: true,
-			content: [{ type: 'text', text: 'Internal error' }]
+			content: [{ type: 'text', text: 'Tool execution failed due to an internal server error.' }]
 		});
 		expect(body).not.toContain('987654');
-		expect(body).not.toContain('defect detail');
 	});
 });
 
 describe('origin policy', () => {
-	const list = post('modern', 'tools/list');
-
 	it('serves a request without Origin', async () => {
-		expect((await appHandler({ scopes: READ })(list())).status).toBe(200);
+		expect((await endpoint({ scopes: READ }).handle(rpc({ method: 'tools/list' }))).status).toBe(
+			200
+		);
 	});
 
 	it('serves the app origin with CORS headers', async () => {
-		const response = await appHandler({ scopes: READ })(list({ headers: { origin: SITE } }));
+		const response = await endpoint({ scopes: READ }).handle(
+			rpc({ method: 'tools/list', headers: { origin: SITE } })
+		);
 		expect(response.status).toBe(200);
 		expect(response.headers.get('access-control-allow-origin')).toBe(SITE);
 		expect(response.headers.get('access-control-expose-headers')).toContain('WWW-Authenticate');
@@ -306,15 +315,17 @@ describe('origin policy', () => {
 	});
 
 	it.each(['https://foreign.example.test', 'null', 'not a url'])(
-		'refuses the Origin %s with a valid bearer',
+		'refuses the Origin %s before the token check',
 		async (origin) => {
-			const response = await appHandler({ scopes: READ })(list({ headers: { origin } }));
+			const server = endpoint({ scopes: READ });
+			const response = await server.handle(rpc({ method: 'tools/list', headers: { origin } }));
 			expect(response.status).toBe(403);
+			expect(server.count('oauth/access:verify')).toBe(0);
 		}
 	);
 
 	it('answers a preflight from the app origin with the methods and request headers', async () => {
-		const response = await appHandler({ scopes: READ })(
+		const response = await endpoint({ scopes: READ }).handle(
 			new Request(MCP_URL, {
 				method: 'OPTIONS',
 				headers: { origin: SITE, 'access-control-request-method': 'POST' }
@@ -322,8 +333,7 @@ describe('origin policy', () => {
 		);
 		expect(response.status).toBe(204);
 		expect(response.headers.get('access-control-allow-origin')).toBe(SITE);
-		const methods = response.headers.get('access-control-allow-methods')?.split(', ');
-		expect(methods).toEqual(expect.arrayContaining(['GET', 'POST', 'DELETE', 'OPTIONS']));
+		expect(response.headers.get('access-control-allow-methods')).toBe('POST, OPTIONS');
 		expect(response.headers.get('access-control-allow-headers')?.split(', ')).toEqual([
 			'Authorization',
 			'Content-Type',
@@ -334,25 +344,89 @@ describe('origin policy', () => {
 	});
 });
 
-describe('response fidelity', () => {
-	it('returns the bodyless 202 of a notification without a body type and length', async () => {
-		const response = await appHandler({ scopes: READ })(
-			new Request(MCP_URL, {
-				method: 'POST',
-				headers: { ...rpc('legacy', 'unused').headers },
-				body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' })
-			})
-		);
-		expect(response.status).toBe(202);
-		expect(response.headers.get('content-type')).toBeNull();
-		expect(response.headers.get('content-length')).toBeNull();
-		expect(await response.text()).toBe('');
+describe('scope check', () => {
+	it('answers a call of the write tool beyond the scopes with the challenge', async () => {
+		const server = endpoint({ scopes: READ });
+		const response = await server.handle(callWrite());
+		expect(response.status).toBe(403);
+		expect(response.headers.get('www-authenticate')).toBe(WRITE_CHALLENGE);
+		expect(server.count('messages:sendAs')).toBe(0);
 	});
 
-	it('keeps the status and body type of a modern JSON result', async () => {
-		const response = await appHandler({ scopes: READ })(post('modern', 'tools/list')());
-		expect(response.status).toBe(200);
-		expect(response.headers.get('content-type')).toBe('application/json');
+	it('checks the name the layer dispatches on when the body repeats the key', async () => {
+		const server = endpoint({ scopes: READ });
+		const body = envelope('tools/call', { name: 'post_community_message', arguments: {} }).replace(
+			'"params":{',
+			'"params":{"name":"get_account",'
+		);
+		expect(body.indexOf('"get_account"')).toBeLessThan(body.indexOf('"post_community_message"'));
+		const response = await server.handle(
+			post(body, routingHeaders('tools/call', { name: 'post_community_message' }))
+		);
+		expect(response.status).toBe(403);
+		expect(response.headers.get('www-authenticate')).toBe(WRITE_CHALLENGE);
+		expect(server.count('messages:sendAs')).toBe(0);
+	});
+
+	it('leaves a name header that disagrees with the body to the layer', async () => {
+		const server = endpoint({ scopes: READ });
+		const response = await server.handle(callWrite({ 'mcp-name': 'get_account' }));
+		expect(response.status).toBe(400);
+		expect(server.count('messages:sendAs')).toBe(0);
+	});
+
+	it('keeps the write tool hidden from a call that passes the check in Base64 form', async () => {
+		const server = endpoint({ scopes: READ });
+		const encoded = `=?base64?${Buffer.from('post_community_message').toString('base64')}?=`;
+		const response = await server.handle(callWrite({ 'mcp-name': encoded }));
+		expect({
+			status: response.status,
+			error: errorCode(await response.text()),
+			sends: server.count('messages:sendAs')
+		}).toEqual({ status: 200, error: -32602, sends: 0 });
+	});
+
+	it('leaves a batch that calls the write tool to the layer', async () => {
+		const server = endpoint({ scopes: READ });
+		const call = JSON.parse(
+			envelope('tools/call', { name: 'post_community_message', arguments: { body: 'hello' } })
+		);
+		const response = await server.handle(
+			post(JSON.stringify([call]), routingHeaders('tools/call', call.params))
+		);
+		expect(response.status).toBe(400);
+		expect(server.count('messages:sendAs')).toBe(0);
+	});
+});
+
+describe('downstream rule', () => {
+	it('hides and refuses a tool that the access rule refuses despite both scopes', async () => {
+		const server = endpoint({ scopes: READ_WRITE }, { access: refusingWrites });
+		expect(await listedNames(server.handle)).toEqual(READ_TOOLS);
+		const response = await server.handle(callWrite());
+		expect({
+			status: response.status,
+			error: errorCode(await response.text()),
+			sends: server.count('messages:sendAs')
+		}).toEqual({ status: 200, error: -32602, sends: 0 });
+	});
+});
+
+describe('last use', () => {
+	it('records no use for a principal whose use was recorded within the hour', async () => {
+		const server = endpoint({ scopes: READ, useRecordedAt: Date.now() - 60_000 });
+		await server.handle(rpc({ method: 'tools/list' }));
+		await server.handle(rpc({ method: 'tools/list' }));
+		expect(server.count('oauth/connections:recordUse')).toBe(0);
+	});
+
+	it.each([
+		['no recorded use', null],
+		['a use older than an hour', Date.now() - 3_700_000]
+	])('records one use per request for %s', async (_label, useRecordedAt) => {
+		const server = endpoint({ scopes: READ, useRecordedAt });
+		await server.handle(rpc({ method: 'tools/list' }));
+		expect(server.count('oauth/connections:recordUse')).toBe(1);
 	});
 });
 
@@ -364,73 +438,99 @@ const marker = () => {
 	return { fire, fired };
 };
 
-const slowToolkit = () => {
-	const started = marker();
-	const interrupted = marker();
-	const events: string[] = [];
-	const Slow = Tool.make('slow', { success: Schema.Struct({ done: Schema.Boolean }) }).annotate(
-		Tool.Readonly,
-		true
-	);
-	const Quick = Tool.make('quick', { success: Schema.Struct({ done: Schema.Boolean }) }).annotate(
-		Tool.Readonly,
-		true
-	);
-	const tools = Toolkit.make(Slow, Quick);
-	const onInterrupt = Effect.onInterrupt(() =>
-		Effect.promise(() => Promise.resolve()).pipe(
-			Effect.andThen(
-				Effect.sync(() => {
-					events.push('interrupted');
-					interrupted.fire();
-				})
-			)
-		)
-	);
-	const live = tools.toLayer({
-		slow: () => Effect.sync(started.fire).pipe(Effect.andThen(Effect.never), onInterrupt),
-		quick: () => Effect.succeed({ done: true }).pipe(onInterrupt)
+const deadline = (milliseconds: number) =>
+	new Promise<void>((resolve) => {
+		setTimeout(resolve, milliseconds);
 	});
-	const { handler } = webHandler(tools, live);
-	const context = services({ scopes: READ });
-	return {
-		handle: (request: Request) => handler(request, context),
-		started,
-		interrupted,
-		events
-	};
+
+const slowHandlers = () => {
+	const started = marker();
+	const events: string[] = [];
+	const onInterrupt = Effect.onInterrupt(() => Effect.sync(() => events.push('interrupted')));
+	const handlers = AppToolkit.toLayer({
+		get_account: () => Effect.sync(started.fire).pipe(Effect.andThen(Effect.never), onInterrupt),
+		list_community_messages: () => Effect.succeed({ messages: [] }).pipe(onInterrupt),
+		post_community_message: () => Effect.succeed({ messageId: 'message-1' }).pipe(onInterrupt)
+	});
+	return { handlers, started, events };
 };
 
-describe('tool scope', () => {
-	it('interrupts the handler of an aborted request before the response settles', async () => {
-		const { handle, started, events } = slowToolkit();
+describe('aborted request', () => {
+	it('interrupts the handler before the response settles', async () => {
+		const { handlers, started, events } = slowHandlers();
+		const { handle } = endpoint({ scopes: READ }, { handlers });
 		const controller = new AbortController();
 		const settled = handle(
-			post('modern', 'tools/call', { name: 'slow', arguments: {} })({ signal: controller.signal })
+			rpc({
+				method: 'tools/call',
+				params: { name: 'get_account', arguments: {} },
+				signal: controller.signal
+			})
 		).then(
 			() => events.push('settled'),
 			() => events.push('settled')
 		);
 		await started.fired;
 		controller.abort();
-		await settled;
+		await Promise.race([settled, deadline(2_000)]);
 		expect(events).toEqual(['interrupted', 'settled']);
 	});
 
 	it('records no interruption for a completed call', async () => {
-		const { handle, events } = slowToolkit();
-		const response = await handle(post('modern', 'tools/call', { name: 'quick', arguments: {} })());
+		const { handlers, events } = slowHandlers();
+		const response = await endpoint({ scopes: READ }, { handlers }).handle(
+			rpc({ method: 'tools/call', params: { name: 'list_community_messages', arguments: {} } })
+		);
 		expect(response.status).toBe(200);
 		await response.text();
 		expect(events).toEqual([]);
 	});
+});
 
-	it('interrupts the handler when a legacy SSE body is cancelled', async () => {
-		const { handle, started, interrupted } = slowToolkit();
-		const response = await handle(post('legacy', 'tools/call', { name: 'slow', arguments: {} })());
-		expect(response.headers.get('content-type')).toContain('text/event-stream');
-		await started.fired;
-		await response.body?.cancel();
-		await interrupted.fired;
+const recordedBody = (bytes: number, events: string[]) => {
+	const chunk = 65_536;
+	let sent = 0;
+	return new ReadableStream<Uint8Array>(
+		{
+			pull(controller) {
+				if (sent >= bytes) {
+					events.push('read to its end');
+					controller.close();
+					return;
+				}
+				const size = Math.min(chunk, bytes - sent);
+				sent += size;
+				controller.enqueue(new Uint8Array(size).fill(0x20));
+			}
+		},
+		{ highWaterMark: 0 }
+	);
+};
+
+describe('refusal of an oversized body', () => {
+	const oversized = MAX_BODY_BYTES + 1;
+
+	it.each([
+		[413, { authorization: 'Bearer token' }],
+		[401, {}],
+		[403, { authorization: 'Bearer token', origin: 'https://foreign.example.test' }]
+	])('reads the whole body before it answers %i', async (status, headers) => {
+		const events: string[] = [];
+		const { authorization: _, ...unauthenticated } = baseHeaders;
+		const init: RequestInit & { readonly duplex: 'half' } = {
+			method: 'POST',
+			headers: {
+				...unauthenticated,
+				...routingHeaders('tools/list', {}),
+				'content-length': String(oversized),
+				...headers
+			},
+			body: recordedBody(oversized, events),
+			duplex: 'half'
+		};
+		const response = await endpoint({ scopes: READ }).handle(new Request(MCP_URL, init));
+		events.push('settled');
+		expect(response.status).toBe(status);
+		expect(events).toEqual(['read to its end', 'settled']);
 	});
 });

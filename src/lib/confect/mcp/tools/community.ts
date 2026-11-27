@@ -20,7 +20,8 @@ export const ListCommunityMessages = Tool.make('list_community_messages', {
 			})
 		)
 	}),
-	failure: UnauthenticatedCodec
+	failure: UnauthenticatedCodec,
+	dependencies: [McpPrincipal, QueryRunner]
 })
 	.annotate(Tool.Title, 'List community messages')
 	.annotate(Tool.Readonly, true)
@@ -32,7 +33,8 @@ export const PostCommunityMessage = Tool.make('post_community_message', {
 	description: 'Posts one message to the community chat as the signed-in user.',
 	parameters: Schema.Struct({ body: Schema.String }),
 	success: Schema.Struct({ messageId: Schema.String }),
-	failure: Schema.Union([CommunityRefusalCodec, RateLimitedCodec, UnauthenticatedCodec])
+	failure: Schema.Union([CommunityRefusalCodec, RateLimitedCodec, UnauthenticatedCodec]),
+	dependencies: [McpPrincipal, MutationRunner]
 })
 	.annotate(Tool.Title, 'Post community message')
 	.annotate(Tool.Destructive, false)
@@ -41,29 +43,30 @@ export const PostCommunityMessage = Tool.make('post_community_message', {
 export const CommunityTools = Toolkit.make(ListCommunityMessages, PostCommunityMessage);
 
 export const CommunityToolsLive = (functions: typeof refs) =>
-	CommunityTools.toLayer(
-		Effect.gen(function* () {
-			const principal = yield* McpPrincipal;
-			const queries = yield* QueryRunner;
-			const mutations = yield* MutationRunner;
-			return {
-				list_community_messages: () =>
-					queries.runQuery(functions.internal.messages.listAs, { userId: principal.userId }).pipe(
-						Effect.map((messages) => ({
-							messages: messages.map((message) => ({
-								messageId: message._id,
-								userId: message.userId,
-								author: message.author,
-								body: message.body,
-								sentAt: message._creationTime
-							}))
-						})),
-						Effect.catchTag('SchemaError', Effect.die)
-					),
-				post_community_message: ({ body }) =>
-					mutations
-						.runMutation(functions.internal.messages.sendAs, { userId: principal.userId, body })
-						.pipe(Effect.catchTag('SchemaError', Effect.die))
-			};
-		})
-	);
+	CommunityTools.toLayer({
+		list_community_messages: () =>
+			Effect.gen(function* () {
+				const principal = yield* McpPrincipal;
+				const queries = yield* QueryRunner;
+				const messages = yield* queries
+					.runQuery(functions.internal.messages.listAs, { userId: principal.userId })
+					.pipe(Effect.catchTag('SchemaError', Effect.die));
+				return {
+					messages: messages.map((message) => ({
+						messageId: message._id,
+						userId: message.userId,
+						author: message.author,
+						body: message.body,
+						sentAt: message._creationTime
+					}))
+				};
+			}),
+		post_community_message: ({ body }) =>
+			Effect.gen(function* () {
+				const principal = yield* McpPrincipal;
+				const mutations = yield* MutationRunner;
+				return yield* mutations
+					.runMutation(functions.internal.messages.sendAs, { userId: principal.userId, body })
+					.pipe(Effect.catchTag('SchemaError', Effect.die));
+			})
+	});

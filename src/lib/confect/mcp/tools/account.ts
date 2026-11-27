@@ -16,7 +16,8 @@ export const GetAccount = Tool.make('get_account', {
 		email: Schema.String,
 		image: Schema.NullOr(Schema.String)
 	}),
-	failure: UnauthenticatedCodec
+	failure: UnauthenticatedCodec,
+	dependencies: [McpPrincipal, QueryRunner]
 })
 	.annotate(Tool.Title, 'Get account')
 	.annotate(Tool.Readonly, true)
@@ -27,21 +28,19 @@ export const GetAccount = Tool.make('get_account', {
 export const AccountTools = Toolkit.make(GetAccount);
 
 export const AccountToolsLive = (functions: typeof refs) =>
-	AccountTools.toLayer(
-		Effect.gen(function* () {
-			const principal = yield* McpPrincipal;
-			const queries = yield* QueryRunner;
-			return {
-				get_account: () =>
-					queries.runQuery(functions.internal.users.viewerAs, { userId: principal.userId }).pipe(
-						Effect.map((user) => ({
-							userId: user._id,
-							name: user.name,
-							email: user.email,
-							image: user.image ?? null
-						})),
-						Effect.catchTag('SchemaError', Effect.die)
-					)
-			};
-		})
-	);
+	AccountTools.toLayer({
+		get_account: () =>
+			Effect.gen(function* () {
+				const principal = yield* McpPrincipal;
+				const queries = yield* QueryRunner;
+				const user = yield* queries
+					.runQuery(functions.internal.users.viewerAs, { userId: principal.userId })
+					.pipe(Effect.catchTag('SchemaError', Effect.die));
+				return {
+					userId: user._id,
+					name: user.name,
+					email: user.email,
+					image: user.image ?? null
+				};
+			})
+	});

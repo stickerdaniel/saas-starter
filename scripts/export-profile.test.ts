@@ -44,7 +44,6 @@ describe('reduceManifest', () => {
 			Object.keys(full.devDependencies).filter((name) => !(name in reduced.devDependencies))
 		).toEqual([
 			'@axe-core/playwright',
-			'@modelcontextprotocol/client',
 			'@sentry/core',
 			'dom-accessibility-api',
 			'miniflare',
@@ -61,7 +60,7 @@ describe('reduceManifest', () => {
 				const { 'test:e2e': e2e = '', ...scripts } = full.scripts;
 				return { ...full, scripts: { ...scripts, 'ci:e2e': e2e } };
 			},
-			'it names the scripts ["check:docs-fixture","check:reduced-export","test:bun","test:e2e:headed","test:upstream-report"] and the devDependencies ["@axe-core/playwright","@modelcontextprotocol/client","@sentry/core","dom-accessibility-api","miniflare","strip-ansi","tinyglobby"]'
+			'it names the scripts ["check:docs-fixture","check:reduced-export","test:bun","test:e2e:headed","test:upstream-report"] and the devDependencies ["@axe-core/playwright","@sentry/core","dom-accessibility-api","miniflare","strip-ansi","tinyglobby"]'
 		],
 		[
 			'that is reduced but has miniflare back',
