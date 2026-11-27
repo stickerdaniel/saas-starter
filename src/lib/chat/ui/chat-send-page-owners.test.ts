@@ -17,6 +17,9 @@ import ChatTestProvider from './test-fixtures/ChatTestProvider.svelte';
 import AIChatPage from '../../../routes/[[lang]]/app/ai-chat/+page.svelte';
 import AdminSupportPage from '../../../routes/[[lang]]/admin/support/+page.svelte';
 import CustomerSupport from '../../components/customer-support/customer-support.svelte';
+// The support page opens its widget from a lazy import. Loading it with this file keeps
+// a cold transform out of the one-second wait for the composer.
+import '../../components/customer-support/feedback-widget.svelte';
 import en from '../../../i18n/en.json';
 
 vi.mock('svelte', () =>
