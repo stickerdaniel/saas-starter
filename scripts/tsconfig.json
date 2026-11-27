@@ -6,6 +6,6 @@
 		"noEmit": true,
 		"types": ["node", "bun-types"]
 	},
-	"include": ["**/*.ts", "../src/marketing-fonts.d.ts"],
+	"include": ["**/*.ts", "../src/marketing-fonts.d.ts", "../src/legal-document.d.ts"],
 	"exclude": ["__fixtures__/convex-surface-broken/**", "__fixtures__/convex-surface-any/**"]
 }

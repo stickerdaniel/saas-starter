@@ -3,7 +3,7 @@
 	import ObfuscatedEmail from '#lib/components/obfuscated-email.svelte';
 	import SEOHead from '#lib/components/SEOHead.svelte';
 	import { getTranslate } from '@tolgee/svelte';
-	import { privacyMarkdown as source } from '#lib/content/privacy.js';
+	import { privacyDocument as source } from '#lib/content/privacy.js';
 	import { LEGAL_CONFIG } from '#lib/config/legal.js';
 
 	const { t } = getTranslate();
