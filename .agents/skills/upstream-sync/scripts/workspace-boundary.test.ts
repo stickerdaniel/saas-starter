@@ -155,7 +155,6 @@ const KNOWN_EDGES: readonly EdgePair[] = [
 		'node_modules/@gilhrpenner/convex-files-control/dist/component/schema.js'
 	],
 	['src/lib/confect/logging.test.ts', 'src/lib/server/effect-runtime.ts'],
-	['src/lib/confect/mcp/capabilities.test.ts', 'src/lib/mcp/capabilities.ts'],
 	['src/lib/confect/middleware/policies.test.ts', 'src/lib/utils/auth-messages.ts'],
 	['src/lib/confect/middleware/policies.test.ts', 'src/lib/utils/convex-errors.ts'],
 	[

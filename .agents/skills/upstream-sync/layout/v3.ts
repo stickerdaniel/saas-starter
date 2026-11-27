@@ -203,6 +203,7 @@ const BACKEND_SHARED = [
 	'dev/features.test.ts',
 	'dev/notice.ts',
 	'dev/notice.test.ts',
+	'mcp/capabilities.ts',
 	'shared/support-page-route.ts',
 	'shared/support-page-route.test.ts',
 	'shared/support-app-version.ts',
