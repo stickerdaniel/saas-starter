@@ -14,7 +14,6 @@ vi.mock('@tolgee/svelte', async () => {
 
 import { toast } from 'svelte-sonner';
 import { ActiveUploads } from '#lib/hooks/active-uploads.svelte.ts';
-import { toasterStatus } from './ui/sonner/toaster-status.svelte.ts';
 import UploadGuardNoticeHarness from './test-fixtures/UploadGuardNoticeHarness.svelte';
 
 let component: ReturnType<typeof mount> | undefined;
@@ -24,9 +23,9 @@ afterEach(async () => {
 	flushSync();
 	if (component) await unmount(component);
 	component = undefined;
-	toasterStatus.failed = false;
 	vi.doUnmock('./ui/sonner/sonner.svelte');
 	vi.restoreAllMocks();
+	vi.unstubAllGlobals();
 	document.body.replaceChildren();
 });
 
@@ -67,7 +66,7 @@ describe('UploadGuardNotice', () => {
 				'common.update_available'
 			)
 		);
-		expect(document.querySelector('[data-testid="upload-guard-fallback"]')).toBeNull();
+		expect(document.querySelector('[data-testid="toast-fallback"]')).toBeNull();
 		expect(reloadButton()).toBeDefined();
 	});
 
@@ -85,7 +84,7 @@ describe('UploadGuardNotice', () => {
 		flushSync();
 		await settle();
 
-		const fallback = document.querySelector('[data-testid="upload-guard-fallback"]');
+		const fallback = document.querySelector('[data-testid="toast-fallback"]');
 		expect(fallback?.textContent).toContain('common.update_available');
 		expect(reloadButton()).toBeDefined();
 		expect(attempts).toBe(1);
@@ -103,7 +102,7 @@ describe('UploadGuardNotice', () => {
 				'common.update_available'
 			)
 		);
-		expect(document.querySelector('[data-testid="upload-guard-fallback"]')).toBeNull();
+		expect(document.querySelector('[data-testid="toast-fallback"]')).toBeNull();
 	});
 
 	it('explains a blocked navigation without the toaster when its chunk is gone', async () => {
@@ -116,7 +115,7 @@ describe('UploadGuardNotice', () => {
 		flushSync();
 		await settle();
 
-		const fallback = document.querySelector('[data-testid="upload-guard-fallback"]');
+		const fallback = document.querySelector('[data-testid="toast-fallback"]');
 		expect(fallback?.textContent).toContain('common.upload_in_progress');
 		expect(reloadButton()).toBeUndefined();
 	});

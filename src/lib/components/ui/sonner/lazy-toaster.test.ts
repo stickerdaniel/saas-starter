@@ -7,6 +7,10 @@ vi.mock('svelte', () =>
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
 vi.mock('#lib/theme.svelte.ts', () => ({ mode: { current: 'light' } }));
+vi.mock('@tolgee/svelte', async () => {
+	const { readable } = await import('svelte/store');
+	return { getTranslate: () => ({ t: readable((key: string) => key) }) };
+});
 
 import { toast } from 'svelte-sonner';
 import LazyToaster from './lazy-toaster.svelte';
@@ -131,5 +135,53 @@ describe('LazyToaster', () => {
 		toast('Checkout failed');
 		flushSync();
 		await vi.waitFor(() => expect(toastsWith('Checkout failed')).toHaveLength(1));
+	});
+
+	describe('when the renderer fails to load', () => {
+		function failRenderer() {
+			vi.doMock('./sonner.svelte', () => {
+				throw new Error('Failed to fetch dynamically imported module');
+			});
+		}
+
+		function fallbackWith(message: string): HTMLElement[] {
+			return [...document.querySelectorAll<HTMLElement>('[data-testid="toast-fallback"]')].filter(
+				(node) => node.textContent?.includes(message)
+			);
+		}
+
+		it('shows the final text of a promise toast', async () => {
+			failRenderer();
+			let finish!: () => void;
+			toast.promise(new Promise<void>((resolve) => (finish = resolve)), {
+				loading: 'Saving recipients',
+				success: 'Recipients saved'
+			});
+			flushSync();
+			await settle();
+			expect(fallbackWith('Saving recipients')).toHaveLength(1);
+
+			finish();
+			await vi.waitFor(() => expect(fallbackWith('Recipients saved')).toHaveLength(1));
+			expect(fallbackWith('Saving recipients')).toHaveLength(0);
+		});
+
+		it('removes a toast when its time is up or the user closes it', async () => {
+			failRenderer();
+			toast('Checkout failed', { duration: 4000 });
+			toast('Consent not saved', { duration: Number.POSITIVE_INFINITY });
+			flushSync();
+			await settle();
+			expect(fallbackWith('Checkout failed')).toHaveLength(1);
+
+			vi.advanceTimersByTime(4000);
+			flushSync();
+			expect(fallbackWith('Checkout failed')).toHaveLength(0);
+			fallbackWith('Consent not saved')[0]
+				?.querySelector<HTMLButtonElement>('button[aria-label="aria.close"]')
+				?.click();
+			flushSync();
+			expect(fallbackWith('Consent not saved')).toHaveLength(0);
+		});
 	});
 });
