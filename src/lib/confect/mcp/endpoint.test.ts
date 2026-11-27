@@ -216,6 +216,14 @@ const refusingWrites = Layer.succeed(
 	})
 );
 
+const corsHeaders = (response: Response) =>
+	['access-control-allow-origin', 'access-control-expose-headers', 'vary'].map((name) =>
+		response.headers.get(name)
+	);
+
+const APP_CORS = [SITE, 'WWW-Authenticate', 'Origin'];
+const NO_CORS = [null, null, null];
+
 beforeEach(() => {
 	vi.stubEnv('SITE_URL', SITE);
 	vi.stubEnv('CONVEX_SITE_URL', CONVEX_SITE);
@@ -319,10 +327,10 @@ describe('tool errors', () => {
 });
 
 describe('origin policy', () => {
-	it('serves a request without Origin', async () => {
-		expect((await endpoint({ scopes: READ }).handle(rpc({ method: 'tools/list' }))).status).toBe(
-			200
-		);
+	it('serves a request without Origin and adds no CORS headers', async () => {
+		const response = await endpoint({ scopes: READ }).handle(rpc({ method: 'tools/list' }));
+		expect(response.status).toBe(200);
+		expect(corsHeaders(response)).toEqual(NO_CORS);
 	});
 
 	it('serves the app origin with CORS headers', async () => {
@@ -330,8 +338,7 @@ describe('origin policy', () => {
 			rpc({ method: 'tools/list', headers: { origin: SITE } })
 		);
 		expect(response.status).toBe(200);
-		expect(response.headers.get('access-control-allow-origin')).toBe(SITE);
-		expect(response.headers.get('access-control-expose-headers')).toContain('WWW-Authenticate');
+		expect(corsHeaders(response)).toEqual(APP_CORS);
 		expect(response.headers.get('access-control-allow-credentials')).toBeNull();
 	});
 
@@ -346,8 +353,7 @@ describe('origin policy', () => {
 		);
 		expect(response.status).toBe(401);
 		expect(response.headers.get('www-authenticate')).toContain(METADATA_URL);
-		expect(response.headers.get('access-control-allow-origin')).toBe(SITE);
-		expect(response.headers.get('access-control-expose-headers')).toContain('WWW-Authenticate');
+		expect(corsHeaders(response)).toEqual(APP_CORS);
 	});
 
 	it.each<[string, Stubs, McpRoutesOptions]>([
@@ -364,17 +370,18 @@ describe('origin policy', () => {
 				rpc({ method: 'tools/list', headers: { origin: SITE } })
 			);
 			expect(response.status).toBe(500);
-			expect(response.headers.get('access-control-allow-origin')).toBe(SITE);
+			expect(corsHeaders(response)).toEqual(APP_CORS);
 			expect(await response.text()).toBe('');
 		}
 	);
 
 	it.each(['https://foreign.example.test', 'null', 'not a url'])(
-		'refuses the Origin %s before the token check',
+		'refuses the Origin %s before the token check and adds no CORS headers',
 		async (origin) => {
 			const server = endpoint({ scopes: READ });
 			const response = await server.handle(rpc({ method: 'tools/list', headers: { origin } }));
 			expect(response.status).toBe(403);
+			expect(corsHeaders(response)).toEqual(NO_CORS);
 			expect(server.count('oauth/access:verify')).toBe(0);
 		}
 	);
@@ -387,7 +394,7 @@ describe('origin policy', () => {
 			})
 		);
 		expect(response.status).toBe(204);
-		expect(response.headers.get('access-control-allow-origin')).toBe(SITE);
+		expect(corsHeaders(response)).toEqual(APP_CORS);
 		expect(response.headers.get('access-control-allow-methods')).toBe('POST, OPTIONS');
 		expect(response.headers.get('access-control-allow-headers')?.split(', ')).toEqual([
 			'Authorization',
