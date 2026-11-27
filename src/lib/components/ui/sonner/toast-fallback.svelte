@@ -12,10 +12,11 @@
 		return (node: HTMLElement) => {
 			const duration = item.duration ?? 4000;
 			if (item.type === 'loading' || !Number.isFinite(duration)) return;
+			const stack = node.parentElement ?? node;
+			let hovered = stack.matches(':hover');
 			let remaining = duration;
 			let startedAt = 0;
 			let timer: ReturnType<typeof setTimeout> | undefined;
-			let hovered = false;
 			const expire = () => {
 				item.onAutoClose?.(item);
 				toast.dismiss(item.id);
@@ -37,7 +38,6 @@
 			};
 			const enter = hover(true);
 			const leave = hover(false);
-			const stack = node.parentElement ?? node;
 			document.addEventListener('visibilitychange', sync);
 			stack.addEventListener('pointerenter', enter);
 			stack.addEventListener('pointerleave', leave);
