@@ -7,7 +7,6 @@ import { CommunityTools, CommunityToolsLive } from './tools/community';
 
 export const MCP_SERVER = {
 	name: LEGAL_CONFIG.brandName.toLowerCase().replaceAll(' ', '-'),
-	title: LEGAL_CONFIG.brandName,
 	version: '1.0.0'
 };
 
