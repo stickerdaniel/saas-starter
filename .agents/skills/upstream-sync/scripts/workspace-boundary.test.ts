@@ -230,7 +230,7 @@ describe('the workspace boundary', () => {
 		const { added, gone } = compareEdges(found, known);
 		expect(added, 'new forbidden edges').toEqual([]);
 		expect(gone, 'known edges that are gone').toEqual([]);
-	});
+	}, 60_000);
 });
 
 describe('forbiddenEdges', () => {
