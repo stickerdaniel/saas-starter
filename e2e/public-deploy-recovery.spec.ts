@@ -73,12 +73,14 @@ test.describe('deploy stale-chunk recovery', () => {
 test.describe('deploy stale-chunk recovery on the landing', () => {
 	const FAILED_IMPORT =
 		/^Failed to fetch dynamically imported module: \S+\/_app\/immutable\/\S+\.js$/;
-	test.use({ allowedClientErrors: [FAILED_IMPORT] });
+	const allowed: RegExp[] = [];
+	test.use({ allowedClientErrors: allowed });
 
 	test('a missing support chunk reloads the landing once and support opens', async ({
 		page,
 		clientErrors
 	}) => {
+		allowed.length = 0;
 		const documents = new Set<number>();
 		const preloadErrors: number[] = [];
 		await page.exposeBinding('__e2eRecoveryProbe', ({ frame }, kind: string, origin: number) => {
@@ -124,8 +126,12 @@ test.describe('deploy stale-chunk recovery on the landing', () => {
 		expect(documents.size).toBe(2);
 		expect(await page.evaluate(() => sessionStorage.getItem('sk:preload-reloaded'))).toBe('1');
 
+		const exact = new RegExp(
+			`^Failed to fetch dynamically imported module: ${(failedUrl ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`
+		);
+		allowed.push(exact);
 		const failedImports = clientErrors.filter((message) => FAILED_IMPORT.test(message));
 		expect(failedImports.length).toBeLessThanOrEqual(1);
-		expect(failedImports.every((message) => message.endsWith(failedUrl ?? ''))).toBe(true);
+		expect(failedImports.every((message) => exact.test(message))).toBe(true);
 	});
 });
