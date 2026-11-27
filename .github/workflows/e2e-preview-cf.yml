@@ -47,16 +47,33 @@ jobs:
       !contains(github.event.check_run.output.summary || '', 'Preview Alias URL') &&
       github.event.check_run.pull_requests[0]
     steps:
-      - name: Report skipped E2E and Lighthouse statuses
+      - name: Report skipped E2E status
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          for context in "E2E Tests" "Lighthouse"; do
-            gh api repos/${{ github.repository }}/statuses/${{ github.event.check_run.head_sha || inputs.sha }} \
-              -f state=success \
-              -f context="$context" \
-              -f description="Skipped (production build, no preview)"
-          done
+          gh api repos/${{ github.repository }}/statuses/${{ github.event.check_run.head_sha || inputs.sha }} \
+            -f state=success \
+            -f context="E2E Tests" \
+            -f description="Skipped (production build, no preview)"
+      # A build that published a per-version Preview URL gets its Lighthouse
+      # verdict from the lighthouse job instead.
+      - name: Report Lighthouse status of a build without a preview
+        if: ${{ !contains(github.event.check_run.output.summary || '', 'Preview URL') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.check_run.head_sha }}
+          HEAD_BRANCH: ${{ github.event.check_run.check_suite.head_branch }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if [ "$HEAD_BRANCH" = "$DEFAULT_BRANCH" ]; then
+            state=success description="Skipped (production build, no preview)"
+          else
+            state=failure description="Build of ${HEAD_BRANCH:-an unknown branch} published no preview to audit"
+          fi
+          gh api "repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
+            -f state="$state" \
+            -f context=Lighthouse \
+            -f description="$description"
 
   # Resolve the required E2E status when the CF preview build does not succeed.
   # Without this, the required status would never arrive and would block
@@ -68,10 +85,13 @@ jobs:
     permissions:
       statuses: write
     # conclusion is always terminal here because the trigger is check_run: [completed]
+    # A preview build whose check names no pull request yet still gets its
+    # Lighthouse verdict by SHA.
     if: |
       github.event.check_run.app.slug == 'cloudflare-workers-and-pages' &&
       github.event.check_run.conclusion != 'success' &&
-      github.event.check_run.pull_requests[0]
+      (github.event.check_run.pull_requests[0] ||
+      github.event.check_run.check_suite.head_branch != github.event.repository.default_branch)
     steps:
       - name: Report build failure to PR
         env:
@@ -79,6 +99,7 @@ jobs:
           HEAD_SHA: ${{ github.event.check_run.head_sha || inputs.sha }}
           CONCLUSION: ${{ github.event.check_run.conclusion }}
           TARGET_URL: ${{ github.event.check_run.html_url }}
+          HAS_PR: ${{ github.event.check_run.pull_requests[0] && 'true' || 'false' }}
         run: |
           report() {
             for i in 1 2 3; do
@@ -95,13 +116,14 @@ jobs:
             return 1
           }
           rc=0
-          report "E2E Tests" E2E || rc=1
+          if [ "$HAS_PR" = true ]; then report "E2E Tests" E2E || rc=1; fi
           report Lighthouse Lighthouse || rc=1
           exit "$rc"
 
   prepare:
     outputs:
       url: ${{ steps.metadata.outputs.url }}
+      version-url: ${{ steps.metadata.outputs.version-url }}
       convex-url: ${{ steps.metadata.outputs.convex-url }}
       convex-site-url: ${{ steps.metadata.outputs.convex-site-url }}
       build-uuid: ${{ steps.metadata.outputs.build-uuid }}
@@ -232,6 +254,7 @@ jobs:
         run: |
           {
             echo "url=$PUBLIC_SITE_URL"
+            echo "version-url=${E2E_VERSION_URL:-}"
             echo "convex-url=$PUBLIC_CONVEX_URL"
             echo "convex-site-url=$PUBLIC_CONVEX_SITE_URL"
             echo "build-uuid=$E2E_BUILD_UUID"
@@ -315,8 +338,15 @@ jobs:
   lighthouse:
     name: Lighthouse budget
     needs: prepare
-    # Like aggregate: a cancelled run publishes nothing, a failed prepare publishes failure.
-    if: ${{ !cancelled() && needs.prepare.result != 'skipped' }}
+    # Like aggregate: a cancelled run publishes nothing, a failed prepare
+    # publishes failure. A build with a per-version Preview URL and no alias
+    # skips prepare and is audited directly.
+    if: |
+      !cancelled() && (needs.prepare.result != 'skipped' ||
+      (github.event.check_run.app.slug == 'cloudflare-workers-and-pages' &&
+      github.event.check_run.conclusion == 'success' &&
+      contains(github.event.check_run.output.summary || '', 'Preview URL') &&
+      !contains(github.event.check_run.output.summary || '', 'Preview Alias URL')))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -328,13 +358,31 @@ jobs:
       - name: Require a prepared preview
         env:
           PREPARE: ${{ needs.prepare.result }}
-        run: test "$PREPARE" = success
+        run: test "$PREPARE" = success || test "$PREPARE" = skipped
       # The workflow's own commit supplies the audit script and budget, so a
       # pull request head that predates them is audited too.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      # The branch alias can move to another build during the audit; the
+      # per-version URL of the tested build cannot.
+      - name: Resolve the per-version preview URL
+        id: target
+        env:
+          PREPARED_URL: ${{ needs.prepare.outputs.version-url }}
+          SUMMARY: ${{ github.event.check_run.output.summary }}
+        run: |
+          url=$PREPARED_URL
+          if [ -z "$url" ]; then
+            url=$(printf '%s\n' "$SUMMARY" | sed -n -E 's#^Preview URL: (https://[A-Za-z0-9.-]+)/?$#\1#p')
+          fi
+          if [ -z "$url" ] || [ "$(printf '%s\n' "$url" | wc -l)" -ne 1 ]; then
+            echo "description=No single per-version preview URL to audit" >> "$GITHUB_OUTPUT"
+            echo "::error::The tested build published no single per-version Preview URL."
+            exit 1
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
       # Leaves the output unset, so the audit runs, whenever the complete file
       # list of the tested head is unknown.
       - name: List the files the pull request changes
@@ -345,32 +393,42 @@ jobs:
           HEAD_SHA: ${{ github.event.check_run.head_sha }}
         run: |
           [ -n "$PR" ] || exit 0
-          if ! pr=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}" --jq '"\(.head.sha) \(.changed_files)"'); then
+          read_pr() {
+            gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}" --jq '"\(.head.sha) \(.base.sha) \(.changed_files)"'
+          }
+          if ! before=$(read_pr); then
             echo "::warning::Could not read pull request ${PR}; auditing."
             exit 0
           fi
-          if [ "${pr% *}" != "$HEAD_SHA" ]; then
+          read -r head _ count <<< "$before"
+          if [ "$head" != "$HEAD_SHA" ]; then
             echo "::warning::Pull request ${PR} moved past ${HEAD_SHA}; auditing."
             exit 0
           fi
-          listing="$RUNNER_TEMP/pr-files.tsv"
-          if ! gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR}/files?per_page=100" \
-            --jq '.[] | "\(.filename)\t\(.previous_filename // "")"' > "$listing"; then
+          pages="$RUNNER_TEMP/pr-files.json"
+          if ! gh api --paginate --slurp "repos/${GITHUB_REPOSITORY}/pulls/${PR}/files?per_page=100" > "$pages"; then
             echo "::warning::Could not list the files of pull request ${PR}; auditing."
             exit 0
           fi
-          if [ "$(wc -l < "$listing" | tr -d ' ')" != "${pr#* }" ]; then
-            echo "::warning::Listed $(wc -l < "$listing") of ${pr#* } changed files; auditing."
+          if ! after=$(read_pr) || [ "$after" != "$before" ]; then
+            echo "::warning::Pull request ${PR} changed while its files were listed; auditing."
             exit 0
           fi
-          tr '\t' '\n' < "$listing" | grep -v '^$' > "$RUNNER_TEMP/changed-files" || true
-          echo "files=$RUNNER_TEMP/changed-files" >> "$GITHUB_OUTPUT"
+          listed=$(jq '[.[][]] | length' "$pages")
+          if [ "$listed" != "$count" ]; then
+            echo "::warning::Listed ${listed} of ${count} changed files; auditing."
+            exit 0
+          fi
+          jq '[.[][] | .filename, (.previous_filename // empty)]' "$pages" > "$RUNNER_TEMP/changed-files.json"
+          echo "files=$RUNNER_TEMP/changed-files.json" >> "$GITHUB_OUTPUT"
       - name: Audit the landing page
         id: audit
+        timeout-minutes: 15
         env:
-          URL: ${{ needs.prepare.outputs.url }}
+          URL: ${{ steps.target.outputs.url }}
+          HEAD_SHA: ${{ github.event.check_run.head_sha || inputs.sha }}
           CHANGED_FILES: ${{ steps.changes.outputs.files }}
-        run: bun scripts/lighthouse-budget.ts --url "$URL" --out lighthouse-reports ${CHANGED_FILES:+--changed-files "$CHANGED_FILES"}
+        run: bun scripts/lighthouse-budget.ts --url "$URL" --expect-sha "$HEAD_SHA" --deadline-minutes 13 --out lighthouse-reports ${CHANGED_FILES:+--changed-files "$CHANGED_FILES"}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: ${{ !cancelled() }}
         with:
@@ -387,7 +445,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.check_run.head_sha || inputs.sha }}
           STATE: ${{ job.status == 'success' && 'success' || 'failure' }}
-          DESCRIPTION: ${{ steps.audit.outputs.description || 'Lighthouse audit did not finish' }}
+          DESCRIPTION: ${{ steps.audit.outputs.description || steps.target.outputs.description || 'Lighthouse audit did not finish' }}
         run: |
           for attempt in 1 2 3; do
             if gh api "repos/${GITHUB_REPOSITORY}/statuses/$HEAD_SHA" \

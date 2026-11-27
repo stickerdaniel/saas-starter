@@ -132,7 +132,8 @@ describe('Cloudflare build record selection', () => {
 			checkId: 2,
 			sha,
 			origin: alias,
-			buildUuid: current
+			buildUuid: current,
+			versionOrigin: 'https://7f285582-starter.example.workers.dev'
 		});
 		expect(verifiedCloudflarePreview(check(), sha, `${alias}/`).origin).toBe(alias);
 		for (const input of [
@@ -154,6 +155,9 @@ describe('Cloudflare build record selection', () => {
 		const twice = check();
 		twice.output.summary += `Build ID: [${old}](https://dash.cloudflare.com/x)\n`;
 		expect(() => verifiedCloudflarePreview(twice, sha)).toThrow('build UUID');
+		const twoVersions = check();
+		twoVersions.output.summary += 'Preview URL: https://other-starter.example.workers.dev\n';
+		expect(verifiedCloudflarePreview(twoVersions, sha).versionOrigin).toBeUndefined();
 	});
 
 	it('selects the newest completed build for a manual origin regardless of record order', () => {
@@ -298,7 +302,8 @@ describe('automatic and manual build lookup', () => {
 				checkId: 2,
 				sha,
 				origin: alias,
-				buildUuid: current
+				buildUuid: current,
+				versionOrigin: 'https://7f285582-starter.example.workers.dev'
 			}
 		);
 		expect(api.paths).toEqual(['/repos/owner/repo/check-runs/2']);
@@ -742,7 +747,7 @@ describe('workflow compatibility', () => {
 			const result = await discover();
 			expect(result.code, result.output).toBe(0);
 			expect(readFileSync(githubEnv, 'utf8')).toBe(
-				`PUBLIC_SITE_URL=${alias}\nPUBLIC_CONVEX_URL=${backends.convexUrl}\nPUBLIC_CONVEX_SITE_URL=${backends.convexSiteUrl}\nE2E_BUILD_UUID=${current}\n`
+				`PUBLIC_SITE_URL=${alias}\nPUBLIC_CONVEX_URL=${backends.convexUrl}\nPUBLIC_CONVEX_SITE_URL=${backends.convexSiteUrl}\nE2E_BUILD_UUID=${current}\nE2E_VERSION_URL=https://7f285582-starter.example.workers.dev\n`
 			);
 		} finally {
 			rmSync(directory, { recursive: true, force: true });

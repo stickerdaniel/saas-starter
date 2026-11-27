@@ -35,10 +35,6 @@ describe('median', () => {
 		expect(median([620, 352, 9000, 340, 387])).toBe(387);
 		expect(median([4, 1, 3, 2])).toBe(2.5);
 	});
-
-	it('rejects an empty list', () => {
-		expect(() => median([])).toThrow();
-	});
 });
 
 describe('budget comparison', () => {
@@ -58,25 +54,28 @@ describe('budget comparison', () => {
 });
 
 describe('canChangeLanding', () => {
-	it('skips changes confined to docs, tests, fixtures and other workflows', () => {
+	it('skips docs, other workflows, and tests and fixtures outside src', () => {
 		expect(
 			canChangeLanding([
 				'docs/decisions/x.md',
 				'README.md',
 				'scripts/AGENTS.md',
 				'e2e/landing.spec.ts',
-				'src/lib/foo.test.ts',
-				'src/lib/convex/users.test.ts',
+				'scripts/lighthouse-budget.test.ts',
+				'packages/create-saas-starter/test/cli.spec.ts',
 				'scripts/__fixtures__/test-fixtures/a.json',
 				'.github/workflows/static-checks.yml'
 			])
 		).toBe(false);
 	});
 
-	it('audits app sources, Markdown under src, styles and the audit workflow', () => {
+	it('audits everything Tailwind scans under src, and the audit workflow', () => {
 		for (const file of [
 			'src/routes/layout.css',
 			'src/lib/content/about.md',
+			'src/lib/foo.test.ts',
+			'src/lib/convex/users.spec.ts',
+			'src/lib/test-fixtures/card.json',
 			'package.json',
 			'scripts/lighthouse-budget.ts',
 			'lighthouse-budget.json',

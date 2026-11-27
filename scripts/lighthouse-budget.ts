@@ -7,6 +7,8 @@ const BUDGET_FILE = 'lighthouse-budget.json';
 const LIGHTHOUSE = 'lighthouse@12.8.2';
 const PAGE = '/en';
 const ATTEMPTS = 3;
+const ATTEMPT_MS = 180_000;
+const MIN_ATTEMPT_MS = 60_000;
 
 const METRICS = {
 	'first-contentful-paint': { label: 'FCP', unit: ' ms' },
@@ -40,8 +42,8 @@ const LANDING_INDEPENDENT = [
 	/^docs\//,
 	/^(?!src\/).*\.md$/,
 	/^e2e\//,
-	/\.(?:test|spec)\.ts$/,
-	/(?:^|\/)test-fixtures\//,
+	/^(?!src\/).*\.(?:test|spec)\.ts$/,
+	/^(?!src\/)(?:.*\/)?test-fixtures\//,
 	/^\.github\/(?!workflows\/e2e-preview-cf\.yml$)/
 ];
 
@@ -79,13 +81,17 @@ export function breaches(measured: Sample, budget: FormFactorBudget): string[] {
 
 interface LighthouseReport {
 	runtimeError?: { code: string; message: string };
+	mainDocumentUrl?: string;
+	finalDisplayedUrl?: string;
 	categories: { performance?: { score: number | null } };
 	audits: Record<string, { numericValue?: number } | undefined>;
 }
 
-function readSample(file: string): Sample | string {
+function readSample(file: string, url: string): Sample | string {
 	const report: LighthouseReport = JSON.parse(fs.readFileSync(file, 'utf8'));
 	if (report.runtimeError) return `${report.runtimeError.code}: ${report.runtimeError.message}`;
+	for (const landed of [report.mainDocumentUrl, report.finalDisplayedUrl])
+		if (landed !== url) return `audited ${landed ?? 'no URL'} instead of ${url}`;
 	const score = report.categories.performance?.score;
 	if (score === null || score === undefined) return 'no performance score';
 	const missing = METRIC_IDS.filter((id) => report.audits[id]?.numericValue === undefined);
@@ -96,10 +102,21 @@ function readSample(file: string): Sample | string {
 	};
 }
 
-function audit(url: string, formFactor: FormFactor, run: number, outDir: string): Sample {
+function audit(
+	url: string,
+	formFactor: FormFactor,
+	run: number,
+	outDir: string,
+	deadline: number
+): Sample {
 	const chromeFlags = ['--headless=new', ...(process.platform === 'linux' ? ['--no-sandbox'] : [])];
 	for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+		const remaining = deadline - Date.now();
+		if (remaining < MIN_ATTEMPT_MS)
+			throw new Error(`deadline reached before ${formFactor} run ${run}, attempt ${attempt}`);
 		const base = path.join(outDir, `${formFactor}-${run}-${attempt}`);
+		const report = `${base}.report.json`;
+		for (const output of [report, `${base}.report.html`]) fs.rmSync(output, { force: true });
 		const result = spawnSync(
 			process.execPath,
 			[
@@ -114,12 +131,13 @@ function audit(url: string, formFactor: FormFactor, run: number, outDir: string)
 				`--chrome-flags=${chromeFlags.join(' ')}`,
 				'--quiet'
 			],
-			{ stdio: ['ignore', 'inherit', 'inherit'], timeout: 180_000 }
+			{ stdio: ['ignore', 'inherit', 'inherit'], timeout: Math.min(ATTEMPT_MS, remaining) }
 		);
-		const report = `${base}.report.json`;
-		const outcome = fs.existsSync(report)
-			? readSample(report)
-			: `exit ${result.status ?? result.signal ?? result.error?.message}`;
+		const sample = fs.existsSync(report) ? readSample(report, url) : 'no report';
+		const outcome =
+			result.status === 0
+				? sample
+				: `exit ${result.status ?? result.signal ?? result.error?.message}${typeof sample === 'string' ? `, ${sample}` : ''}`;
 		if (typeof outcome !== 'string') return outcome;
 		console.warn(`[lighthouse-budget] ${formFactor} run ${run}, attempt ${attempt}: ${outcome}`);
 	}
@@ -148,32 +166,58 @@ function publish(markdown: string, description: string) {
 		fs.appendFileSync(process.env.GITHUB_OUTPUT, `description=${description.slice(0, 140)}\n`);
 }
 
-if (import.meta.main) {
+function readChangedFiles(file: string): string[] {
+	const files: unknown = JSON.parse(fs.readFileSync(file, 'utf8'));
+	if (!Array.isArray(files) || !files.every((name) => typeof name === 'string'))
+		throw new Error(`${file} must hold a JSON array of file names`);
+	return files;
+}
+
+async function servedVersion(origin: string): Promise<unknown> {
+	const response = await fetch(new URL('/_app/version.json', origin), {
+		redirect: 'error',
+		headers: { 'cache-control': 'no-cache' },
+		signal: AbortSignal.timeout(20_000)
+	});
+	if (!response.ok) throw new Error(`${origin}/_app/version.json returned HTTP ${response.status}`);
+	const body: unknown = await response.json();
+	return typeof body === 'object' && body !== null && 'version' in body ? body.version : undefined;
+}
+
+async function main(): Promise<{ markdown: string; description: string; passed: boolean }> {
 	const { values } = parseArgs({
 		options: {
 			url: { type: 'string' },
+			'expect-sha': { type: 'string' },
 			runs: { type: 'string', default: '5' },
 			out: { type: 'string', default: 'lighthouse-reports' },
-			'changed-files': { type: 'string' }
+			'changed-files': { type: 'string' },
+			'deadline-minutes': { type: 'string', default: '13' }
 		}
 	});
+	const minutes = Number(values['deadline-minutes']);
+	if (!(minutes > 0)) throw new Error('--deadline-minutes must be a positive number');
+	const deadline = Date.now() + minutes * 60_000;
 	if (values['changed-files'] !== undefined) {
-		const files = fs
-			.readFileSync(values['changed-files'], 'utf8')
-			.split('\n')
-			.filter((file) => file !== '');
-		if (!canChangeLanding(files)) {
-			publish(
-				`Lighthouse skipped: none of the ${files.length} changed files can change ${PAGE}.`,
-				`Skipped (${files.length} changed files cannot change ${PAGE})`
-			);
-			process.exit(0);
-		}
+		const files = readChangedFiles(values['changed-files']);
+		if (!canChangeLanding(files))
+			return {
+				markdown: `Lighthouse skipped: none of the ${files.length} changed files can change ${PAGE}.`,
+				description: `Skipped (${files.length} changed files cannot change ${PAGE})`,
+				passed: true
+			};
 	}
 	if (!values.url) throw new Error('Missing --url');
 	const runs = Number(values.runs);
 	if (!Number.isInteger(runs) || runs < 1) throw new Error('--runs must be a positive integer');
 	const url = new URL(PAGE, values.url).href;
+	if (values['expect-sha'] !== undefined) {
+		const served = await servedVersion(values.url);
+		if (served !== values['expect-sha'])
+			throw new Error(
+				`${values.url} serves ${JSON.stringify(served)}, not ${values['expect-sha']}`
+			);
+	}
 	const budget: LighthouseBudget = JSON.parse(
 		fs.readFileSync(path.join(process.cwd(), BUDGET_FILE), 'utf8')
 	);
@@ -181,7 +225,7 @@ if (import.meta.main) {
 
 	const results = (Object.keys(FORM_FACTORS) as FormFactor[]).map((formFactor) => {
 		const samples = Array.from({ length: runs }, (_, index) =>
-			audit(url, formFactor, index + 1, values.out)
+			audit(url, formFactor, index + 1, values.out, deadline)
 		);
 		const measured = summarize(samples);
 		return {
@@ -201,13 +245,24 @@ if (import.meta.main) {
 				`${formFactor} ${measured.score} FCP ${plain('first-contentful-paint', measured.metrics['first-contentful-paint'])} LCP ${plain('largest-contentful-paint', measured.metrics['largest-contentful-paint'])}`
 		)
 		.join(', ');
-	publish(
-		[
+	const verdict = failures.length > 0 ? `Over budget: ${failures.join('; ')}` : medians;
+	return {
+		markdown: [
 			`Lighthouse ${url}, median of ${runs} runs per form factor`,
 			...results.map(({ markdown }) => markdown),
-			failures.length > 0 ? `Over budget: ${failures.join('; ')}` : `Within ${BUDGET_FILE}.`
+			failures.length > 0 ? verdict : `Within ${BUDGET_FILE}.`
 		].join('\n\n'),
-		failures.length > 0 ? `Over budget: ${failures.join('; ')}` : medians
-	);
-	process.exit(failures.length > 0 ? 1 : 0);
+		description: verdict,
+		passed: failures.length === 0
+	};
+}
+
+if (import.meta.main) {
+	const outcome = await main().catch((error: Error) => ({
+		markdown: `Lighthouse audit failed: ${error.message}`,
+		description: `Audit failed: ${error.message}`,
+		passed: false
+	}));
+	publish(outcome.markdown, outcome.description);
+	process.exit(outcome.passed ? 0 : 1);
 }
