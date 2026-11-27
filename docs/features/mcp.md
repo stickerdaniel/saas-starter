@@ -18,7 +18,7 @@ Users connect an MCP app such as Claude or ChatGPT to their account. The app sig
 3. Add the toolkit to `AppToolkit` and its handler layer to `AppToolkitLive` in [`toolkit.ts`](../../src/lib/confect/mcp/toolkit.ts).
 4. Add an entry to [`src/lib/mcp/capabilities.ts`](../../src/lib/mcp/capabilities.ts), with level `view` for a read-only tool and `change` for any other, and add its sentence under `mcp.capability.<tool name>` to all four files in `src/i18n/`.
 
-[`capabilities.test.ts`](../../src/lib/confect/mcp/capabilities.test.ts) fails until every tool of `AppToolkit` has exactly one entry at the level its annotation implies and every locale has its sentence.
+`src/lib/confect/mcp/capabilities.test.ts` in the full template fails until every tool of `AppToolkit` has exactly one entry at the level its annotation implies and every locale has its sentence.
 
 The demo tool `get_account` shows the shape:
 
