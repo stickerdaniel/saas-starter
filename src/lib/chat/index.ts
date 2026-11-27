@@ -86,12 +86,7 @@ export {
 } from './core/index.js';
 
 // UI exports
-export type {
-	ChatInputProjection,
-	ChatInputProjectionReason,
-	ChatUIContextOptions,
-	UploadConfig
-} from './ui/index.js';
+export type { ChatUIContextOptions, UploadConfig } from './ui/index.js';
 
 export {
 	ChatUIContext,

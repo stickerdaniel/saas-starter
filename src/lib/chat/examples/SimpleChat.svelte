@@ -5,12 +5,15 @@
   Copy and customize this for your own chat implementations.
 -->
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { useConvexClient } from 'convex-svelte';
-	import { registerPersistedChatHolder } from '../core/chat-persisted-state.ts';
-	import SimpleChatSessionObserver from './SimpleChatSessionObserver.svelte';
-	import SimpleChatThread from './SimpleChatThread.svelte';
-	import { acquireSimpleChatSessionRegistry } from './simple-chat-session.svelte.ts';
+	import { watch } from 'runed';
+	import { api } from '#lib/convex/_generated/api.js';
+	import { ChatRoot, ChatMessages, ChatInput, ChatCore, ChatUIContext } from '#lib/chat/index.js';
+	import { Avatar, AvatarImage } from '#lib/components/ui/avatar/index.js';
+	import memberFour from '#blocks/team/avatars/member-four.webp';
+	import memberTwo from '#blocks/team/avatars/member-two.webp';
+	import memberFive from '#blocks/team/avatars/member-five.webp';
 
 	let {
 		threadId,
@@ -25,28 +28,91 @@
 		greeting?: string;
 	} = $props();
 
+	const chatApi = {
+		sendMessage: api.aiChat.messages.sendMessage,
+		listMessages: api.aiChat.messages.listMessages
+	};
 	const client = useConvexClient();
-	let registryLease = $state.raw(acquireSimpleChatSessionRegistry(client));
-	const unregisterSessionHolder = registerPersistedChatHolder({
-		forgetPersistedState() {
-			const previousLease = registryLease;
-			registryLease = acquireSimpleChatSessionRegistry(client);
-			previousLease.registry.releaseOwner(previousLease.owner);
-		}
-	});
 
-	onDestroy(() => {
-		unregisterSessionHolder();
-		registryLease.registry.releaseOwner(registryLease.owner);
-	});
+	function openThread(id: string) {
+		const core = new ChatCore({ threadId: id, api: chatApi });
+		const context = new ChatUIContext(core, client, undefined, 'right', null, {
+			forgetSession: () => core.forgetChatSession()
+		});
+		return { core, context };
+	}
+
+	let chat = $state.raw(openThread(untrack(() => threadId)));
+	watch.pre(
+		() => threadId,
+		(id) => {
+			chat.context.dispose();
+			chat = openThread(id);
+		},
+		{ lazy: true }
+	);
+	onDestroy(() => chat.context.dispose());
+
+	async function handleSend(prompt: string) {
+		await chat.core.sendMessage(client, prompt);
+	}
+
+	// Intentionally English-only: this is a copy-and-customize example, not shipped UI.
+	const suggestions = [
+		{ text: 'I have a question about...', label: 'Ask a question' },
+		{ text: 'I found an issue with...', label: 'Report an issue' },
+		{ text: 'Can you help me with...', label: 'Get help' }
+	];
 </script>
 
-{#each registryLease.registry.retainedSessionsFor(registryLease.owner) as session (session.threadId)}
-	<SimpleChatSessionObserver {session} />
-{/each}
+<div class="flex h-full w-full flex-col overflow-hidden rounded-lg border bg-background shadow-lg">
+	<div class="border-b px-4 py-3">
+		<h2 class="font-semibold">{title}</h2>
+	</div>
 
-{#key registryLease.owner}
-	{#key threadId}
-		<SimpleChatThread {threadId} {title} {greeting} registry={registryLease.registry} />
+	{#key chat}
+		<ChatRoot
+			threadId={chat.core.threadId}
+			api={chatApi}
+			externalCore={chat.core}
+			externalUIContext={chat.context}
+		>
+			<div class="relative flex-1 overflow-hidden">
+				<ChatMessages authorHeadingLevel={3}>
+					{#snippet emptyState()}
+						<div class="flex !h-full flex-col justify-start">
+							<div class="m-10 flex flex-col items-start">
+								<!-- Avatar stack -->
+								<div class="mb-6 flex -space-x-3">
+									<Avatar size="xl" outline="background">
+										<AvatarImage src={memberFour} alt="Team member" />
+									</Avatar>
+									<Avatar size="xl" outline="background">
+										<AvatarImage src={memberTwo} alt="Team member" />
+									</Avatar>
+									<Avatar size="xl" outline="background">
+										<AvatarImage src={memberFive} alt="Team member" />
+									</Avatar>
+								</div>
+
+								<!-- Greeting -->
+								<h2 class="mb-4 text-5xl font-semibold text-muted-foreground">Hi</h2>
+
+								<!-- Main heading -->
+								<h3 class="text-3xl font-bold">{greeting}</h3>
+							</div>
+						</div>
+					{/snippet}
+				</ChatMessages>
+			</div>
+
+			<ChatInput
+				{suggestions}
+				placeholder="Type a message..."
+				showFileButton={false}
+				onSend={handleSend}
+				class="mx-4 mb-4"
+			/>
+		</ChatRoot>
 	{/key}
-{/key}
+</div>

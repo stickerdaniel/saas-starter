@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { useQuery, useConvexClient } from 'convex-svelte';
-	import { onDestroy, untrack, type Snippet } from 'svelte';
+	import { useQuery } from 'convex-svelte';
+	import { untrack, type Snippet } from 'svelte';
 	import type { ChatSessionPort } from '../core/chat-session-port.svelte.ts';
 	import {
 		appendDeltaPage,
@@ -9,13 +9,7 @@
 		scopeStreamDeltas
 	} from '../core/delta-stream-cursors.js';
 	import { CHAT_PAGE_SIZE, type ChatMessagesQuery, type DisplayMessage } from '../core/types.js';
-	import {
-		ChatUIContext,
-		setChatUIContext,
-		type UploadConfig,
-		type ChatAlignment,
-		type ChatUIContextOptions
-	} from './chat-context.svelte.ts';
+	import { setChatUIContext, type ChatUIContext } from './chat-context.svelte.ts';
 	import {
 		buildDisplayMessages,
 		dedupeChatDisplayMessages,
@@ -30,17 +24,13 @@
 		type ThreadStreamingUIMessages
 	} from './streaming-display.js';
 	import { syncReasoningAccordionState } from './reasoning-accordion-sync.js';
-	import { activeUploadsContext } from '#lib/hooks/active-uploads.svelte.ts';
 
 	let {
 		threadId,
 		api,
 		externalCore,
 		externalUIContext,
-		uploadConfig,
-		contextOptions,
 		listMessagesArgs,
-		userAlignment = 'right',
 		pageSize = CHAT_PAGE_SIZE,
 		children
 	}: {
@@ -52,49 +42,23 @@
 		};
 		/** Chat session state owned by the embedding surface. */
 		externalCore: ChatSessionPort;
-		/** External UI context (optional - if provided, uses existing context) */
-		externalUIContext?: ChatUIContext;
-		/** Upload configuration for file attachments */
-		uploadConfig?: UploadConfig;
-		/** Lifecycle and input projection hooks owned by the embedding surface. */
-		contextOptions?: ChatUIContextOptions;
+		/** UI context owned and disposed by the embedding surface. */
+		externalUIContext: ChatUIContext;
 		/** Additional args for the listMessages query */
 		listMessagesArgs?: Record<string, unknown>;
-		/** User message alignment - 'right' (default) or 'left' for admin view */
-		userAlignment?: ChatAlignment;
 		/** Number of messages per page */
 		pageSize?: number;
 		/** Child components */
 		children: Snippet;
 	} = $props();
 
-	// Get Convex client
-	const client = useConvexClient();
-
 	// Core ownership is fixed for the component lifetime; swapping requires remount.
 	// svelte-ignore state_referenced_locally
 	const core: ChatSessionPort = externalCore;
 
-	// Create and set UI context (use external if provided)
-	// Context object is created once and placed in Svelte context.
 	// svelte-ignore state_referenced_locally
-	const uiContext =
-		externalUIContext ??
-		new ChatUIContext(
-			core,
-			client,
-			uploadConfig,
-			userAlignment,
-			activeUploadsContext.getOr(null),
-			contextOptions
-		);
+	const uiContext = externalUIContext;
 	setChatUIContext(uiContext);
-
-	// Dispose the internally created context on unmount (revokes blob preview
-	// URLs of unsent attachments). External contexts are owned by their creator.
-	onDestroy(() => {
-		if (!externalUIContext) uiContext.dispose();
-	});
 
 	// Query messages with streamArgs for streaming support
 	// API reference is stable for component lifetime; threadId is reactive in the closure.
