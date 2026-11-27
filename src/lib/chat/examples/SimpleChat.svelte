@@ -5,11 +5,19 @@
   Copy and customize this for your own chat implementations.
 -->
 <script lang="ts">
-	import { onDestroy, untrack } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import { useConvexClient } from 'convex-svelte';
 	import { watch } from 'runed';
 	import { api } from '#lib/convex/_generated/api.js';
-	import { ChatRoot, ChatMessages, ChatInput, ChatCore, ChatUIContext } from '#lib/chat/index.js';
+	import {
+		ChatRoot,
+		ChatMessages,
+		ChatInput,
+		ChatCore,
+		ChatDraftManager,
+		ChatUIContext
+	} from '#lib/chat/index.js';
+	import { ComposerSendCoordinator } from '#lib/chat/ui/composer-send-coordinator.ts';
 	import { Avatar, AvatarImage } from '#lib/components/ui/avatar/index.js';
 	import memberFour from '#blocks/team/avatars/member-four.webp';
 	import memberTwo from '#blocks/team/avatars/member-two.webp';
@@ -33,28 +41,40 @@
 		listMessages: api.aiChat.messages.listMessages
 	};
 	const client = useConvexClient();
+	// svelte-ignore state_referenced_locally
+	const chatCore = new ChatCore({ threadId, api: chatApi });
+	$effect(() => {
+		if (chatCore.threadId !== threadId) chatCore.setThread(threadId);
+	});
 
-	function openThread(id: string) {
-		const core = new ChatCore({ threadId: id, api: chatApi });
-		const context = new ChatUIContext(core, client, undefined, 'right', null, {
-			forgetSession: () => core.forgetChatSession()
-		});
-		return { core, context };
-	}
+	const draftManager = new ChatDraftManager('simple-chat');
+	const owner = new ComposerSendCoordinator({ drafts: draftManager });
+	onDestroy(owner.mount());
+	const chatUIContext = new ChatUIContext(chatCore, client, undefined, 'right', null, {
+		forgetSession: () => chatCore.forgetChatSession(),
+		sendOwner: owner
+	});
+	onDestroy(() => chatUIContext.dispose());
 
-	let chat = $state.raw(openThread(untrack(() => threadId)));
-	watch.pre(
+	watch(
 		() => threadId,
-		(id) => {
-			chat.context.dispose();
-			chat = openThread(id);
-		},
-		{ lazy: true }
+		(current, previous) => {
+			if (previous && chatUIContext.inputValue.trim()) {
+				draftManager.setDraft(previous, chatUIContext.inputValue);
+			}
+			chatUIContext.loadDraft(current);
+		}
 	);
-	onDestroy(() => chat.context.dispose());
+	watch(
+		() => [chatUIContext.inputValue, threadId] as const,
+		([value, id]) => {
+			if (!value.trim() && owner.holdsDraft(id)) return;
+			draftManager.setDraft(id, value);
+		}
+	);
 
 	async function handleSend(prompt: string) {
-		await chat.core.sendMessage(client, prompt);
+		await chatCore.sendMessage(client, prompt);
 	}
 
 	// Intentionally English-only: this is a copy-and-customize example, not shipped UI.
@@ -70,49 +90,42 @@
 		<h2 class="font-semibold">{title}</h2>
 	</div>
 
-	{#key chat}
-		<ChatRoot
-			threadId={chat.core.threadId}
-			api={chatApi}
-			externalCore={chat.core}
-			externalUIContext={chat.context}
-		>
-			<div class="relative flex-1 overflow-hidden">
-				<ChatMessages authorHeadingLevel={3}>
-					{#snippet emptyState()}
-						<div class="flex !h-full flex-col justify-start">
-							<div class="m-10 flex flex-col items-start">
-								<!-- Avatar stack -->
-								<div class="mb-6 flex -space-x-3">
-									<Avatar size="xl" outline="background">
-										<AvatarImage src={memberFour} alt="Team member" />
-									</Avatar>
-									<Avatar size="xl" outline="background">
-										<AvatarImage src={memberTwo} alt="Team member" />
-									</Avatar>
-									<Avatar size="xl" outline="background">
-										<AvatarImage src={memberFive} alt="Team member" />
-									</Avatar>
-								</div>
-
-								<!-- Greeting -->
-								<h2 class="mb-4 text-5xl font-semibold text-muted-foreground">Hi</h2>
-
-								<!-- Main heading -->
-								<h3 class="text-3xl font-bold">{greeting}</h3>
+	<ChatRoot {threadId} api={chatApi} externalCore={chatCore} externalUIContext={chatUIContext}>
+		<div class="relative flex-1 overflow-hidden">
+			<ChatMessages authorHeadingLevel={3}>
+				{#snippet emptyState()}
+					<div class="flex !h-full flex-col justify-start">
+						<div class="m-10 flex flex-col items-start">
+							<!-- Avatar stack -->
+							<div class="mb-6 flex -space-x-3">
+								<Avatar size="xl" outline="background">
+									<AvatarImage src={memberFour} alt="Team member" />
+								</Avatar>
+								<Avatar size="xl" outline="background">
+									<AvatarImage src={memberTwo} alt="Team member" />
+								</Avatar>
+								<Avatar size="xl" outline="background">
+									<AvatarImage src={memberFive} alt="Team member" />
+								</Avatar>
 							</div>
-						</div>
-					{/snippet}
-				</ChatMessages>
-			</div>
 
-			<ChatInput
-				{suggestions}
-				placeholder="Type a message..."
-				showFileButton={false}
-				onSend={handleSend}
-				class="mx-4 mb-4"
-			/>
-		</ChatRoot>
-	{/key}
+							<!-- Greeting -->
+							<h2 class="mb-4 text-5xl font-semibold text-muted-foreground">Hi</h2>
+
+							<!-- Main heading -->
+							<h3 class="text-3xl font-bold">{greeting}</h3>
+						</div>
+					</div>
+				{/snippet}
+			</ChatMessages>
+		</div>
+
+		<ChatInput
+			{suggestions}
+			placeholder="Type a message..."
+			showFileButton={false}
+			onSend={handleSend}
+			class="mx-4 mb-4"
+		/>
+	</ChatRoot>
 </div>

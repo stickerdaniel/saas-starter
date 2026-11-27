@@ -50,6 +50,10 @@ function mountChat(threadId: string, provideTolgee = true) {
 	return provider;
 }
 
+function textareaValue(): string {
+	return document.querySelector<HTMLTextAreaElement>('[data-testid="chat-input-textarea"]')!.value;
+}
+
 async function setComposerValue(value: string) {
 	const input = document.querySelector<HTMLTextAreaElement>('[data-testid="chat-input-textarea"]')!;
 	input.value = value;
@@ -147,6 +151,42 @@ describe('SimpleChat', () => {
 			userId: undefined,
 			fileIds: undefined
 		});
+	});
+
+	it('brings an unsent draft back after switching to another thread and back', async () => {
+		const provider = mountChat('thread-a');
+		await tick();
+		await setComposerValue('Unsent in thread A');
+
+		provider.setContentProps({ threadId: 'thread-b' });
+		await tick();
+		expect(textareaValue()).toBe('');
+
+		provider.setContentProps({ threadId: 'thread-a' });
+		await tick();
+		expect(textareaValue()).toBe('Unsent in thread A');
+	});
+
+	it('puts a refusal that settled while another thread was shown ahead of later typing on return', async () => {
+		const pending = Promise.withResolvers<never>();
+		vi.spyOn(client, 'mutation').mockReturnValue(pending.promise);
+		const provider = mountChat('thread-a');
+		await tick();
+		const { button } = await enterMessage('Refused in thread A');
+		button.click();
+		await tick();
+		await setComposerValue('Typed since in thread A');
+
+		provider.setContentProps({ threadId: 'thread-b' });
+		await tick();
+		pending.reject(new Error('Send rejected'));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		await tick();
+		expect(textareaValue()).toBe('');
+
+		provider.setContentProps({ threadId: 'thread-a' });
+		await tick();
+		expect(textareaValue()).toBe('Refused in thread A\n\nTyped since in thread A');
 	});
 
 	it.each([
