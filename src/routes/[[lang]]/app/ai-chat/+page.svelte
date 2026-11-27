@@ -11,7 +11,7 @@
 	import { getTranslate } from '@tolgee/svelte';
 	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
 	import ThreadChat from './thread-chat.svelte';
-	import { acquireChatComposer } from '#lib/chat/ui/chat-composer.svelte.ts';
+	import { chatComposerFor } from '#lib/chat/ui/chat-composer.svelte.ts';
 	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 	import { useBillingCheckout } from '#lib/components/billing/index.js';
 
@@ -44,13 +44,10 @@
 	);
 
 	// Outlives ThreadChat, which unmounts while a thread is being resolved, and
-	// this page while one of its sends is open. A session that ends while the
-	// page stays open (signed out in another tab) hands over the next session's
-	// owner, and ThreadChat is rebuilt around it below.
-	let sendLease = $state.raw(
-		acquireChatComposer('ai-chat', { storeFiles: true, renewed: (next) => (sendLease = next) })
-	);
-	onDestroy(() => sendLease.release());
+	// this page, so a send still open when the page is left settles into the
+	// next visit. A session that ends while the page stays open (signed out in
+	// another tab) empties it in place, and ThreadChat remounts on it below.
+	const composer = chatComposerFor('ai-chat', { storeFiles: true });
 
 	// Thread from URL param
 	const threadId = $derived(page.url.searchParams.get('thread') ?? '');
@@ -127,7 +124,7 @@
 				</p>
 			</div>
 		{:else if threadId}
-			{#key sendLease.owner}
+			{#key composer.session}
 				<ThreadChat
 					{threadId}
 					{isPro}
@@ -137,7 +134,7 @@
 					onUpgrade={handleUpgrade}
 					isUpgrading={billingCheckout.isLoading}
 					onMessageSent={() => autumn.refetch()}
-					composer={sendLease.owner}
+					{composer}
 				/>
 			{/key}
 		{:else}

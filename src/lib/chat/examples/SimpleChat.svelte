@@ -5,8 +5,7 @@
   Copy and customize this for your own chat implementations.
 -->
 <script lang="ts">
-	import { onDestroy } from 'svelte';
-	import { acquireChatComposer } from '#lib/chat/ui/chat-composer.svelte.ts';
+	import { chatComposerFor } from '#lib/chat/ui/chat-composer.svelte.ts';
 	import SimpleChatThread from './SimpleChatThread.svelte';
 
 	let {
@@ -22,10 +21,7 @@
 		greeting?: string;
 	} = $props();
 
-	let sendLease = $state.raw(
-		acquireChatComposer('simple-chat', { renewed: (next) => (sendLease = next) })
-	);
-	onDestroy(() => sendLease.release());
+	const composer = chatComposerFor('simple-chat');
 </script>
 
 <div class="flex h-full w-full flex-col overflow-hidden rounded-lg border bg-background shadow-lg">
@@ -33,7 +29,7 @@
 		<h2 class="font-semibold">{title}</h2>
 	</div>
 
-	{#key sendLease.owner}
-		<SimpleChatThread {threadId} {greeting} composer={sendLease.owner} />
+	{#key composer.session}
+		<SimpleChatThread {threadId} {greeting} {composer} />
 	{/key}
 </div>

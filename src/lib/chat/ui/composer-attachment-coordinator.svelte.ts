@@ -385,16 +385,15 @@ export class ComposerAttachmentCoordinator {
 		this.write([['', this.strangersUnderEmptyKey(this.listOf(threadId))]]);
 	}
 
-	/** Drops everything held for the ended session, including unpersisted state. */
+	/** Drops everything held for the ended session, including unpersisted state, and empties the store. */
 	forget(): void {
-		const keys = this.keys();
 		const dropped = [...this.lists.values()].flat();
 		for (const attachment of dropped) this.drop(attachment);
-		for (const key of keys) this.deleteList(key);
-		this.persist(...keys);
+		for (const key of this.keys()) this.deleteList(key);
 		this.releaseAbandoned(dropped);
 		this.keylessOwners = new WeakMap();
 		this.takenWithoutId.clear();
+		this.store?.clear();
 	}
 
 	/** Inserts the source-identity placeholder synchronously, then uploads. */

@@ -9,11 +9,7 @@
 	import FeedbackButton from '#lib/components/customer-support/feedback-button.svelte';
 	import { SupportContext, supportContext } from './support-context.svelte.ts';
 	import { ChatUIContext, type UploadConfig } from '#lib/chat/ui/chat-context.svelte.ts';
-	import type { ChatComposer } from '#lib/chat/ui/chat-composer.svelte.ts';
-	import {
-		acquireChatComposer,
-		type ComposerSendLease
-	} from '#lib/chat/ui/chat-composer.svelte.ts';
+	import { chatComposerFor } from '#lib/chat/ui/chat-composer.svelte.ts';
 	import { browser } from '$app/env';
 	import { generateAnonymousUserId, isAnonymousUser } from '#lib/confect/utils/anonymousUser.js';
 	import { supportUserId } from './support-user-id.svelte.ts';
@@ -49,18 +45,14 @@
 	let shouldShowAIChatbar = $derived(!isScreenshotMode && !isFeedbackOpen);
 
 	// Initialize the customer-support composition root. Its composer outlives
-	// this component while one of its sends is open: the page it sits on can be
-	// left and entered again before a reply settles. A session that ends while
-	// the widget stays mounted hands over the next session's composer; the view
-	// is rebuilt around it, and the selected thread and open widget stay. The
+	// this component: the page it sits on can be left and entered again before a
+	// reply settles. A session that ends while the widget stays mounted empties
+	// the composer in place, and the selected thread and open widget stay. The
 	// widget stores a draft when its thread is left, not on every keystroke.
-	let sendLease = acquireChatComposer('support', {
-		saveDrafts: 'on-switch',
-		storeFiles: true,
-		renewed: (next) => renewComposer(next)
-	});
-	onDestroy(() => sendLease.release());
-	const support = new SupportContext(() => aiUsable, sendLease.owner);
+	const support = new SupportContext(
+		() => aiUsable,
+		chatComposerFor('support', { saveDrafts: 'on-switch', storeFiles: true })
+	);
 	supportContext.set(support);
 	const { navigation, conversation } = support;
 
@@ -141,22 +133,30 @@
 	// registry is absent outside the app shell (isolated tests, the standalone
 	// example), where no layout asks.
 	const activeUploads = activeUploadsContext.getOr(null);
-	function createChatUIContext(composer: ChatComposer): ChatUIContext {
-		return new ChatUIContext(conversation, client, composer, uploadConfig, 'right', activeUploads);
+	function createChatUIContext(): ChatUIContext {
+		return new ChatUIContext(
+			conversation,
+			client,
+			support.composer,
+			uploadConfig,
+			'right',
+			activeUploads
+		);
 	}
-	let chatUIContext = $state.raw(createChatUIContext(support.composer));
+	let chatUIContext = $state.raw(createChatUIContext());
 
-	function renewComposer(next: ComposerSendLease): void {
-		sendLease = next;
-		support.composer = next.owner;
-		const previous = chatUIContext;
-		chatUIContext = createChatUIContext(next.owner);
-		// Renewal runs inside the session-end sweep, and disposing unregisters the
-		// old context before the sweep reaches it. Its composer stays on screen until
-		// the keyed rebuild flushes, so it must hold nothing the old session typed.
-		previous.forgetPersistedState();
-		previous.dispose();
-	}
+	// A session end remounts the widget below on a new view of the same composer.
+	// The new view registers before the old one goes, so the old one lets go of
+	// nothing the new view shows.
+	watch.pre(
+		() => support.composer.session,
+		() => {
+			const previous = chatUIContext;
+			chatUIContext = createChatUIContext();
+			previous.dispose();
+		},
+		{ lazy: true }
+	);
 
 	// Revokes the blob preview URLs of unsent attachments
 	onDestroy(() => chatUIContext.dispose());

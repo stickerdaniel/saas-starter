@@ -68,6 +68,8 @@ export class ChatUIContext implements ComposerView {
 
 	private disposed = false;
 	private readonly composer: ChatComposer;
+	/** The composer session this view was made for. */
+	private readonly session: number;
 	private readonly detachFromComposer: () => void;
 
 	/** The one composer mounted inside this ChatRoot. */
@@ -94,6 +96,7 @@ export class ChatUIContext implements ComposerView {
 		this.core = core;
 		this.client = client;
 		this.composer = composer;
+		this.session = untrack(() => composer.session);
 		this.uploadConfig = uploadConfig;
 		this.userAlignment = userAlignment;
 		this.activeUploads = activeUploads;
@@ -102,23 +105,28 @@ export class ChatUIContext implements ComposerView {
 	}
 
 	/**
+	 * Disposed, or made for a session that has ended. Such a view shows nothing
+	 * and changes nothing, also before its surface remounts it.
+	 */
+	private get retired(): boolean {
+		return this.disposed || this.sessionEnded;
+	}
+
+	/** Whether the session this view was made for has ended. Its sends belong to nobody. */
+	private get sessionEnded(): boolean {
+		return this.composer.session !== this.session;
+	}
+
+	/**
 	 * Show the text and files of the conversation the session shows now. ChatRoot
 	 * calls it when that changes. Leaving a real thread restarts the message fade.
 	 */
 	activate(): void {
+		if (this.retired) return;
 		if (this.composer.activate(this)) {
 			this.messagesFade.reset();
 			this._hasEverDisplayedMessages = false;
 		}
-	}
-
-	/**
-	 * Lets go of what the composer holds, because its session ended. Runs once
-	 * per session end, so a surface that hands its view over during the sweep
-	 * can call it before the old view goes.
-	 */
-	forgetPersistedState(): void {
-		this.composer.forgetPersistedState();
 	}
 
 	/** User messages use userAlignment, every other role the opposite side. */
@@ -195,6 +203,7 @@ export class ChatUIContext implements ComposerView {
 	 * For surfaces that never carry files from one conversation into another.
 	 */
 	discardAttachments(conversation: ChatConversation): void {
+		if (this.retired) return;
 		this.composer.discardAttachments(conversation);
 	}
 
@@ -228,13 +237,13 @@ export class ChatUIContext implements ComposerView {
 		if (this.composerRefusal === handler) this.composerRefusal = undefined;
 	}
 
-	/** The text of the conversation this context shows, held by the composer. A disposed context shows none. */
+	/** The text of the conversation this context shows, held by the composer. A retired context shows none. */
 	get inputValue(): string {
-		return this.disposed ? '' : this.composer.textOf(this.core.conversation);
+		return this.retired ? '' : this.composer.textOf(this.core.conversation);
 	}
 
 	setInputValue(value: string): void {
-		if (this.disposed) return;
+		if (this.retired) return;
 		this.composer.edit(this.conversation, value);
 	}
 
@@ -242,12 +251,15 @@ export class ChatUIContext implements ComposerView {
 		this.setInputValue('');
 	}
 
+	/** What a send would carry now. A context of an ended session carries nothing. */
 	captureSendSnapshot(): ChatSendSnapshot {
 		return {
 			sessionEpoch: getChatSessionEpoch(),
 			conversation: this.conversation,
 			inputValue: untrack(() => this.inputValue),
-			attachments: this.composer.captureAttachments(this.conversation)
+			attachments: untrack(() => this.sessionEnded)
+				? { attachments: [] }
+				: this.composer.captureAttachments(this.conversation)
 		};
 	}
 
@@ -256,29 +268,38 @@ export class ChatUIContext implements ComposerView {
 	}
 
 	clearInputForSend(snapshot: ChatSendSnapshot): void {
-		if (this.disposed) return;
+		if (this.retired) return;
 		this.composer.clearSent(snapshot);
 	}
 
+	/** Take a send's files out of the composer, also after this view unmounted, unless its session ended. */
 	clearAttachmentsForSend(snapshot: ChatSendSnapshot): void {
+		if (untrack(() => this.sessionEnded)) return;
 		this.composer.clearSentAttachments(snapshot);
 	}
 
 	isSendSnapshotCurrent(snapshot: ChatSendSnapshot): boolean {
 		return (
-			isChatSessionCurrent(snapshot.sessionEpoch) && this.conversation === snapshot.conversation
+			!untrack(() => this.sessionEnded) &&
+			isChatSessionCurrent(snapshot.sessionEpoch) &&
+			this.conversation === snapshot.conversation
 		);
 	}
 
-	/** Hand a cleared send to the surface's composer; call the result with its outcome. */
+	/**
+	 * Hand a cleared send to the surface's composer; call the result with its
+	 * outcome. A context of an ended session hands over nothing, and its result
+	 * does nothing.
+	 */
 	beginSend(snapshot: ChatSendSnapshot): (outcome: ComposerSendOutcome) => void {
+		if (untrack(() => this.sessionEnded)) return () => {};
 		const sendId = this.composer.begin(snapshot);
 		return (outcome) => this.composer.settle(sendId, outcome);
 	}
 
-	/** Rendered attachments of the conversation this context shows. A disposed context shows none. */
+	/** Rendered attachments of the conversation this context shows. A retired context shows none. */
 	get attachments(): Attachment[] {
-		return this.disposed ? [] : this.composer.attachmentsOf(this.core.conversation);
+		return this.retired ? [] : this.composer.attachmentsOf(this.core.conversation);
 	}
 
 	/** The upload policy every attachment entry point of this view reads. */
@@ -297,14 +318,17 @@ export class ChatUIContext implements ComposerView {
 	}
 
 	addAttachments(newAttachments: Attachment[]): void {
+		if (this.retired) return;
 		this.composer.addAttachments(this, newAttachments);
 	}
 
 	removeAttachment(index: number): void {
+		if (this.retired) return;
 		this.composer.removeAttachment(this.conversation, index);
 	}
 
 	clearAttachments(): void {
+		if (this.retired) return;
 		this.composer.clearAttachments(this.conversation);
 	}
 
@@ -328,11 +352,13 @@ export class ChatUIContext implements ComposerView {
 		filename?: string,
 		options?: ComposerUploadFileOptions
 	): Promise<void> {
+		if (this.retired) return Promise.resolve();
 		return this.composer.uploadFile(this, file, filename, options);
 	}
 
 	/** Retry the retained payload for a failed attachment. */
 	retryUpload(index: number): void {
+		if (this.retired) return;
 		this.composer.retryUpload(this.conversation, index);
 	}
 
@@ -342,6 +368,7 @@ export class ChatUIContext implements ComposerView {
 		filename: string,
 		dimensions?: { width: number; height: number }
 	): Promise<void> {
+		if (this.retired) return Promise.resolve();
 		return this.composer.uploadScreenshot(this, blob, filename, dimensions, {
 			onPreprocessFailed: this.composerRefusal
 		});

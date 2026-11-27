@@ -93,8 +93,8 @@ function sentAttachments(sends: PendingSend[]): Attachment[] {
 }
 
 /**
- * The text, the attachments and the sends of one chat surface and session,
- * independently of the views that come and go on it.
+ * The text, the attachments and the sends of one chat surface, independently
+ * of the views that come and go on it. A session end empties it in place.
  *
  * Text and attachments live here per conversation: under its thread id, or
  * under the conversation itself until it receives one. Text is held in memory
@@ -128,8 +128,7 @@ export class ChatComposer implements PersistedChatHolder {
 	private readonly returning = new SvelteMap<ConversationKey, SvelteSet<ComposerView>>();
 	private mounts = 0;
 	private unregister: (() => void) | null = null;
-	/** The session whose end this composer last let go of, or the one it was made in. */
-	private sessionEpoch = getChatSessionEpoch();
+	#session = $state(getChatSessionEpoch());
 
 	constructor(options: ChatComposerOptions = {}) {
 		this.drafts = options.surface ? new ChatDraftManager(options.surface) : undefined;
@@ -138,6 +137,15 @@ export class ChatComposer implements PersistedChatHolder {
 			(key) => this.returning.delete(key)
 		);
 		this.saveWhileTyping = (options.saveDrafts ?? 'while-typing') === 'while-typing';
+	}
+
+	/**
+	 * The session whose end this composer last let go of, or the one it was made
+	 * in. A surface keys its views by it, so every view of an ended session
+	 * remounts with nothing it showed or held for that session.
+	 */
+	get session(): number {
+		return this.#session;
 	}
 
 	/**
@@ -383,20 +391,6 @@ export class ChatComposer implements PersistedChatHolder {
 				refused
 			);
 		if (threadId === null) this.forgetIdle(conversation);
-		this.dropSurfaceIfIdle();
-	}
-
-	/**
-	 * Whether a send this owner took over still waits for its outcome or for its
-	 * group, or refused work still waits for its conversation's thread id.
-	 */
-	get hasOutstandingWork(): boolean {
-		return untrack(
-			() =>
-				!this.liveEntries().next().done ||
-				this.refusedWithoutId.size > 0 ||
-				[...this.texts.keys()].some((key) => typeof key !== 'string' && !this.isShown(key))
-		);
 	}
 
 	/**
@@ -418,13 +412,15 @@ export class ChatComposer implements PersistedChatHolder {
 
 	/**
 	 * Let go of everything the ended session left here: abandon its sends, which
-	 * keep what their files are owed, drop every text and file, and reset the
-	 * session of every view. Runs once per session end.
+	 * keep what their files are owed, drop every text and file, empty both stores
+	 * before the sweep reaches storage, and reset the session every view shows.
+	 * `session` moves on, so the surface remounts its views on this same
+	 * composer. Runs once per session end.
 	 */
 	forgetPersistedState(): void {
 		untrack(() => {
-			if (isChatSessionCurrent(this.sessionEpoch)) return;
-			this.sessionEpoch = getChatSessionEpoch();
+			if (isChatSessionCurrent(this.#session)) return;
+			this.#session = getChatSessionEpoch();
 			for (const unsubscribe of this.assignments.values()) unsubscribe();
 			this.assignments.clear();
 			this.refusedWithoutId.clear();
@@ -432,6 +428,7 @@ export class ChatComposer implements PersistedChatHolder {
 			this.files.forget();
 			this.returning.clear();
 			this.texts.clear();
+			this.drafts?.clear();
 			this.draftWrites.clear();
 			for (const view of this.views.keys()) view.core.forgetChatSession();
 		});
@@ -569,7 +566,6 @@ export class ChatComposer implements PersistedChatHolder {
 		this.returning.delete(conversation);
 		this.files.assign(conversation, threadId);
 		for (const view of joining ?? []) this.mayReturn(threadId, view);
-		this.dropSurfaceIfIdle();
 	}
 
 	private writeDraft(threadId: string, text: string): void {
@@ -632,12 +628,6 @@ export class ChatComposer implements PersistedChatHolder {
 				this.files.release(attachments);
 			}
 		}
-		this.dropSurfaceIfIdle();
-	}
-
-	private dropSurfaceIfIdle(): void {
-		const surface = surfaceOwnerOf.get(this);
-		if (surface && !this.hasOutstandingWork) dropSurfaceOwnerIfUnused(surface);
 	}
 
 	/**
@@ -708,113 +698,38 @@ export class ChatComposer implements PersistedChatHolder {
 	}
 }
 
-/** A mounted surface's hold on its composer. Release it when the surface unmounts. */
-export type ComposerSendLease = {
-	readonly owner: ChatComposer;
-	release(): void;
-};
-
-type ChatComposerLeaseOptions = {
+type SurfaceComposerOptions = {
 	saveDrafts?: DraftSaving;
 	/** Keeps uploaded files in the surface's attachment store. */
 	storeFiles?: boolean;
-	/** Receives the next session's lease when the session ends while the surface stays mounted. */
-	renewed?: (next: ComposerSendLease) => void;
 };
 
-type SurfaceOwner = {
-	readonly surface: string;
-	readonly owner: ChatComposer;
-	readonly sessionEpoch: number;
-	leases: number;
-	unregister: () => void;
-};
-
-const surfaceOwners = new SvelteMap<string, SurfaceOwner>();
-const surfaceOwnerOf = new WeakMap<ChatComposer, SurfaceOwner>();
+const surfaceComposers = new SvelteMap<string, ChatComposer>();
 
 /**
- * The composer of `surface` in this browser session, with the surface's draft
- * store and, with `storeFiles`, its attachment store.
+ * The composer of `surface` for the life of this document, with the surface's
+ * draft store and, with `storeFiles`, its attachment store. The first call for
+ * a surface decides its options.
  *
- * A page that is left and entered again while one of its sends is open gets
- * the same composer back, which still knows the stored draft that send carries
- * and puts a refusal into the view now on screen, in order with sends started
- * since. The composer is dropped once no lease holds it and no send is
- * pending, and when the session ends; the next call builds a new one.
- *
- * A surface that stays mounted when its session ends passes `renewed`. It
- * receives a lease on the next session's composer, this lease is released, and
- * the surface rebuilds everything that captured the old composer, which
- * restores nothing any more.
+ * A page that is left and entered again gets the same composer back, which
+ * still knows the stored draft an open send carries and puts a refusal into
+ * the view now on screen, in order with sends started since. A session end
+ * empties it in place; a surface that stays mounted keys its views by
+ * `session` and remounts them on it.
  */
-export function acquireChatComposer(
+export function chatComposerFor(
 	surface: string,
-	options: ChatComposerLeaseOptions = {}
-): ComposerSendLease {
+	options: SurfaceComposerOptions = {}
+): ChatComposer {
 	const create = () =>
 		new ChatComposer({ surface, saveDrafts: options.saveDrafts, storeFiles: options.storeFiles });
 	// The server shares this module between requests and never sends.
-	if (typeof window === 'undefined') return { owner: create(), release: () => {} };
-	const sessionEpoch = getChatSessionEpoch();
-	const current = surfaceOwners.get(surface);
-	const held =
-		current?.sessionEpoch === sessionEpoch ? current : registerSurfaceOwner(surface, create());
-	held.leases++;
-	let released = false;
-	let stopRenewing = () => {};
-	const release = () => {
-		if (released) return;
-		released = true;
-		stopRenewing();
-		held.leases--;
-		dropSurfaceOwnerIfUnused(held);
-	};
-	const { renewed } = options;
-	if (renewed) {
-		stopRenewing = registerPersistedChatHolder({
-			forgetPersistedState: () => {
-				// Taken during this same session end, so already the next session's.
-				if (isChatSessionCurrent(sessionEpoch)) return;
-				const next = acquireChatComposer(surface, options);
-				release();
-				renewed(next);
-			}
-		});
+	if (typeof window === 'undefined') return create();
+	let composer = surfaceComposers.get(surface);
+	if (!composer) {
+		composer = create();
+		composer.mount();
+		surfaceComposers.set(surface, composer);
 	}
-	return { owner: held.owner, release };
-}
-
-function registerSurfaceOwner(surface: string, owner: ChatComposer): SurfaceOwner {
-	const entry: SurfaceOwner = {
-		surface,
-		owner,
-		sessionEpoch: getChatSessionEpoch(),
-		leases: 0,
-		unregister: () => {}
-	};
-	// The session's end stops the owner being handed out, but it stays
-	// registered while a lease or a send still holds it: a surface that kept it
-	// may have sent through it since, and the next session end must reach those.
-	entry.unregister = registerPersistedChatHolder({
-		forgetPersistedState: () => {
-			// Created by a surface renewing its lease during this same session end.
-			if (isChatSessionCurrent(entry.sessionEpoch)) return;
-			if (surfaceOwners.get(surface) === entry) surfaceOwners.delete(surface);
-			owner.forgetPersistedState();
-		}
-	});
-	surfaceOwners.set(surface, entry);
-	surfaceOwnerOf.set(owner, entry);
-	return entry;
-}
-
-function dropSurfaceOwnerIfUnused(entry: SurfaceOwner): void {
-	if (entry.leases === 0 && !entry.owner.hasOutstandingWork) dropSurfaceOwner(entry);
-}
-
-function dropSurfaceOwner(entry: SurfaceOwner): void {
-	entry.unregister();
-	surfaceOwnerOf.delete(entry.owner);
-	if (surfaceOwners.get(entry.surface) === entry) surfaceOwners.delete(entry.surface);
+	return composer;
 }

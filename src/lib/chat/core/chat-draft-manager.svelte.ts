@@ -65,6 +65,11 @@ export class ChatDraftManager {
 		}
 	}
 
+	/** Drop every draft of the surface now, without waiting for storage to be swept. */
+	clear(): void {
+		if (Object.keys(this.drafts.current).length > 0) this.drafts.current = {};
+	}
+
 	clearDraft(threadId: string | null): void {
 		if (!threadId) return;
 		const { [threadId]: _, ...rest } = this.drafts.current;
