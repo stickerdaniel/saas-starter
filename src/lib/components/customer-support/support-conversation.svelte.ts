@@ -2,6 +2,7 @@ import type { ConvexClient } from 'convex/browser';
 import type { FunctionReturnType } from 'convex/server';
 import * as Data from 'effect/Data';
 import * as Effect from 'effect/Effect';
+import type * as Exit from 'effect/Exit';
 import { version } from '$app/env';
 import { api } from '#lib/convex/_generated/api.js';
 import type { Attachment } from '#lib/chat/index.js';
@@ -16,6 +17,7 @@ import { ChatDraftManager } from '#lib/chat/core/chat-draft-manager.svelte.ts';
 import { getChatSessionEpoch, isChatSessionCurrent } from '#lib/chat/core/chat-persisted-state.ts';
 import { KeyedAcquisition } from '#lib/chat/core/keyed-acquisition.js';
 import { SendOwnership, type SendClaim } from '#lib/chat/core/send-ownership.js';
+import { observeClientEffect } from '#lib/effect/client-runtime.js';
 import { StreamCacheManager } from '#lib/chat/core/stream-cache.js';
 import { createOptimisticUpdate, type ListMessagesArgs } from '#lib/chat/core/optimistic.js';
 import { CHAT_PAGE_SIZE } from '#lib/chat/core/types.js';
@@ -44,6 +46,8 @@ export type SupportOperationIdentity = {
 };
 
 type Empty = Record<never, never>;
+
+type SupportSendResult = { threadId: string; threadCreated: boolean };
 
 type SupportSendOp = Data.TaggedEnum<{
 	Idle: Empty;
@@ -392,7 +396,7 @@ export class SupportConversation implements ChatSessionPort {
 		return this.client ? this.ensureThread(this.client) : null;
 	}
 
-	async sendMessage(
+	sendMessage(
 		client: ConvexClient,
 		prompt: string,
 		options?: {
@@ -400,100 +404,111 @@ export class SupportConversation implements ChatSessionPort {
 			attachments?: Attachment[];
 			threadId?: string;
 		}
-	): Promise<{ threadId: string; threadCreated: boolean }> {
-		const trimmedPrompt = prompt.trim();
-		if (!trimmedPrompt) throw new ChatCommandError('empty_input');
-		if (this.awaitsAgentReply && (this.isSending || this.isAwaitingStream)) {
-			throw new ChatCommandError('send_in_progress');
-		}
+	): Promise<SupportSendResult> {
+		return new Promise((resolve, reject) => {
+			const trimmedPrompt = prompt.trim();
+			if (!trimmedPrompt) throw new ChatCommandError('empty_input');
+			if (this.awaitsAgentReply && (this.isSending || this.isAwaitingStream)) {
+				throw new ChatCommandError('send_in_progress');
+			}
 
-		const scope = this.#scope();
-		const conversation = this.#conversation;
-		const claim = this.#ownership.claim();
-		this.#wait = AcquisitionWait.None();
-		this.setSending(true);
-		this.#enter(claim, 'Locked', SupportSendOp.Sending());
+			const scope = this.#scope();
+			const conversation = this.#conversation;
+			const claim = this.#ownership.claim();
+			this.#wait = AcquisitionWait.None();
+			this.setSending(true);
+			this.#enter(claim, 'Locked', SupportSendOp.Sending());
 
-		let threadCreated = false;
+			let threadCreated = false;
 
-		const program = Effect.gen({ self: this }, function* () {
-			let threadId = options?.threadId ?? this.threadId;
-			if (!threadId) this.#wait = AcquisitionWait.Waiting({ claim });
-			const joined = threadId ? undefined : this.#acquisition.current(scope);
-			if (joined) {
-				threadId = yield* mutate(() => joined).pipe(
-					Effect.catchCause((cause) =>
-						this.#admits(scope) ? Effect.succeed(null) : Effect.failCause(cause)
+			const program = Effect.gen({ self: this }, function* () {
+				let threadId = options?.threadId ?? this.threadId;
+				if (!threadId) this.#wait = AcquisitionWait.Waiting({ claim });
+				const joined = threadId ? undefined : this.#acquisition.current(scope);
+				if (joined) {
+					threadId = yield* mutate(() => joined).pipe(
+						Effect.catchCause((cause) =>
+							this.#admits(scope) ? Effect.succeed(null) : Effect.failCause(cause)
+						)
+					);
+					if (!this.#admits(scope)) return yield* conversationChanged();
+				}
+
+				if (!threadId) {
+					threadId = yield* mutate(() => this.ensureThread(client));
+					threadCreated = true;
+				}
+				if (!this.#admits(scope)) return yield* conversationChanged();
+
+				if (!this.threadId) {
+					if (conversation.threadId === null) conversation.assign(threadId);
+					this.threadId = threadId;
+					this.navigation.showChat();
+				}
+
+				const anonymousUserId = this.getAnonymousUserId();
+				const queryArgs: ListMessagesArgs = {
+					threadId,
+					...(anonymousUserId ? { anonymousUserId } : {}),
+					paginationOpts: { numItems: CHAT_PAGE_SIZE, cursor: null },
+					streamArgs: { kind: 'list' as const, startOrder: 0 }
+				};
+
+				if (!this.#admits(scope)) return yield* conversationChanged();
+				this.#endWait(claim);
+				const sentThreadId = threadId;
+				yield* mutate(() =>
+					client.mutation(
+						api.support.messages.sendMessage,
+						{
+							threadId: sentThreadId,
+							prompt: trimmedPrompt,
+							anonymousUserId,
+							fileIds: options?.fileIds?.length ? options.fileIds : undefined,
+							// Read per message because the thread keeps only the route
+							// captured before its first message.
+							pageUrl: normalizeSupportPageRoute(
+								typeof window !== 'undefined' ? window.location.pathname : undefined
+							),
+							// The bundle this tab runs, which a stale tab keeps after a deploy.
+							appVersion: version
+						},
+						{
+							optimisticUpdate: createOptimisticUpdate(
+								api.support.messages.listMessages,
+								queryArgs,
+								'user',
+								trimmedPrompt,
+								{
+									attachments: options?.attachments?.length ? options.attachments : undefined
+								}
+							)
+						}
 					)
 				);
-				if (!this.#admits(scope)) return yield* conversationChanged();
-			}
+				return { threadId: sentThreadId, threadCreated };
+			});
 
-			if (!threadId) {
-				threadId = yield* mutate(() => this.ensureThread(client));
-				threadCreated = true;
-			}
-			if (!this.#admits(scope)) return yield* conversationChanged();
-
-			if (!this.threadId) {
-				if (conversation.threadId === null) conversation.assign(threadId);
-				this.threadId = threadId;
-				this.navigation.showChat();
-			}
-
-			const anonymousUserId = this.getAnonymousUserId();
-			const queryArgs: ListMessagesArgs = {
-				threadId,
-				...(anonymousUserId ? { anonymousUserId } : {}),
-				paginationOpts: { numItems: CHAT_PAGE_SIZE, cursor: null },
-				streamArgs: { kind: 'list' as const, startOrder: 0 }
+			const settle = (exit: Exit.Exit<SupportSendResult, unknown>) => {
+				try {
+					resolve(
+						this.#ownership.settle(claim, exit, {
+							success: () => {
+								if (this.awaitsAgentReply) this.isAwaitingStream = true;
+							},
+							failure: () => {
+								console.error('[SupportConversation.sendMessage] Failed');
+								this.setError('send_failed');
+							},
+							release: () => this.#endWait(claim),
+							settle: () => this.setSending(false)
+						})
+					);
+				} catch (error) {
+					reject(error);
+				}
 			};
-
-			if (!this.#admits(scope)) return yield* conversationChanged();
-			this.#endWait(claim);
-			const sentThreadId = threadId;
-			yield* mutate(() =>
-				client.mutation(
-					api.support.messages.sendMessage,
-					{
-						threadId: sentThreadId,
-						prompt: trimmedPrompt,
-						anonymousUserId,
-						fileIds: options?.fileIds?.length ? options.fileIds : undefined,
-						// Read per message because the thread keeps only the route
-						// captured before its first message.
-						pageUrl: normalizeSupportPageRoute(
-							typeof window !== 'undefined' ? window.location.pathname : undefined
-						),
-						// The bundle this tab runs, which a stale tab keeps after a deploy.
-						appVersion: version
-					},
-					{
-						optimisticUpdate: createOptimisticUpdate(
-							api.support.messages.listMessages,
-							queryArgs,
-							'user',
-							trimmedPrompt,
-							{
-								attachments: options?.attachments?.length ? options.attachments : undefined
-							}
-						)
-					}
-				)
-			);
-			return { threadId: sentThreadId, threadCreated };
-		});
-
-		return this.#ownership.run(claim, program, {
-			success: () => {
-				if (this.awaitsAgentReply) this.isAwaitingStream = true;
-			},
-			failure: () => {
-				console.error('[SupportConversation.sendMessage] Failed');
-				this.setError('send_failed');
-			},
-			release: () => this.#endWait(claim),
-			settle: () => this.setSending(false)
+			observeClientEffect(program, settle);
 		});
 	}
 

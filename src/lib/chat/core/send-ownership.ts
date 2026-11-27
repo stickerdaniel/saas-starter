@@ -58,7 +58,10 @@ export class SendOwnership {
 		commit: SendCommit<A>
 	): Promise<A> {
 		const running = runClientEffect(program);
-		const exit = running instanceof Promise ? await running : running;
+		return this.settle(claim, running instanceof Promise ? await running : running, commit);
+	}
+
+	settle<A>(claim: SendClaim, exit: Exit.Exit<A, unknown>, commit: SendCommit<A>): A {
 		try {
 			if (Exit.isFailure(exit)) throw Cause.squash(exit.cause);
 			if (this.owns(claim)) commit.success(exit.value);

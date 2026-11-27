@@ -29,6 +29,36 @@ function clientWith(mutation: ReturnType<typeof vi.fn>): ConvexClient {
 	return { mutation } as unknown as ConvexClient;
 }
 
+type TransportResult = { success: true; value: unknown } | { success: false; error: Error };
+
+function convexTransport() {
+	const listeners = new Set<() => void>();
+	const requests: Array<(result: TransportResult) => void> = [];
+	const mutationInternal = async () =>
+		new Promise<TransportResult>((resolve) => requests.push(resolve));
+	const baseMutation = async () => {
+		const result = await mutationInternal();
+		if (!result.success) throw result.error;
+		return result.value;
+	};
+	const query = async () =>
+		new Promise<void>((resolve) => {
+			const listener = () => {
+				listeners.delete(listener);
+				resolve();
+			};
+			listeners.add(listener);
+		});
+	return {
+		client: Object.assign(clientWith(vi.fn(async () => await baseMutation())), { query }),
+		onQueryUpdate: (listener: () => void) => listeners.add(listener),
+		respond: (result: TransportResult) => {
+			requests.shift()?.(result);
+			for (const listener of listeners) listener();
+		}
+	};
+}
+
 describe('SupportConversation', () => {
 	let navigation: SupportNavigationState;
 	let conversation: SupportConversation;
@@ -548,6 +578,38 @@ describe('SupportConversation', () => {
 		await expect(send).resolves.toEqual({ threadId: 'thread-warm', threadCreated: false });
 		expect(mutation).toHaveBeenCalledTimes(2);
 		expect(mutation.mock.calls[1]?.[1]).toMatchObject({ threadId: 'thread-warm', prompt: 'hello' });
+	});
+
+	it('reads the handoff a transition delivers before the send result settles', async () => {
+		const convex = convexTransport();
+		conversation.setThread('thread-1');
+
+		const send = conversation.sendMessage(convex.client, 'hello');
+		convex.onQueryUpdate(() => queueMicrotask(() => conversation.setHandedOff(true)));
+		convex.respond({ success: true, value: null });
+
+		await expect(send).resolves.toEqual({ threadId: 'thread-1', threadCreated: false });
+		expect(conversation.isAwaitingStream).toBe(false);
+		expect(conversation.isSending).toBe(false);
+	});
+
+	it('lets a URL selection from a one-shot query retire a send whose acquisition failed', async () => {
+		const convex = convexTransport();
+		const defect = new Error('warm thread unavailable');
+		conversation.beginNewConversation();
+		navigation.startNewThread();
+
+		const send = conversation.sendMessage(convex.client, 'hello');
+		const selected = convex.client
+			.query()
+			.then(() => conversation.selectThreadFromUrl('thread-url'));
+		convex.respond({ success: false, error: defect });
+
+		await selected;
+		await expect(send).rejects.toBe(defect);
+		expect(conversation.threadId).toBe('thread-url');
+		expect(conversation.error).toBeNull();
+		expect(errorSpy).not.toHaveBeenCalled();
 	});
 
 	it('keeps an operation identity across navigation and session changes only', () => {
