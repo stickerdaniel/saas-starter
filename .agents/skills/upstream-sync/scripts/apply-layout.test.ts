@@ -287,21 +287,29 @@ describe('apply-layout plans', () => {
 		]);
 	});
 
-	it('rewrites an alias whose target a rule renames and keeps one whose target keeps its name', () => {
+	it('keeps an alias that one prefix entry of its workspace still serves and rewrites the others', () => {
+		const moves = [
+			['old.ts', 'renamed.ts'],
+			['kept.ts', 'kept.ts'],
+			['area/old.ts', 'moved/old.ts'],
+			['area/kept.ts', 'area/kept.ts'],
+			['use.ts', 'use.ts']
+		].map(([from, to]) => ({ from: `voice/${from}`, to: `apps/voice/${to}`, owner: 'voice' }));
 		const root = repository({
 			'package.json': JSON.stringify({ imports: { '#voice/*': './voice/*' } }),
-			'.upstream-sync.layout.ts': `export default { rules: [
-				{ from: 'voice/old.ts', to: 'apps/voice/renamed.ts', owner: 'voice' },
-				{ from: 'voice/kept.ts', to: 'apps/voice/kept.ts', owner: 'voice' },
-				{ from: 'voice/use.ts', to: 'apps/voice/use.ts', owner: 'voice' }
-			] };\n`,
+			'.upstream-sync.layout.ts': `export default { rules: ${JSON.stringify(moves)} };\n`,
 			'voice/old.ts': '',
 			'voice/kept.ts': '',
-			'voice/use.ts': "import '#voice/old.js';\nimport '#voice/kept.js';\n"
+			'voice/area/old.ts': '',
+			'voice/area/kept.ts': '',
+			'voice/use.ts': ['old', 'kept', 'area/old', 'area/kept']
+				.map((name) => `import '#voice/${name}.js';\n`)
+				.join('')
 		});
 		const specifiers = layout(root, '--specifiers');
 		expect(specifiers.status).toBe(0);
-		expect(specifiers.stdout.trim().split('\n')).toEqual([
+		expect(specifiers.stdout.trim().split('\n').sort()).toEqual([
+			'apps/voice/use.ts\t#voice/area/old.js\t./moved/old.js',
 			'apps/voice/use.ts\t#voice/old.js\t./renamed.js'
 		]);
 	});

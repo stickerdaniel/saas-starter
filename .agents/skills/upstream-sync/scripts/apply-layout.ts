@@ -449,58 +449,129 @@ function placeResolved(table: MoveTable, resolved: string, target: string): stri
 	return dropped === undefined ? to : to.slice(0, to.length - dropped.length) + runtime;
 }
 
+interface AliasEntry {
+	readonly key: string;
+	readonly root: string;
+}
+
+function servingEntry(prefix: string, path: string, next: string): AliasEntry | undefined {
+	const named = path.slice(prefix.length).split('/');
+	const placed = next.split('/');
+	let shared = 0;
+	while (
+		shared < Math.min(named.length, placed.length) &&
+		named.at(-1 - shared) === placed.at(-1 - shared)
+	) {
+		shared += 1;
+	}
+	if (shared === 0) return undefined;
+	const directory = (parts: readonly string[]) =>
+		parts
+			.slice(0, parts.length - shared)
+			.map((part) => `${part}/`)
+			.join('');
+	return { key: prefix + directory(named), root: directory(placed) };
+}
+
+interface AliasImport {
+	readonly owner: string;
+	readonly prefix: string | undefined;
+	readonly path: string;
+	readonly next: string;
+}
+
+/**
+ * The one prefix entry each workspace's imports map keeps per alias after the move: the entry most
+ * of the workspace's own imports through that alias agree on, and the shortest one among equals.
+ */
+function aliasEntries(imports: readonly AliasImport[]): Map<string, AliasEntry> {
+	const votes = new Map<string, Map<string, { entry: AliasEntry; count: number }>>();
+	for (const { owner, prefix, path, next } of imports) {
+		const entry = prefix === undefined ? undefined : servingEntry(prefix, path, next);
+		if (!entry) continue;
+		const group = `${owner}\t${prefix}`;
+		const candidates = votes.get(group) ?? new Map<string, { entry: AliasEntry; count: number }>();
+		votes.set(group, candidates);
+		const candidate = `${entry.key}\t${entry.root}`;
+		candidates.set(candidate, { entry, count: (candidates.get(candidate)?.count ?? 0) + 1 });
+	}
+	return new Map(
+		[...votes].map(([group, candidates]) => [
+			group,
+			[...candidates.values()].sort(
+				(a, b) =>
+					b.count - a.count ||
+					a.entry.key.length - b.entry.key.length ||
+					(a.entry.root < b.entry.root ? -1 : 1)
+			)[0]!.entry
+		])
+	);
+}
+
 /**
  * The import specifiers the move breaks, with their replacements. Inside one workspace a relative
- * specifier gets the relative path between the new places, and an alias stays for the workspace's
- * own imports map while its target keeps the name the specifier ends with. Across workspaces a specifier becomes the package name and the path below the
- * package's exported directory. A root file runs before any install, so it gets a relative path
- * to every target.
+ * specifier gets the relative path between the new places. An alias stays while the one prefix
+ * entry its workspace keeps for it still reaches the target, and gets the relative path otherwise.
+ * Across workspaces a specifier becomes the package name and the path below the package's exported
+ * directory. A root file runs before any install, so it gets a relative path to every target.
  */
 export function plannedSpecifiers(
 	table: MoveTable,
 	edges: readonly ImportEdge[],
 	aliases: ReadonlyArray<readonly [string, string]>
 ): SpecifierChange[] {
-	const changes: SpecifierChange[] = [];
-	for (const edge of edges) {
-		if (edge.kind !== 'import' || edge.target.startsWith('node_modules/')) continue;
+	const moves = edges.flatMap((edge) => {
+		if (edge.kind !== 'import' || edge.target.startsWith('node_modules/')) return [];
 		const from = table.place(edge.from);
 		const to = table.place(edge.target);
-		if (!from?.to || !to) continue;
+		if (!from?.to || !to) return [];
 		const [path = '', query = ''] = edge.specifier.split(/(?=\?)/);
 		const alias = aliases.find(([prefix]) => path.startsWith(prefix));
 		const resolved = alias
 			? alias[1] + path.slice(alias[0].length)
 			: posix.join(posix.dirname(edge.from), path);
 		const next = placeResolved(table, resolved, edge.target);
-		if (next === undefined) continue;
+		if (next === undefined) return [];
 		const physical = from.owner === 'root';
-		if (
-			!physical &&
-			from.owner !== to.owner &&
-			isStarterWorkspace(to.owner) &&
-			WORKSPACES[to.owner].name !== null
-		) {
-			const { name, root, exports } = WORKSPACES[to.owner];
-			changes.push({
+		const target =
+			!physical && from.owner !== to.owner && isStarterWorkspace(to.owner)
+				? WORKSPACES[to.owner]
+				: undefined;
+		const exported =
+			target === undefined || target.name === null
+				? undefined
+				: `${target.name}/${next.slice(target.root.length + target.exports.length)}`;
+		return [
+			{
 				file: from.to,
+				owner: from.owner,
 				specifier: edge.specifier,
-				next: `${name}/${next.slice(root.length + exports.length)}${query}`
-			});
-			continue;
+				path,
+				query,
+				next,
+				exported,
+				aliased: alias !== undefined,
+				prefix: physical || exported !== undefined ? undefined : alias?.[0]
+			}
+		];
+	});
+	const entries = aliasEntries(moves);
+	return moves.flatMap(
+		({ file, owner, specifier, path, query, next, exported, aliased, prefix }) => {
+			if (exported !== undefined) return [{ file, specifier, next: `${exported}${query}` }];
+			const entry = prefix === undefined ? undefined : entries.get(`${owner}\t${prefix}`);
+			const kept = aliased
+				? entry !== undefined &&
+					path.startsWith(entry.key) &&
+					entry.root + path.slice(entry.key.length) === next
+				: posix.join(posix.dirname(file), path) === next;
+			if (kept) return [];
+			const relative = posix.relative(posix.dirname(file), next);
+			return [
+				{ file, specifier, next: `${relative.startsWith('.') ? '' : './'}${relative}${query}` }
+			];
 		}
-		const kept = alias
-			? !physical && posix.basename(next) === posix.basename(path)
-			: posix.join(posix.dirname(from.to), path) === next;
-		if (kept) continue;
-		const relative = posix.relative(posix.dirname(from.to), next);
-		changes.push({
-			file: from.to,
-			specifier: edge.specifier,
-			next: `${relative.startsWith('.') ? '' : './'}${relative}${query}`
-		});
-	}
-	return changes;
+	);
 }
 
 async function main() {
