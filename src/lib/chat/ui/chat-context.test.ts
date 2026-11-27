@@ -11,7 +11,8 @@ import { ChatComposer } from './chat-composer.svelte.ts';
 import { ChatUIContext } from './chat-context.svelte.ts';
 import { createChatSession } from '../__tests__/session-fixture';
 import type { ConvexClient } from 'convex/browser';
-import type { Attachment } from '../core/types.js';
+import { clearPersistedChatState } from '../core/chat-persisted-state.ts';
+import type { Attachment, DisplayMessage } from '../core/types.js';
 
 vi.mock('svelte-sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('$app/env/public', () => ({ PUBLIC_CONVEX_SITE_URL: 'https://site.test' }));
@@ -379,5 +380,42 @@ describe('ChatUIContext upload failures', () => {
 		} finally {
 			AbortController.prototype.abort = originalAbort;
 		}
+	});
+});
+
+describe('ChatUIContext at a session end', () => {
+	const message = (id: string): DisplayMessage =>
+		({
+			id,
+			role: 'assistant',
+			status: 'success',
+			displayText: id,
+			parts: []
+		}) as unknown as DisplayMessage;
+
+	it('shows nothing of the ended session until the messages are read again', () => {
+		const core = createChatSession('thread-a');
+		const ctx = new ChatUIContext(core, mockClient, new ChatComposer());
+		const ended = [message('old')];
+		ctx.setDisplayMessages(ended);
+		ctx.setMessagesReady(true);
+		ctx.setReasoningOpen('old:0', true);
+
+		clearPersistedChatState();
+		expect(ctx.displayMessages).toEqual([]);
+		expect(ctx.messagesReady).toBe(false);
+		expect(ctx.isReasoningOpen('old:0')).toBe(false);
+		expect(core.forgetChatSession).toHaveBeenCalledOnce();
+
+		ctx.setDisplayMessages(ended);
+		ctx.setMessagesReady(true);
+		expect(ctx.displayMessages).toEqual([]);
+		expect(ctx.messagesReady).toBe(false);
+
+		const read = [message('read again')];
+		ctx.setDisplayMessages(read);
+		expect(ctx.displayMessages).toEqual(read);
+		expect(ctx.messagesReady).toBe(true);
+		ctx.dispose();
 	});
 });

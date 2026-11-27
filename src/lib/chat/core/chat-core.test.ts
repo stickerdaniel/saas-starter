@@ -62,6 +62,18 @@ describe('ChatCore command outcomes', () => {
 		expect(core.isAwaitingStream).toBe(false);
 	});
 
+	it('keeps its thread but no reasoning the ended session cached', () => {
+		const core = createChatCore({ threadId: 'thread-a' });
+		core.streamCache.updateReasoningCache(0, 'old reasoning');
+		core.setAwaitingStream(true);
+
+		core.forgetChatSession();
+
+		expect(core.threadId).toBe('thread-a');
+		expect(core.isAwaitingStream).toBe(false);
+		expect(core.streamCache.getCachedReasoning(0)).toBeUndefined();
+	});
+
 	it('uses a typed code for empty input without calling the backend', async () => {
 		const mutation = vi.fn();
 		const core = makeCore();

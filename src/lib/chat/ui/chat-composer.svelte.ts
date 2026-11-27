@@ -23,7 +23,9 @@ import {
 
 /** A mounted view of the composer: the session it shows and what its uploads use. */
 export interface ComposerView extends AttachmentView {
-	readonly core: Pick<ChatSessionPort, 'conversation' | 'forgetChatSession'>;
+	readonly core: Pick<ChatSessionPort, 'conversation'>;
+	/** Drop what the view shows of the ended session and reset the session it shows. */
+	forgetChatSession(): void;
 }
 
 export type ComposerSendOutcome = 'accepted' | 'refused';
@@ -421,7 +423,7 @@ export class ChatComposer implements PersistedChatHolder {
 			this.texts.clear();
 			this.drafts?.clear();
 			this.draftWrites.clear();
-			for (const view of this.views.keys()) view.core.forgetChatSession();
+			for (const view of this.views.keys()) view.forgetChatSession();
 		});
 	}
 

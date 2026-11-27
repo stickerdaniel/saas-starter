@@ -322,11 +322,12 @@ export class ChatCore implements ChatSessionPort {
 		}
 	}
 
-	/** Reset session-owned flags without changing the selected thread. */
+	/** Reset session-owned flags and the reasoning cache without changing the selected thread. */
 	forgetChatSession(): void {
 		this.#supersede();
 		this.error = null;
 		this.shouldOpenWidget = false;
+		this.streamCache.clear();
 	}
 
 	reset(): void {
