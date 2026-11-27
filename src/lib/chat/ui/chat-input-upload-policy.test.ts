@@ -15,6 +15,7 @@ import type { UploadProfile } from '../../uploads/profiles.js';
 import { ChatCore } from '../core/chat-core.svelte.ts';
 import type { AttachmentUploadResult } from '../core/file-uploader.js';
 import type { AttachmentTransferPayload } from './attachment-transfer.js';
+import { ChatComposer } from './chat-composer.svelte.ts';
 import { ChatUIContext } from './chat-context.svelte.ts';
 import ChatTestProvider from './test-fixtures/ChatTestProvider.svelte';
 import ChatInputHarness from './test-fixtures/ChatInputHarness.svelte';
@@ -116,7 +117,10 @@ function createContext(surfaceProfile: UploadProfile): ChatUIContext {
 		threadId: 'thread-policy',
 		api: { sendMessage: api.aiChat.messages.sendMessage }
 	});
-	const context = new ChatUIContext(core, client, { upload, profile: surfaceProfile });
+	const context = new ChatUIContext(core, client, new ChatComposer(), {
+		upload,
+		profile: surfaceProfile
+	});
 	context.setDisplayMessages([]);
 	return context;
 }

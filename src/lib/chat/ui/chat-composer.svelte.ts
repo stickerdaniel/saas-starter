@@ -2,7 +2,6 @@ import * as Data from 'effect/Data';
 import { untrack } from 'svelte';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { ChatDraftManager } from '../core/chat-draft-manager.svelte.ts';
-import type { ChatAttachmentStore } from '../core/chat-attachment-store.svelte.ts';
 import {
 	getChatSessionEpoch,
 	isChatSessionCurrent,
@@ -12,23 +11,19 @@ import {
 import type { ChatConversation, ChatSessionPort } from '../core/chat-session-port.svelte.ts';
 import type { Attachment } from '../core/types.js';
 import type { ChatSendSnapshot } from './chat-context.svelte.ts';
+import {
+	ComposerAttachmentCoordinator,
+	conversationKey as keyOf,
+	uploadProfileOf,
+	type AttachmentView,
+	type ComposerAttachmentSendSnapshot,
+	type ComposerUploadFileOptions,
+	type ConversationKey
+} from './composer-attachment-coordinator.svelte.ts';
 
-/** Where a send's captured attachments go when no composer on screen takes them back. */
-export type ComposerSendResources = {
-	/** Keeps refused attachments for a conversation that is not on screen. */
-	store?: Pick<ChatAttachmentStore, 'restoreThreadAttachments'>;
-	/** Hands refused attachments back to their transport when nothing keeps them. */
-	release(attachments: Attachment[]): void;
-};
-
-/** A mounted view of the composer, which shows the conversation of its session port. */
-export interface ComposerSendTarget {
-	/** The session port whose conversation this view shows. */
-	readonly core: Pick<ChatSessionPort, 'conversation'>;
-	restoreAttachments(attachments: Attachment[]): void;
-	sendResources(): ComposerSendResources;
-	/** Called whenever a send begins, settles or moves, so the view can re-read its count. */
-	pendingSendsChanged(): void;
+/** A mounted view of the composer: the session it shows and what its uploads use. */
+export interface ComposerView extends AttachmentView {
+	readonly core: Pick<ChatSessionPort, 'conversation' | 'forgetChatSession'>;
 }
 
 export type ComposerSendOutcome = 'accepted' | 'refused';
@@ -41,10 +36,19 @@ export type ComposerSendOutcome = 'accepted' | 'refused';
 type DraftSaving = 'while-typing' | 'on-switch';
 
 type ChatComposerOptions = {
-	/** Names the draft store. Without one, text lives only while a view shows it. */
-	surface?: string;
 	saveDrafts?: DraftSaving;
-};
+} & (
+	| { surface?: undefined; storeFiles?: never }
+	| {
+			/** Names the draft store. Without one, text lives only while a view shows it. */
+			surface: string;
+			/**
+			 * Keeps uploaded files in the surface's attachment store across reloads.
+			 * Every view of such a composer uploads directly.
+			 */
+			storeFiles?: boolean;
+	  }
+);
 
 /** The stored draft of a send's thread when the send began. */
 type DraftMark = {
@@ -57,8 +61,6 @@ type PendingSend = {
 	readonly id: number;
 	readonly sessionEpoch: number;
 	readonly snapshot: ChatSendSnapshot;
-	readonly source: ComposerSendTarget;
-	readonly resources: ComposerSendResources;
 	readonly draft: DraftMark;
 };
 
@@ -70,22 +72,7 @@ type SendEntry = Data.TaggedEnum<{
 const SendEntry = Data.taggedEnum<SendEntry>();
 type LiveEntry = Data.TaggedEnum.Value<SendEntry, 'Open' | 'Settled'>;
 
-/** Refused files of a conversation that is off screen and has no thread id to be stored under yet. */
-type HeldRestoration = {
-	readonly sessionEpoch: number;
-	readonly conversation: ChatConversation;
-	readonly attachments: Attachment[];
-	readonly store?: ComposerSendResources['store'];
-};
-
-/** A thread id, or the conversation itself while it has none. */
-type TextKey = string | ChatConversation;
-
 const SEPARATOR = '\n\n';
-
-function keyOf(conversation: ChatConversation): TextKey {
-	return conversation.threadId ?? conversation;
-}
 
 function sameConversation(a: ChatConversation, b: ChatConversation): boolean {
 	return keyOf(a) === keyOf(b);
@@ -106,13 +93,14 @@ function sentAttachments(sends: PendingSend[]): Attachment[] {
 }
 
 /**
- * The text and the sends of one chat surface and session, independently of
- * the views that come and go on it.
+ * The text, the attachments and the sends of one chat surface and session,
+ * independently of the views that come and go on it.
  *
- * Text lives here per conversation: under its thread id, or under the
- * conversation itself until it receives one. Only conversations a view shows
- * and conversations without a thread id are held in memory; the draft store
- * is the authority for every other thread, which another tab may change.
+ * Text and attachments live here per conversation: under its thread id, or
+ * under the conversation itself until it receives one. Text is held in memory
+ * only for conversations a view shows and conversations without a thread id;
+ * storage is the authority for every other thread, which another tab may
+ * change. A thread no view shows keeps here only the files storage cannot hold.
  *
  * A refused send is put back only once every send of its conversation that
  * overlapped it has an outcome, all refused ones in send order and ahead of
@@ -124,64 +112,84 @@ function sentAttachments(sends: PendingSend[]): Attachment[] {
  */
 export class ChatComposer implements PersistedChatHolder {
 	private readonly drafts?: ChatDraftManager;
+	private readonly files: ComposerAttachmentCoordinator;
 	private readonly saveWhileTyping: boolean;
-	private readonly texts = new SvelteMap<TextKey, string>();
+	private readonly texts = new SvelteMap<ConversationKey, string>();
 	/** How often this composer wrote each thread's stored draft. */
 	private readonly draftWrites = new SvelteMap<string, number>();
 	private readonly assignments = new SvelteMap<ChatConversation, () => void>();
-	/** Conversations without a thread id whose refused text waits here for one. */
+	/** Conversations without a thread id whose refused work waits here for one. */
 	private readonly refusedWithoutId = new SvelteSet<ChatConversation>();
 	private nextSendId = 0;
 	private readonly entries = new SvelteMap<number, SendEntry>();
-	/** Each view with the conversation it last activated. The latest mount wins a tie. */
-	private readonly views = new SvelteMap<ComposerSendTarget, ChatConversation | null>();
-	private held: HeldRestoration[] = [];
+	/** Each view with the conversation it last activated. */
+	private readonly views = new SvelteMap<ComposerView, ChatConversation | null>();
+	private mounts = 0;
 	private unregister: (() => void) | null = null;
+	/** The session whose end this composer last let go of, or the one it was made in. */
+	private sessionEpoch = getChatSessionEpoch();
 
 	constructor(options: ChatComposerOptions = {}) {
 		this.drafts = options.surface ? new ChatDraftManager(options.surface) : undefined;
+		this.files = new ComposerAttachmentCoordinator(
+			options.storeFiles ? options.surface : undefined
+		);
 		this.saveWhileTyping = (options.saveDrafts ?? 'while-typing') === 'while-typing';
 	}
 
 	/**
-	 * Hear about session ends while the surface is mounted. Unmounting detaches
-	 * every view but keeps pending sends, so a late refusal still reaches the
-	 * stores.
+	 * Hear about session ends while the surface is mounted, also between its
+	 * views. Unmounting detaches every view but keeps pending sends, so a late
+	 * refusal still reaches the stores.
 	 */
 	mount(): () => void {
-		this.unregister ??= registerPersistedChatHolder(this);
-		return () => {
-			this.unregister?.();
-			this.unregister = null;
-			for (const view of this.views.keys()) this.detach(view);
-		};
+		untrack(() => {
+			this.mounts++;
+			this.syncRegistration();
+		});
+		let mounted = true;
+		return () =>
+			untrack(() => {
+				if (!mounted) return;
+				mounted = false;
+				this.mounts--;
+				for (const view of this.views.keys()) this.detach(view);
+				this.syncRegistration();
+			});
 	}
 
-	/** Register a view. It shows its conversation once it calls `activate`. */
-	attachTarget(target: ComposerSendTarget): () => void {
+	/**
+	 * Register a view. It shows its conversation once it calls `activate`, and
+	 * its uploads use its upload settings. Detaching a view lets go of every
+	 * conversation no remaining view shows, files in transfer included.
+	 */
+	addView(view: ComposerView): () => void {
+		this.files.checkView(view);
 		untrack(() => {
-			this.views.delete(target);
-			this.views.set(target, null);
-			this.projectHeld(target);
+			this.views.delete(view);
+			this.views.set(view, null);
+			this.syncRegistration();
 		});
-		return () => untrack(() => this.detach(target));
+		return () => untrack(() => this.detach(view));
 	}
 
 	/**
 	 * Show the view's current conversation. A conversation another view already
-	 * shows keeps the text on screen. Otherwise a thread starts from its stored
-	 * draft, unless a pending send carries that copy.
+	 * shows keeps what is on screen. Otherwise a thread starts from its stored
+	 * draft, unless a pending send carries that copy, and from its stored files.
+	 * Returns whether the view left a conversation that had a thread id.
 	 */
-	activate(view: ComposerSendTarget): void {
-		untrack(() => {
+	activate(view: ComposerView): boolean {
+		return untrack(() => {
 			const previous = this.views.get(view);
-			if (previous === undefined) return;
+			if (previous === undefined) return false;
 			const next = view.core.conversation;
-			if (previous === next) return;
+			if (previous === next) return false;
 			this.views.set(view, next);
-			if (previous && keyOf(previous) === keyOf(next)) return;
+			if (previous && keyOf(previous) === keyOf(next)) return false;
 			if (previous) this.leave(previous, !this.saveWhileTyping);
 			this.show(next, view);
+			return previous !== null && previous.threadId !== null;
 		});
 	}
 
@@ -212,8 +220,95 @@ export class ChatComposer implements PersistedChatHolder {
 		});
 	}
 
+	/** The attachments of `conversation`. */
+	attachmentsOf(conversation: ChatConversation): Attachment[] {
+		return this.files.listOf(keyOf(conversation));
+	}
+
+	/** Whether another file fits the view's cap beside the files its pending sends may bring back. */
+	canAddAttachment(view: ComposerView): boolean {
+		return (
+			this.attachmentsOf(view.core.conversation).length + this.pendingAttachmentCount(view) <
+			uploadProfileOf(view.uploadConfig).maxFiles
+		);
+	}
+
+	addAttachments(view: ComposerView, attachments: Attachment[]): void {
+		untrack(() => this.files.addAttachments(keyOf(view.core.conversation), view, attachments));
+	}
+
+	removeAttachment(conversation: ChatConversation, index: number): void {
+		untrack(() => this.files.removeAttachment(keyOf(conversation), index));
+	}
+
+	clearAttachments(conversation: ChatConversation): void {
+		untrack(() => this.files.clearAttachments(keyOf(conversation)));
+	}
+
+	/** Drop the files of a conversation the surface left for good, stored ones included. */
+	discardAttachments(conversation: ChatConversation): void {
+		untrack(() => {
+			this.files.clearAttachments(keyOf(conversation));
+			if (conversation.threadId === null) this.forgetIdle(conversation);
+		});
+	}
+
+	captureAttachments(conversation: ChatConversation): ComposerAttachmentSendSnapshot {
+		return untrack(() => this.files.capture(keyOf(conversation)));
+	}
+
+	/** Take a send's files out of the composer. They stay with the send until its outcome. */
+	clearSentAttachments(snapshot: ChatSendSnapshot): void {
+		untrack(() => {
+			if (!isChatSessionCurrent(snapshot.sessionEpoch)) return;
+			this.files.clearSent(keyOf(snapshot.conversation), snapshot.attachments);
+		});
+	}
+
+	uploadFile(
+		view: ComposerView,
+		file: File | Blob,
+		filename?: string,
+		options?: ComposerUploadFileOptions
+	): Promise<void> {
+		return untrack(() =>
+			this.files.uploadFile(
+				keyOf(view.core.conversation),
+				view,
+				this.canAddAttachment(view),
+				file,
+				filename,
+				options
+			)
+		);
+	}
+
+	uploadScreenshot(
+		view: ComposerView,
+		blob: Blob,
+		filename: string,
+		dimensions?: { width: number; height: number },
+		options?: Pick<ComposerUploadFileOptions, 'onPreprocessFailed'>
+	): Promise<void> {
+		return untrack(() =>
+			this.files.uploadScreenshot(
+				keyOf(view.core.conversation),
+				view,
+				this.canAddAttachment(view),
+				blob,
+				filename,
+				dimensions,
+				options
+			)
+		);
+	}
+
+	retryUpload(conversation: ChatConversation, index: number): void {
+		untrack(() => this.files.retryUpload(keyOf(conversation), index));
+	}
+
 	/** Take over a send the composer has just cleared. */
-	begin(source: ComposerSendTarget, snapshot: ChatSendSnapshot): number {
+	begin(snapshot: ChatSendSnapshot): number {
 		const id = this.nextSendId++;
 		const threadId = snapshot.conversation.threadId;
 		untrack(() => {
@@ -225,8 +320,6 @@ export class ChatComposer implements PersistedChatHolder {
 						id,
 						sessionEpoch: snapshot.sessionEpoch,
 						snapshot,
-						source,
-						resources: source.sendResources(),
 						draft: {
 							threadId,
 							writes: threadId === null ? 0 : (this.draftWrites.get(threadId) ?? 0),
@@ -236,7 +329,6 @@ export class ChatComposer implements PersistedChatHolder {
 				})
 			);
 		});
-		this.pendingChanged();
 		return id;
 	}
 
@@ -258,7 +350,6 @@ export class ChatComposer implements PersistedChatHolder {
 
 	private settleOpen(send: PendingSend, outcome: ComposerSendOutcome): void {
 		this.entries.set(send.id, SendEntry.Settled({ send, outcome }));
-		this.pendingChanged();
 		if (!isChatSessionCurrent(send.sessionEpoch)) {
 			this.abandon((candidate) => !isChatSessionCurrent(candidate.sessionEpoch));
 			return;
@@ -296,7 +387,7 @@ export class ChatComposer implements PersistedChatHolder {
 		return untrack(
 			() =>
 				!this.liveEntries().next().done ||
-				this.held.length > 0 ||
+				this.refusedWithoutId.size > 0 ||
 				[...this.texts.keys()].some((key) => typeof key !== 'string' && !this.isShown(key))
 		);
 	}
@@ -305,9 +396,9 @@ export class ChatComposer implements PersistedChatHolder {
 	 * How many files the unsettled sends of the conversation `target` shows
 	 * would bring back if refused. An accepted send holds none.
 	 */
-	pendingAttachmentCount(target: ComposerSendTarget): number {
+	pendingAttachmentCount(target: { readonly core: Pick<ChatSessionPort, 'conversation'> }): number {
 		const shown = target.core.conversation;
-		const holding = untrack(() => [...this.liveEntries()])
+		const holding = [...this.liveEntries()]
 			.filter((entry) => entry._tag === 'Open' || entry.outcome === 'refused')
 			.map((entry) => entry.send)
 			.filter(
@@ -318,44 +409,65 @@ export class ChatComposer implements PersistedChatHolder {
 		return sentAttachments(holding).length;
 	}
 
+	/**
+	 * Let go of everything the ended session left here: abandon its sends, which
+	 * keep what their files are owed, drop every text and file, and reset the
+	 * session of every view. Runs once per session end.
+	 */
 	forgetPersistedState(): void {
 		untrack(() => {
-			this.held = [];
+			if (isChatSessionCurrent(this.sessionEpoch)) return;
+			this.sessionEpoch = getChatSessionEpoch();
 			for (const unsubscribe of this.assignments.values()) unsubscribe();
 			this.assignments.clear();
 			this.refusedWithoutId.clear();
+			this.abandon(() => true);
+			this.files.forget();
 			this.texts.clear();
 			this.draftWrites.clear();
-			this.abandon(() => true);
+			for (const view of this.views.keys()) view.core.forgetChatSession();
 		});
-		this.pendingChanged();
 	}
 
 	private *liveEntries(): Generator<LiveEntry> {
 		for (const entry of this.entries.values()) if (entry._tag !== 'Abandoned') yield entry;
 	}
 
-	private pendingChanged(): void {
-		for (const target of untrack(() => [...this.views.keys()])) target.pendingSendsChanged();
+	private syncRegistration(): void {
+		const wanted = typeof window !== 'undefined' && (this.mounts > 0 || this.views.size > 0);
+		if (wanted && !this.unregister) this.unregister = registerPersistedChatHolder(this);
+		if (!wanted && this.unregister) {
+			this.unregister();
+			this.unregister = null;
+		}
 	}
 
-	private detach(view: ComposerSendTarget): void {
+	private detach(view: ComposerView): void {
 		const shown = this.views.get(view);
 		if (!this.views.delete(view)) return;
 		if (shown) this.leave(shown, false);
+		for (const key of this.files.keys()) {
+			if (this.isShown(key)) continue;
+			if (typeof key !== 'string' && this.refusedWithoutId.has(key)) continue;
+			this.files.dispose(key);
+			if (typeof key !== 'string') this.forgetIdle(key);
+		}
+		this.syncRegistration();
 	}
 
 	/** Whether a view other than `except` shows the conversation under `key`. */
-	private isShown(key: TextKey, except?: ComposerSendTarget): boolean {
+	private isShown(key: ConversationKey, except?: ComposerView): boolean {
 		return [...this.views].some(
 			([view, shown]) => view !== except && shown !== null && keyOf(shown) === key
 		);
 	}
 
 	/**
-	 * Let go of a conversation a view stopped showing, unless another view still
-	 * shows it. A conversation without a thread id keeps its text while one of
-	 * its sends is open, so the text moves to the id the send may still assign.
+	 * Let go of the text of a conversation a view stopped showing, unless another
+	 * view still shows it. A conversation without a thread id keeps its text
+	 * while one of its sends is open, so the text moves to the id the send may
+	 * still assign. Files stay, so a transfer still running lands where it
+	 * belongs.
 	 */
 	private leave(conversation: ChatConversation, save: boolean): void {
 		const key = keyOf(conversation);
@@ -369,9 +481,12 @@ export class ChatComposer implements PersistedChatHolder {
 		this.texts.delete(key);
 	}
 
-	private show(conversation: ChatConversation, view: ComposerSendTarget): void {
+	private show(conversation: ChatConversation, view: ComposerView): void {
 		const key = keyOf(conversation);
-		if (typeof key !== 'string' || this.isShown(key, view)) return;
+		if (typeof key !== 'string') this.watchAssignment(conversation);
+		if (this.isShown(key, view)) return;
+		this.files.show(key);
+		if (typeof key !== 'string') return;
 		const stored = this.drafts && !this.sendCarriesDraft(key) ? this.drafts.getDraft(key) : '';
 		if (stored) this.texts.set(key, stored);
 		else this.texts.delete(key);
@@ -397,8 +512,8 @@ export class ChatComposer implements PersistedChatHolder {
 
 	/**
 	 * Drop the text of a conversation without a thread id that no view shows, no
-	 * send holds and no refusal put back, and stop waiting for its id unless
-	 * refused files still do.
+	 * send holds and no refusal put back, and stop waiting for its id once no
+	 * files wait for it either.
 	 */
 	private forgetIdle(conversation: ChatConversation): void {
 		if (
@@ -409,14 +524,15 @@ export class ChatComposer implements PersistedChatHolder {
 			return;
 		}
 		this.texts.delete(conversation);
-		if (this.held.some((held) => held.conversation === conversation)) return;
+		if (this.files.holds(conversation)) return;
 		this.assignments.get(conversation)?.();
 		this.assignments.delete(conversation);
 	}
 
 	/**
 	 * Move the work of a conversation that just received its id to that id: its
-	 * text behind what the thread already holds, stored once, and its held files.
+	 * text behind what the thread already holds, stored once, and its files
+	 * beside the thread's.
 	 */
 	private assigned(conversation: ChatConversation, threadId: string): void {
 		this.refusedWithoutId.delete(conversation);
@@ -428,7 +544,7 @@ export class ChatComposer implements PersistedChatHolder {
 		const text = present === moved ? moved : joinWork([present], moved);
 		if (text.trim()) this.writeDraft(threadId, text);
 		if (this.isShown(threadId) && text) this.texts.set(threadId, text);
-		this.flushHeld(conversation, threadId);
+		this.files.assign(conversation, threadId);
 		this.dropSurfaceIfIdle();
 	}
 
@@ -478,19 +594,18 @@ export class ChatComposer implements PersistedChatHolder {
 		for (const entry of this.liveEntries()) {
 			const { send } = entry;
 			if (!ended(send)) continue;
-			const { resources } = send;
 			const attachments = send.snapshot.attachments.attachments;
-			const owed = !resources.store && attachments.length > 0;
+			const owed = !this.files.storesFiles && attachments.length > 0;
 			if (owed && entry._tag === 'Open') {
 				this.entries.set(
 					send.id,
-					SendEntry.Abandoned({ release: () => resources.release(attachments) })
+					SendEntry.Abandoned({ release: () => this.files.release(attachments) })
 				);
 				continue;
 			}
 			this.entries.delete(send.id);
 			if (owed && entry._tag === 'Settled' && entry.outcome === 'refused') {
-				resources.release(attachments);
+				this.files.release(attachments);
 			}
 		}
 		this.dropSurfaceIfIdle();
@@ -499,16 +614,6 @@ export class ChatComposer implements PersistedChatHolder {
 	private dropSurfaceIfIdle(): void {
 		const surface = surfaceOwnerOf.get(this);
 		if (surface && !this.hasOutstandingWork) dropSurfaceOwnerIfUnused(surface);
-	}
-
-	private matchingTarget(
-		conversation: ChatConversation,
-		preferred?: ComposerSendTarget
-	): ComposerSendTarget | undefined {
-		const matches = (target: ComposerSendTarget) =>
-			sameConversation(conversation, target.core.conversation);
-		if (preferred && this.views.has(preferred) && matches(preferred)) return preferred;
-		return [...this.views.keys()].reverse().find(matches);
 	}
 
 	/**
@@ -545,59 +650,37 @@ export class ChatComposer implements PersistedChatHolder {
 		if (this.drafts) this.refusedWithoutId.add(conversation);
 	}
 
+	/**
+	 * Put refused files back: into the conversation a view shows, into storage
+	 * for a thread no view shows, and into the entry of a conversation without a
+	 * thread id until it receives one. A surface that stores nothing gives them
+	 * back to their transports instead.
+	 */
 	private publish(group: PendingSend[], refused: PendingSend[]): void {
-		const last = refused.at(-1)!;
-		const conversation = last.snapshot.conversation;
-		const threadId = conversation.threadId;
+		const conversation = refused.at(-1)!.snapshot.conversation;
 		this.restoreText(
 			conversation,
 			refused.map((send) => send.snapshot.inputValue),
 			group
 		);
-		const target = this.matchingTarget(conversation, last.source);
-		if (target) {
-			target.restoreAttachments(sentAttachments(refused));
+		const key = keyOf(conversation);
+		const attachments = sentAttachments(refused);
+		if (this.isShown(key)) {
+			this.files.restore(key, attachments, { persist: true });
 			return;
 		}
-
-		for (const send of refused) {
-			if (!send.resources.store) send.resources.release(send.snapshot.attachments.attachments);
-		}
-		const kept = refused.filter((send) => send.resources.store);
-		if (kept.length === 0) return;
-		if (threadId === null) {
-			this.held.push({
-				sessionEpoch: last.sessionEpoch,
-				conversation,
-				attachments: sentAttachments(kept),
-				store: kept[0]?.resources.store
-			});
-			this.watchAssignment(conversation);
+		if (!this.files.storesFiles) {
+			for (const send of refused) this.files.release(send.snapshot.attachments.attachments);
 			return;
 		}
-		kept[0]!.resources.store!.restoreThreadAttachments(threadId, sentAttachments(kept));
-	}
-
-	private flushHeld(conversation: ChatConversation, threadId: string): void {
-		const flushed = this.held.filter((held) => held.conversation === conversation);
-		this.held = this.held.filter((held) => held.conversation !== conversation);
-		for (const held of flushed) {
-			if (!isChatSessionCurrent(held.sessionEpoch)) continue;
-			const target = this.matchingTarget(conversation);
-			if (target) target.restoreAttachments(held.attachments);
-			else held.store?.restoreThreadAttachments(threadId, held.attachments);
+		if (attachments.length === 0) return;
+		if (typeof key === 'string') {
+			this.files.storeRefused(key, attachments);
+			return;
 		}
-	}
-
-	private projectHeld(target: ComposerSendTarget): void {
-		const conversation = target.core.conversation;
-		const matching = this.held.filter(
-			(held) =>
-				isChatSessionCurrent(held.sessionEpoch) && sameConversation(held.conversation, conversation)
-		);
-		if (matching.length === 0) return;
-		this.held = this.held.filter((held) => !matching.includes(held));
-		for (const held of matching) target.restoreAttachments(held.attachments);
+		this.files.restore(key, attachments, { persist: false });
+		this.watchAssignment(conversation);
+		this.refusedWithoutId.add(conversation);
 	}
 }
 
@@ -609,6 +692,8 @@ export type ComposerSendLease = {
 
 type ChatComposerLeaseOptions = {
 	saveDrafts?: DraftSaving;
+	/** Keeps uploaded files in the surface's attachment store. */
+	storeFiles?: boolean;
 	/** Receives the next session's lease when the session ends while the surface stays mounted. */
 	renewed?: (next: ComposerSendLease) => void;
 };
@@ -626,7 +711,7 @@ const surfaceOwnerOf = new WeakMap<ChatComposer, SurfaceOwner>();
 
 /**
  * The composer of `surface` in this browser session, with the surface's draft
- * store.
+ * store and, with `storeFiles`, its attachment store.
  *
  * A page that is left and entered again while one of its sends is open gets
  * the same composer back, which still knows the stored draft that send carries
@@ -643,7 +728,8 @@ export function acquireChatComposer(
 	surface: string,
 	options: ChatComposerLeaseOptions = {}
 ): ComposerSendLease {
-	const create = () => new ChatComposer({ surface, saveDrafts: options.saveDrafts });
+	const create = () =>
+		new ChatComposer({ surface, saveDrafts: options.saveDrafts, storeFiles: options.storeFiles });
 	// The server shares this module between requests and never sends.
 	if (typeof window === 'undefined') return { owner: create(), release: () => {} };
 	const sessionEpoch = getChatSessionEpoch();

@@ -12,11 +12,11 @@
 	let {
 		threadId,
 		greeting,
-		sendOwner
+		composer
 	}: {
 		threadId: string;
 		greeting: string;
-		sendOwner: ChatComposer;
+		composer: ChatComposer;
 	} = $props();
 
 	const chatApi = {
@@ -31,10 +31,7 @@
 	});
 
 	// svelte-ignore state_referenced_locally
-	const chatUIContext = new ChatUIContext(chatCore, client, undefined, 'right', null, {
-		forgetSession: () => chatCore.forgetChatSession(),
-		sendOwner
-	});
+	const chatUIContext = new ChatUIContext(chatCore, client, composer);
 	onDestroy(() => chatUIContext.dispose());
 
 	async function handleSend(prompt: string) {

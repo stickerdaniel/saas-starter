@@ -12,7 +12,7 @@
 	import { useConvexClient } from 'convex-svelte';
 	import { api } from '#lib/convex/_generated/api.js';
 	import { ChatCore } from '../../core/chat-core.svelte.ts';
-	import { ChatAttachmentStore } from '../../core/chat-attachment-store.svelte.ts';
+	import { ChatComposer } from '../chat-composer.svelte.ts';
 	import { ChatUIContext } from '../chat-context.svelte.ts';
 	import ChatInputHarness from './ChatInputHarness.svelte';
 	import type ChatInput from '../ChatInput.svelte';
@@ -29,6 +29,7 @@
 	// svelte-ignore state_referenced_locally
 	let threadId = $state(initialThreadId);
 	const client = useConvexClient();
+	let composer: ChatComposer | undefined;
 	keyedChatInputLifecycle.setThreadId = (next) => (threadId = next);
 
 	function createContext(currentThreadId: string): ChatUIContext {
@@ -36,19 +37,8 @@
 			threadId: currentThreadId,
 			api: { sendMessage: api.aiChat.messages.sendMessage }
 		});
-		const context = new ChatUIContext(
-			core,
-			client,
-			{
-				purpose: 'aiChat',
-				attachmentStore: new ChatAttachmentStore(surface)
-			},
-			'right',
-			null,
-			{
-				forgetSession: () => core.forgetChatSession()
-			}
-		);
+		composer ??= new ChatComposer({ surface, storeFiles: true });
+		const context = new ChatUIContext(core, client, composer, { purpose: 'aiChat' });
 		context.setDisplayMessages([]);
 		keyedChatInputLifecycle.context = context;
 		return context;

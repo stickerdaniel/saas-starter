@@ -1,11 +1,7 @@
-import { untrack } from 'svelte';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { toast } from 'svelte-sonner';
-import type {
-	AttachmentsByThread,
-	ChatAttachmentStore
-} from '../core/chat-attachment-store.svelte.ts';
-import { registerPersistedChatHolder } from '../core/chat-persisted-state.ts';
+import { ChatAttachmentStore } from '../core/chat-attachment-store.svelte.ts';
+import type { ChatConversation } from '../core/chat-session-port.svelte.ts';
 import {
 	uploadFileWithProgress,
 	type AttachmentTextAction,
@@ -14,14 +10,12 @@ import {
 	type ChatVisitorArgs
 } from '../core/file-uploader.js';
 import { DEFAULT_ATTACHMENT_PROFILE, type Attachment } from '../core/types.js';
-import type { ComposerSendResources } from './chat-composer.svelte.ts';
 import { checkUploadPayload, type UploadProfile } from '../../uploads/profiles.js';
 import { UploadError, type UploadErrorCode } from '../../uploads/transfer.js';
 import { logSafeDiagnostic } from '../../monitoring/safe-diagnostic.js';
 import {
 	AttachmentRefusal,
 	AttachmentTransfer,
-	attachmentFileIdentity,
 	attachmentProgressRank,
 	isAttachmentTransferAbort,
 	isSameAttachmentFile,
@@ -63,14 +57,18 @@ type UploadConfigBase = {
 /** Uploads through the surface's route on the Convex site URL. */
 export type DirectUploadConfig = UploadConfigBase &
 	ChatUploadApi & {
-		/** Persistence adapter for successful attachment references. */
-		attachmentStore?: ChatAttachmentStore;
 		upload?: never;
 		release?: never;
 		getAccessKey?: never;
 	};
 
-/** Uploads through the surface's own transport instead of the upload route. */
+/**
+ * Uploads through the surface's own transport instead of the upload route.
+ *
+ * Not for a composer that stores files: a reference restored from storage
+ * after its composer released it would point at a resource the surface
+ * already gave back.
+ */
 export type CustomUploadConfig = UploadConfigBase & {
 	upload: AttachmentTransferUpload;
 	/** Access key handed to the transport with each payload. */
@@ -82,15 +80,15 @@ export type CustomUploadConfig = UploadConfigBase & {
 	 * thrown.
 	 */
 	release?: (result: AttachmentUploadResult) => Promise<void> | void;
-	/**
-	 * Not supported: a reference restored from storage after its composer
-	 * released it would point at a resource the surface already gave back.
-	 */
-	attachmentStore?: never;
 	purpose?: never;
 };
 
 export type UploadConfig = DirectUploadConfig | CustomUploadConfig;
+
+/** The upload policy of a view with `config`. */
+export function uploadProfileOf(config: UploadConfig | undefined): UploadProfile {
+	return config?.profile ?? DEFAULT_ATTACHMENT_PROFILE;
+}
 
 /** A transfer cannot change a composer's discriminant, identity, or local source. */
 type AttachmentSnapshotPatch = Partial<
@@ -106,13 +104,10 @@ export interface ActiveUploadsRegistry {
 	release(owner: object): void;
 }
 
-export type ComposerAttachmentCoordinatorOptions = {
-	getThreadId: () => string | null;
-	uploadConfig?: UploadConfig;
-	activeUploads?: ActiveUploadsRegistry | null;
-	onForgetPersistedState?: () => void;
-	/** Files this composer's unsettled sends hold; a refusal puts them back, so they keep their slots. */
-	pendingSendAttachments?: () => number;
+/** What a view lends the uploads it starts: its upload settings and the app's upload registry. */
+export type AttachmentView = {
+	readonly uploadConfig?: UploadConfig;
+	readonly activeUploads: ActiveUploadsRegistry | null;
 };
 
 export type ComposerUploadFileOptions = {
@@ -129,266 +124,254 @@ export type ComposerAttachmentSendSnapshot = {
 	attachments: Attachment[];
 };
 
+/** A thread id, or the conversation itself while it has none. */
+export type ConversationKey = string | ChatConversation;
+
+export function conversationKey(conversation: ChatConversation): ConversationKey {
+	return conversation.threadId ?? conversation;
+}
+
+/** Storage files every conversation without a thread id under the empty key. */
+function storageKey(key: ConversationKey): string {
+	return typeof key === 'string' ? key : '';
+}
+
+function transferKeyOf(attachment: Attachment): string | undefined {
+	return 'key' in attachment ? attachment.key : undefined;
+}
+
+type ReleaseResult = NonNullable<CustomUploadConfig['release']>;
+
+/** Who takes a result back, and the file ids it took back already. */
+type ResultOwner = {
+	readonly release?: ReleaseResult;
+	readonly released: SvelteSet<string>;
+};
+
 /**
- * Owns one composer's attachment collection and its thread/persistence lifecycle.
- * Individual preprocessing and transport attempts remain inside AttachmentTransfer.
+ * The attachments of one composer, per conversation, with their transfers and
+ * their storage.
+ *
+ * An upload belongs to the view that starts it: its transfer keeps that view's
+ * transport, policy, translations and upload registry until it ends. A result
+ * goes back to the release function it was uploaded or added with, once,
+ * whichever view shows it later. Individual preprocessing and transport
+ * attempts remain inside AttachmentTransfer.
  */
 export class ComposerAttachmentCoordinator {
-	attachments = $state<Attachment[]>([]);
+	private readonly store?: ChatAttachmentStore;
 
-	/** The upload policy every entry point and this collection read. */
-	readonly profile: UploadProfile;
-
-	/** Admission limit shared by every composer input surface. */
-	readonly maxAttachments: number;
-
-	/** Attachments held for threads that are not currently live. */
-	private readonly parked = new SvelteMap<string, Attachment[]>();
+	/** The attachments of each conversation, shown or set aside. */
+	private readonly lists = new SvelteMap<ConversationKey, Attachment[]>();
 
 	/** One lifecycle owner for each attachment that can still transfer or retry. */
 	private readonly transfers = new SvelteMap<string, AttachmentTransfer>();
 
-	/** Transfer keys whose work still blocks navigation. */
-	private readonly pendingUploads = new SvelteSet<string>();
+	/** The owner of each result, carried by every copy of it. Never rendered. */
+	private readonly owners = new WeakMap<Attachment, ResultOwner>();
 
-	/** Takes this coordinator back out of the register of mounted composers. */
-	private readonly unregister: () => void;
+	/** The owner of the results without a transfer that each view added. */
+	private keylessOwners = new WeakMap<AttachmentView, ResultOwner>();
 
-	/** Results already handed back, so no path releases one twice. Never rendered. */
-	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- never rendered
-	private readonly releasedFileIds = new Set<string>();
+	/** @param surface names the attachment store; without one, files live only in memory. */
+	constructor(surface?: string) {
+		this.store = surface ? new ChatAttachmentStore(surface) : undefined;
+	}
 
-	private readonly getThreadId: () => string | null;
-	private readonly uploadConfig?: UploadConfig;
-	private readonly activeUploads: ActiveUploadsRegistry | null;
-	private readonly onForgetPersistedState?: () => void;
-	private readonly pendingSendAttachments: () => number;
+	/** Whether refused files of a conversation no view shows go to storage. */
+	get storesFiles(): boolean {
+		return this.store !== undefined;
+	}
 
-	/** Last thread observed by the chat rendering this coordinator. */
-	private lastThreadId: string | null | undefined = undefined;
-
-	/** Keeps disposal cleanup from persisting as a deliberately emptied composer. */
-	private disposed = false;
-
-	constructor(options: ComposerAttachmentCoordinatorOptions) {
-		this.getThreadId = options.getThreadId;
-		this.uploadConfig = options.uploadConfig;
-		this.activeUploads = options.activeUploads ?? null;
-		this.onForgetPersistedState = options.onForgetPersistedState;
-		this.pendingSendAttachments = options.pendingSendAttachments ?? (() => 0);
-		this.profile = options.uploadConfig?.profile ?? DEFAULT_ATTACHMENT_PROFILE;
-		this.maxAttachments = this.profile.maxFiles;
-
-		// Restored composers start parked beneath their thread identity. The thread
-		// already on screen claims its own immediately, including screenshot uploads
-		// started while no ChatRoot is mounted.
-		for (const [threadId, attachments] of options.uploadConfig?.attachmentStore?.read() ?? []) {
-			this.parked.set(threadId, attachments);
+	/** Refuse a view whose results storage would outlive. */
+	checkView(view: AttachmentView): void {
+		if (this.store && view.uploadConfig?.upload) {
+			throw new Error('A composer that stores files cannot upload through a custom transport');
 		}
-		this.adoptParked(untrack(this.getThreadId));
-		this.unregister = registerPersistedChatHolder(this);
 	}
 
-	/** Whether another pick fits the cap beside the files pending sends may bring back. */
-	get canAddAttachment(): boolean {
-		return this.attachments.length + this.pendingSendAttachments() < this.maxAttachments;
+	listOf(key: ConversationKey): Attachment[] {
+		return this.lists.get(key) ?? [];
 	}
 
-	/** Whether a file's source or transformed identity is already live. */
-	hasFile(name: string, size: number): boolean {
-		const picked = `${name}:${size}`;
-		return this.attachments.some((attachment) =>
-			attachmentFileIdentity(attachment).includes(picked)
-		);
+	keys(): ConversationKey[] {
+		return [...this.lists.keys()];
+	}
+
+	holds(key: ConversationKey): boolean {
+		return this.lists.has(key);
 	}
 
 	/** Persists any settled references among the added snapshots. */
-	addAttachments(newAttachments: Attachment[]): void {
-		this.attachments = [...this.attachments, ...newAttachments];
-		this.persist();
+	addAttachments(key: ConversationKey, view: AttachmentView, added: Attachment[]): void {
+		for (const attachment of added) this.own(attachment, view);
+		this.setList(key, [...this.listOf(key), ...added]);
+		this.persist(key);
 	}
 
-	/** Remove one live attachment and permanently release its owned resources. */
-	removeAttachment(index: number): void {
-		const removed = this.attachments[index];
-		if (removed) {
-			this.releaseUpload(removed);
-			this.revokePreview(removed);
-		}
-		this.attachments = this.attachments.filter((_, attachmentIndex) => attachmentIndex !== index);
-		this.persist();
+	/** Remove one attachment and permanently release its owned resources. */
+	removeAttachment(key: ConversationKey, index: number): void {
+		const list = this.listOf(key);
+		const removed = list[index];
+		if (removed) this.drop(removed);
+		this.setList(
+			key,
+			list.filter((_, attachmentIndex) => attachmentIndex !== index)
+		);
+		this.persist(key);
 		if (removed) this.releaseAbandoned([removed]);
 	}
 
-	/** Remove every live attachment and permanently release its owned resources. */
-	clearAttachments(): void {
-		const cleared = this.attachments;
-		for (const attachment of cleared) {
-			this.releaseUpload(attachment);
-			this.revokePreview(attachment);
-		}
-		this.attachments = [];
-		this.persist();
+	/** Remove every attachment of `key`, release its owned resources and store it empty. */
+	clearAttachments(key: ConversationKey): void {
+		const cleared = this.listOf(key);
+		for (const attachment of cleared) this.drop(attachment);
+		this.lists.delete(key);
+		this.persist(key);
 		this.releaseAbandoned(cleared);
 	}
 
-	captureSendAttachments(): ComposerAttachmentSendSnapshot {
+	/** Let go of an entry nobody shows any more, leaving its storage as it is. */
+	dispose(key: ConversationKey): void {
+		const disposed = this.listOf(key);
+		for (const attachment of disposed) this.drop(attachment);
+		this.lists.delete(key);
+		this.releaseAbandoned(disposed);
+	}
+
+	capture(key: ConversationKey): ComposerAttachmentSendSnapshot {
 		return {
-			attachments: this.attachments.map((attachment) =>
-				(attachment.type === 'file' || attachment.type === 'screenshot') && attachment.uploadState
-					? { ...attachment, uploadState: { ...attachment.uploadState } }
-					: { ...attachment }
+			attachments: this.listOf(key).map((attachment) =>
+				this.copy(
+					attachment,
+					(attachment.type === 'file' || attachment.type === 'screenshot') && attachment.uploadState
+						? { ...attachment, uploadState: { ...attachment.uploadState } }
+						: { ...attachment }
+				)
 			)
 		};
 	}
 
-	clearSendAttachments(snapshot: ComposerAttachmentSendSnapshot): void {
+	clearSent(key: ConversationKey, snapshot: ComposerAttachmentSendSnapshot): void {
 		// Counts preserve exact multiplicity for legacy unkeyed attachments while
 		// keyed uploads use their transfer identity.
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local to this call
 		const remaining = new Map<string, number>();
 		for (const attachment of snapshot.attachments) {
-			const identity = ComposerAttachmentCoordinator.attachmentIdentity(attachment);
+			const identity = attachmentIdentity(attachment);
 			remaining.set(identity, (remaining.get(identity) ?? 0) + 1);
 		}
 
 		const kept: Attachment[] = [];
-		for (const attachment of this.attachments) {
-			const identity = ComposerAttachmentCoordinator.attachmentIdentity(attachment);
+		for (const attachment of this.listOf(key)) {
+			const identity = attachmentIdentity(attachment);
 			const count = remaining.get(identity) ?? 0;
 			if (count === 0) {
 				kept.push(attachment);
 				continue;
 			}
 			remaining.set(identity, count - 1);
-			this.releaseUpload(attachment);
-			this.revokePreview(attachment);
+			this.drop(attachment);
 		}
-		this.attachments = kept;
-		this.persist();
+		this.setList(key, kept);
+		this.persist(key);
 	}
 
-	/** Put refused attachments back ahead of what the live composer holds now. */
-	restoreSendAttachments(snapshot: ComposerAttachmentSendSnapshot): void {
-		if (this.disposed) return;
-		this.attachments = ComposerAttachmentCoordinator.mergeSnapshotAttachments(
-			snapshot.attachments,
-			this.attachments
-		);
-		this.persist();
+	/** Put refused attachments back ahead of what the entry holds now. */
+	restore(
+		key: ConversationKey,
+		attachments: Attachment[],
+		{ persist }: { persist: boolean }
+	): void {
+		this.setList(key, this.merge(attachments, this.listOf(key)));
+		if (persist) this.persist(key);
+	}
+
+	/** Merge refused files into the stored files of a thread no view shows. */
+	storeRefused(threadId: string, attachments: Attachment[]): void {
+		this.store?.restoreThreadAttachments(threadId, attachments);
+	}
+
+	/** Hand sent or dropped results back to their transports once nothing here holds them. */
+	release(attachments: Attachment[]): void {
+		this.releaseAbandoned(attachments);
 	}
 
 	/**
-	 * Where sent attachments go once their send is refused and no composer on
-	 * screen takes them back: the store when this surface keeps one, otherwise
-	 * back to the transport, since nothing would ever offer them again.
+	 * Show `key` from storage. A thread drops the stored copies held for it and
+	 * merges what is stored now with the transfers still held, keeping whichever
+	 * copy got further: another tab may have added or removed files meanwhile. A
+	 * conversation without a thread id keeps what waits for its id and adds the
+	 * stored files no other conversation here holds.
 	 */
-	sendResources(): ComposerSendResources {
-		return {
-			store: this.uploadConfig?.attachmentStore,
-			release: (attachments) => this.releaseAbandoned(attachments)
-		};
-	}
-
-	reconcilePersistedAttachments(
-		namespace: string,
-		threadId: string | null,
-		attachments: Attachment[]
-	): void {
-		if (
-			this.disposed ||
-			this.uploadConfig?.attachmentStore?.namespace !== namespace ||
-			untrack(this.getThreadId) !== threadId
-		) {
+	show(key: ConversationKey): void {
+		if (!this.store) return;
+		if (typeof key !== 'string') {
+			const unclaimed = this.unclaimedWithoutId();
+			if (unclaimed.length > 0) this.adopt(key, unclaimed);
 			return;
 		}
-		this.attachments = ComposerAttachmentCoordinator.mergeSnapshotAttachments(
-			attachments,
-			this.attachments
-		);
+		const carried = this.listOf(key).filter((attachment) => {
+			if (!isStoredAttachment(attachment)) return true;
+			revokeAttachmentPreview(attachment);
+			return false;
+		});
+		this.setList(key, carried);
+		const stored = this.store.readThread(key);
+		if (stored.length > 0) this.adopt(key, stored);
 	}
 
 	/**
-	 * Reconciles the live composer with the observed thread. Returns true only when
-	 * navigating away from a real thread, the transition on which ChatUIContext
-	 * resets its message animation state.
+	 * Move the files of a conversation that just received its id to that id,
+	 * beside what the thread already holds and stores, and take only this
+	 * composer's copies out from under the empty key.
 	 */
-	syncThread(): boolean {
-		const currentThreadId = untrack(this.getThreadId);
-		let navigatedBetweenThreads = false;
-
-		if (this.lastThreadId === undefined) {
-			this.adoptParked(currentThreadId ?? null);
-		} else if (currentThreadId !== this.lastThreadId) {
-			if (this.lastThreadId === null) {
-				// The no-id conversation is this thread now. Remove only this composer's
-				// settled copies from the shared empty key, then leave other tabs' copies.
-				this.parked.delete('');
-				this.adoptParked(currentThreadId ?? null);
-				this.parked.set('', this.strangersUnderEmptyKey());
-				this.persist('');
-			} else {
-				this.parkAttachments(this.lastThreadId, currentThreadId ?? null);
-				navigatedBetweenThreads = true;
-			}
-		}
-		this.lastThreadId = currentThreadId;
-		return navigatedBetweenThreads;
-	}
-
-	/**
-	 * Moves to the selected existing thread and discards what the composer held for
-	 * the conversation it leaves, instead of parking or carrying it.
-	 *
-	 * The entering thread's references are read from the store now: a send refused
-	 * while this composer showed another conversation, or before it was built,
-	 * stored them there. Returns what `syncThread` returns.
-	 */
-	enterSelectedThread(): boolean {
-		const entering = untrack(this.getThreadId);
-		const leaving = this.lastThreadId;
-		if (leaving === entering) return false;
-		const discarded = this.attachments;
-		if (leaving === null) this.parked.set('', this.strangersUnderEmptyKey());
-		for (const attachment of discarded) {
-			this.releaseUpload(attachment);
-			this.revokePreview(attachment);
-		}
-		this.attachments = [];
-		this.lastThreadId = entering;
-		this.takeThread(entering);
-		this.persist(...(leaving === undefined ? [] : [leaving]));
-		this.releaseAbandoned(discarded);
-		return leaving !== undefined && leaving !== null;
+	assign(conversation: ChatConversation, threadId: string): void {
+		const moved = this.lists.get(conversation);
+		if (!moved) return;
+		this.lists.delete(conversation);
+		const local = this.listOf(threadId).filter((attachment) => {
+			if (!this.store || !isStoredAttachment(attachment)) return true;
+			revokeAttachmentPreview(attachment);
+			return false;
+		});
+		this.setList(threadId, moved);
+		this.adopt(threadId, [...(this.store?.readThread(threadId) ?? []), ...local]);
+		this.write([['', this.strangersUnderEmptyKey(this.listOf(threadId))]]);
 	}
 
 	/** Drops everything held for the ended session, including unpersisted state. */
-	forgetPersistedState(): void {
-		const abandoned = [...this.parked.keys()];
-		const parked = this.dropParked();
-		this.clearAttachments();
-		this.releaseAbandoned(parked);
-		this.onForgetPersistedState?.();
-		this.persist(...abandoned);
+	forget(): void {
+		const keys = this.keys();
+		const dropped = [...this.lists.values()].flat();
+		for (const attachment of dropped) this.drop(attachment);
+		this.lists.clear();
+		this.persist(...keys);
+		this.releaseAbandoned(dropped);
+		this.keylessOwners = new WeakMap();
 	}
 
 	/** Inserts the source-identity placeholder synchronously, then uploads. */
 	async uploadFile(
+		key: ConversationKey,
+		view: AttachmentView,
+		hasRoom: boolean,
 		file: File | Blob,
 		filename?: string,
 		options?: ComposerUploadFileOptions
 	): Promise<void> {
-		if (!this.uploadConfig) {
+		const config = view.uploadConfig;
+		if (!config) {
 			throw new Error('Upload config not provided to ChatUIContext');
 		}
-		if (!this.canAddAttachment) return;
+		if (!hasRoom) return;
 
 		const initialName = filename ?? (file instanceof File ? file.name : 'file');
-		const key = crypto.randomUUID();
+		const transferKey = crypto.randomUUID();
 		const isImageType = file.type.startsWith('image/');
 		const placeholder: Attachment = {
 			type: 'file',
-			key,
+			key: transferKey,
 			name: initialName,
 			size: file.size,
 			mimeType: file.type,
@@ -399,17 +382,16 @@ export class ComposerAttachmentCoordinator {
 			sourceName: initialName,
 			sourceSize: file.size
 		};
-		this.attachments = [...this.attachments, placeholder];
-
-		const transfer = this.createTransfer(
-			key,
-			file,
-			initialName,
-			file.type,
-			this.uploadConfig.getAccessKey?.()
-		);
+		const transfer = this.createTransfer(view, config, placeholder, {
+			key: transferKey,
+			blob: file,
+			filename: initialName,
+			mimeType: file.type
+		});
+		this.setList(key, [...this.listOf(key), placeholder]);
 		this.settleRefusedStart(
-			key,
+			config,
+			transferKey,
 			initialName,
 			await transfer.start(options?.preprocess),
 			options?.onPreprocessFailed
@@ -418,20 +400,24 @@ export class ComposerAttachmentCoordinator {
 
 	/** Upload a screenshot whose blob already is the exact retry payload. */
 	async uploadScreenshot(
+		key: ConversationKey,
+		view: AttachmentView,
+		hasRoom: boolean,
 		blob: Blob,
 		filename: string,
 		dimensions?: { width: number; height: number },
 		options?: Pick<ComposerUploadFileOptions, 'onPreprocessFailed'>
 	): Promise<void> {
-		if (!this.uploadConfig) {
+		const config = view.uploadConfig;
+		if (!config) {
 			throw new Error('Upload config not provided to ChatUIContext');
 		}
-		if (!this.canAddAttachment) return;
+		if (!hasRoom) return;
 
-		const key = crypto.randomUUID();
+		const transferKey = crypto.randomUUID();
 		const attachment: Attachment = {
 			type: 'screenshot',
-			key,
+			key: transferKey,
 			name: filename,
 			size: blob.size,
 			mimeType: blob.type,
@@ -440,106 +426,109 @@ export class ComposerAttachmentCoordinator {
 			width: dimensions?.width,
 			height: dimensions?.height
 		};
-		this.attachments = [...this.attachments, attachment];
-
-		const transfer = this.createTransfer(
-			key,
+		const transfer = this.createTransfer(view, config, attachment, {
+			key: transferKey,
 			blob,
 			filename,
-			blob.type,
-			this.uploadConfig.getAccessKey?.(),
+			mimeType: blob.type,
 			dimensions,
-			false
+			measureImageDimensions: false
+		});
+		this.setList(key, [...this.listOf(key), attachment]);
+		this.settleRefusedStart(
+			config,
+			transferKey,
+			filename,
+			await transfer.start(),
+			options?.onPreprocessFailed
 		);
-		this.settleRefusedStart(key, filename, await transfer.start(), options?.onPreprocessFailed);
 	}
 
 	/** Retries with the transfer's retained post-preprocessing payload. */
-	retryUpload(index: number): void {
-		const attachment = this.attachments[index];
-		if (!attachment || !('key' in attachment) || !attachment.key) return;
-		void this.transfers.get(attachment.key)?.retry();
+	retryUpload(key: ConversationKey, index: number): void {
+		const attachment = this.listOf(key)[index];
+		const transferKey = attachment && transferKeyOf(attachment);
+		if (!transferKey) return;
+		void this.transfers.get(transferKey)?.retry();
 	}
 
-	get hasUploadingFiles(): boolean {
-		return this.attachments.some(
-			(attachment) =>
-				(attachment.type === 'file' || attachment.type === 'screenshot') &&
-				attachment.uploadState?.status === 'uploading'
-		);
+	private setList(key: ConversationKey, list: Attachment[]): void {
+		if (list.length > 0) this.lists.set(key, list);
+		else this.lists.delete(key);
 	}
 
-	get hasFailedUploads(): boolean {
-		return this.attachments.some(
-			(attachment) =>
-				(attachment.type === 'file' || attachment.type === 'screenshot') &&
-				attachment.uploadState?.status === 'error'
-		);
-	}
-
-	get uploadedFileIds(): string[] {
-		return this.attachments
-			.filter(
-				(attachment): attachment is Extract<Attachment, { type: 'file' | 'screenshot' }> =>
-					(attachment.type === 'file' || attachment.type === 'screenshot') &&
-					attachment.uploadState?.status === 'success'
-			)
-			.map((attachment) => attachment.uploadState!.fileId!)
-			.filter(Boolean);
-	}
-
-	/** Permanently release every live and parked attachment owned by this surface. */
-	dispose(): void {
-		if (this.disposed) return;
-		this.unregister();
-		this.disposed = true;
-		const parked = this.dropParked();
-		this.clearAttachments();
-		this.releaseAbandoned(parked);
-		this.pendingUploads.clear();
-		this.activeUploads?.release(this);
-	}
-
-	/** Empty every parked list, releasing its client resources, and return what it held. */
-	private dropParked(): Attachment[] {
-		const dropped = [...this.parked.values()].flat();
-		for (const attachment of dropped) {
-			this.releaseUpload(attachment);
-			this.revokePreview(attachment);
+	/** Cancel the transfer of an attachment leaving the composer and free its preview. */
+	private drop(attachment: Attachment): void {
+		const key = transferKeyOf(attachment);
+		if (key) {
+			this.transfers.get(key)?.dispose();
+			this.transfers.delete(key);
 		}
-		this.parked.clear();
-		return dropped;
+		revokeAttachmentPreview(attachment);
 	}
 
 	/**
-	 * Hands stored results back to a custom transport once nothing here holds them.
-	 * Sending clears attachments without this, because a sent result belongs to its
-	 * send until the send's outcome decides.
+	 * Record who takes an added result back: the view's release function, once
+	 * per transfer identity, or once per file id among the results that view
+	 * added without one.
+	 */
+	private own(attachment: Attachment, view: AttachmentView): void {
+		if (attachment.type !== 'file' && attachment.type !== 'screenshot') return;
+		if (this.owners.has(attachment)) return;
+		const release = view.uploadConfig?.release;
+		if (attachment.key) {
+			this.owners.set(attachment, { release, released: new SvelteSet() });
+			return;
+		}
+		let owner = this.keylessOwners.get(view);
+		if (!owner) {
+			owner = { release, released: new SvelteSet() };
+			this.keylessOwners.set(view, owner);
+		}
+		this.owners.set(attachment, owner);
+	}
+
+	/** `next`, a copy of `source`, released by whoever releases `source`. */
+	private copy(source: Attachment, next: Attachment): Attachment {
+		const owner = this.owners.get(source);
+		if (owner) this.owners.set(next, owner);
+		return next;
+	}
+
+	/**
+	 * Hands results back to their transports once nothing here holds them.
+	 * Sending clears attachments without this, because a sent result belongs to
+	 * its send until the send's outcome decides.
 	 */
 	private releaseAbandoned(attachments: Attachment[]): void {
 		for (const attachment of attachments) {
 			if (attachment.type !== 'file' && attachment.type !== 'screenshot') continue;
 			const state = attachment.uploadState;
-			if (state?.status !== 'success' || !state.fileId || this.holdsResult(state.fileId)) continue;
-			this.releaseResult({ fileId: state.fileId, url: attachment.url ?? '' });
+			const owner = this.owners.get(attachment);
+			if (state?.status !== 'success' || !state.fileId || !owner?.release) continue;
+			if (this.holdsResult(state.fileId, owner.release)) continue;
+			this.releaseThrough(owner, { fileId: state.fileId, url: attachment.url ?? '' });
 		}
 	}
 
-	private holdsResult(fileId: string): boolean {
-		const holds = (attachment: Attachment) =>
-			(attachment.type === 'file' || attachment.type === 'screenshot') &&
-			attachment.uploadState?.fileId === fileId;
-		if (this.attachments.some(holds)) return true;
-		for (const attachments of this.parked.values()) {
-			if (attachments.some(holds)) return true;
+	/** Whether an entry still holds a result with this file id for the same release function. */
+	private holdsResult(fileId: string, release: ReleaseResult): boolean {
+		for (const list of this.lists.values()) {
+			const holds = list.some(
+				(attachment) =>
+					(attachment.type === 'file' || attachment.type === 'screenshot') &&
+					attachment.uploadState?.fileId === fileId &&
+					this.owners.get(attachment)?.release === release
+			);
+			if (holds) return true;
 		}
 		return false;
 	}
 
-	private releaseResult(result: AttachmentUploadResult): void {
-		const release = this.uploadConfig?.release;
-		if (!release || this.releasedFileIds.has(result.fileId)) return;
-		this.releasedFileIds.add(result.fileId);
+	private releaseThrough(owner: ResultOwner, result: AttachmentUploadResult): void {
+		const release = owner.release;
+		if (!release || owner.released.has(result.fileId)) return;
+		owner.released.add(result.fileId);
 		const reportFailure = () => console.error('[ComposerAttachmentCoordinator] Release failed');
 		try {
 			void Promise.resolve(release(result)).catch(reportFailure);
@@ -548,149 +537,77 @@ export class ComposerAttachmentCoordinator {
 		}
 	}
 
-	/** What the shared no-thread key contains that this composer did not put there. */
-	private strangersUnderEmptyKey(): Attachment[] {
-		const stored = this.uploadConfig?.attachmentStore?.readThread(null) ?? [];
+	/** What the shared no-thread key contains that is not among `mine`. */
+	private strangersUnderEmptyKey(mine: Attachment[]): Attachment[] {
+		const stored = this.store?.readThread(null) ?? [];
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local to this call
-		const mine = new Set(
-			this.attachments.map((attachment) => ('key' in attachment ? attachment.key : undefined))
-		);
-		return stored.filter((attachment) => !('key' in attachment) || !mine.has(attachment.key));
+		const keys = new Set(mine.map(transferKeyOf));
+		return stored.filter((attachment) => !('key' in attachment) || !keys.has(attachment.key));
 	}
 
-	/** Persist only the live thread and explicitly changed parked threads. */
-	private persist(...alsoChanged: Array<string | null>): void {
-		const store = this.uploadConfig?.attachmentStore;
-		if (!store || this.disposed) return;
-		const liveKey = untrack(this.getThreadId) ?? '';
+	/** Stored files of conversations without a thread id that no entry here holds. */
+	private unclaimedWithoutId(): Attachment[] {
+		return this.strangersUnderEmptyKey([...this.lists.values()].flat());
+	}
 
+	/** Persist the entries of `keys`, and nothing else. */
+	private persist(...keys: ConversationKey[]): void {
+		this.write(keys.map((key) => [storageKey(key), this.listOf(key)]));
+	}
+
+	private write(entries: Array<[string, Attachment[]]>): void {
+		if (!this.store || entries.length === 0) return;
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- handed straight to the store, never rendered
-		const snapshot: AttachmentsByThread = new Map();
-		for (const threadId of alsoChanged) {
-			const key = threadId ?? '';
-			if (key !== liveKey) snapshot.set(key, this.parked.get(key) ?? []);
-		}
-		snapshot.set(liveKey, this.attachments);
-		store.write(snapshot);
+		this.store.write(new Map(entries));
 	}
 
-	private revokePreview(attachment: Attachment): void {
-		revokeAttachmentPreview(attachment);
-	}
-
-	private releaseUpload(attachment: Attachment): void {
-		const key = 'key' in attachment ? attachment.key : undefined;
-		if (!key) return;
-		this.transfers.get(key)?.dispose();
-		this.transfers.delete(key);
-		this.settlePending(key);
-	}
-
-	private markPending(key: string): void {
-		const firstPending = this.pendingUploads.size === 0;
-		this.pendingUploads.add(key);
-		if (firstPending) this.activeUploads?.claim(this);
-	}
-
-	private settlePending(key: string): void {
-		this.pendingUploads.delete(key);
-		if (this.pendingUploads.size === 0) this.activeUploads?.release(this);
-	}
-
-	/** Park the outgoing live list and restore the entering thread's current authority. */
-	private parkAttachments(leaving: string, entering: string | null): void {
-		if (this.attachments.length > 0) this.parked.set(leaving, this.attachments);
-		this.takeThread(entering);
-		this.persist(leaving);
-	}
-
-	/** Replace the live list with what is held and stored for the entering thread. */
-	private takeThread(entering: string | null): void {
-		const key = entering ?? '';
-		const store = this.uploadConfig?.attachmentStore;
-		const held = this.parked.get(key) ?? [];
-		const carried: Attachment[] = [];
-		for (const attachment of held) {
-			if (store && isStoredAttachment(attachment)) {
-				this.revokePreview(attachment);
-				continue;
-			}
-			carried.push(attachment);
-		}
-		this.attachments = carried;
-		this.parked.delete(key);
-		const stored = store?.readThread(entering) ?? [];
-		if (stored.length > 0) {
-			this.parked.set(key, stored);
-			this.adoptParked(entering);
-		}
-	}
-
-	/** Adopt parked/live copies for one thread, retaining whichever progressed further. */
-	private adoptParked(threadId: string | null): void {
-		const key = threadId ?? '';
-		const parked = this.parked.get(key);
-		if (!parked) return;
-		this.parked.delete(key);
-
-		const supersededLive = this.attachments.map(() => false);
+	/** Adopt `candidates` into the entry of `key`, retaining whichever copy progressed further. */
+	private adopt(key: ConversationKey, candidates: Attachment[]): void {
+		const live = this.listOf(key);
+		const supersededLive = live.map(() => false);
 		const adopted: Attachment[] = [];
 		const replaced: Attachment[] = [];
-		for (const candidate of parked) {
-			const rivalIndex = this.attachments.findIndex(
-				(live, index) => !supersededLive[index] && isSameAttachmentFile(candidate, live)
+		for (const candidate of candidates) {
+			const rivalIndex = live.findIndex(
+				(attachment, index) => !supersededLive[index] && isSameAttachmentFile(candidate, attachment)
 			);
-			const rival = rivalIndex === -1 ? undefined : this.attachments[rivalIndex];
+			const rival = rivalIndex === -1 ? undefined : live[rivalIndex];
 			if (!rival) {
 				adopted.push(candidate);
 				continue;
 			}
 			if (attachmentProgressRank(candidate) >= attachmentProgressRank(rival)) {
 				supersededLive[rivalIndex] = true;
-				this.releaseUpload(rival);
-				this.revokePreview(rival);
+				this.drop(rival);
 				replaced.push(rival);
 				adopted.push(candidate);
 			} else {
-				this.releaseUpload(candidate);
-				this.revokePreview(candidate);
+				this.drop(candidate);
 				replaced.push(candidate);
 			}
 		}
 
-		this.attachments = [
-			...adopted,
-			...this.attachments.filter((_, index) => !supersededLive[index])
-		];
-		this.persist(threadId);
+		this.setList(key, [...adopted, ...live.filter((_, index) => !supersededLive[index])]);
+		this.persist(key);
 		this.releaseAbandoned(replaced);
 	}
 
-	private static mergeSnapshotAttachments(
-		snapshot: Attachment[],
-		current: Attachment[]
-	): Attachment[] {
+	private merge(snapshot: Attachment[], current: Attachment[]): Attachment[] {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local to this call
 		const currentByIdentity = new Map(
-			current.map((attachment) => [
-				ComposerAttachmentCoordinator.attachmentIdentity(attachment),
-				attachment
-			])
+			current.map((attachment) => [attachmentIdentity(attachment), attachment])
 		);
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local to this call
 		const included = new Set<string>();
 		const merged: Attachment[] = [];
 		for (const attachment of snapshot) {
-			const identity = ComposerAttachmentCoordinator.attachmentIdentity(attachment);
+			const identity = attachmentIdentity(attachment);
 			if (included.has(identity)) continue;
 			included.add(identity);
-			merged.push(
-				currentByIdentity.get(identity) ??
-					ComposerAttachmentCoordinator.withoutRevokedPreview(attachment)
-			);
+			merged.push(currentByIdentity.get(identity) ?? this.withoutRevokedPreview(attachment));
 		}
 		for (const attachment of current) {
-			const identity = ComposerAttachmentCoordinator.attachmentIdentity(attachment);
+			const identity = attachmentIdentity(attachment);
 			if (included.has(identity)) continue;
 			included.add(identity);
 			merged.push(attachment);
@@ -698,52 +615,44 @@ export class ComposerAttachmentCoordinator {
 		return merged;
 	}
 
-	private static withoutRevokedPreview(attachment: Attachment): Attachment {
+	private withoutRevokedPreview(attachment: Attachment): Attachment {
 		return 'preview' in attachment && attachment.preview?.startsWith('blob:')
-			? { ...attachment, preview: undefined }
+			? this.copy(attachment, { ...attachment, preview: undefined })
 			: attachment;
 	}
 
-	private static attachmentIdentity(attachment: Attachment): string {
-		if ('key' in attachment && attachment.key) return `transfer:${attachment.key}`;
-		if (attachment.type === 'file' || attachment.type === 'screenshot') {
-			return `upload:${attachment.type}:${attachment.name}:${attachment.size}:${attachment.mimeType}:${attachment.url ?? ''}:${attachment.uploadState?.fileId ?? ''}`;
-		}
-		return `${attachment.type}:${attachment.url}:${attachment.filename ?? ''}`;
-	}
-
 	private createTransfer(
-		key: string,
-		blob: File | Blob,
-		filename: string,
-		mimeType: string,
-		accessKey?: string,
-		dimensions?: { width: number; height: number },
-		measureImageDimensions = true
+		view: AttachmentView,
+		config: UploadConfig,
+		attachment: Attachment,
+		payload: {
+			key: string;
+			blob: File | Blob;
+			filename: string;
+			mimeType: string;
+			dimensions?: { width: number; height: number };
+			measureImageDimensions?: boolean;
+		}
 	): AttachmentTransfer {
-		const config = this.uploadConfig;
-		if (!config) throw new Error('Upload config not provided to ChatUIContext');
-
-		const transfer = new AttachmentTransfer({
-			key,
-			blob,
-			filename,
-			mimeType,
-			dimensions,
-			accessKey,
-			measureImageDimensions,
-			upload: config.upload ? config.upload : this.directUpload(config),
-			checkPayload: (payload) => this.checkPayload(payload, filename),
-			release: (result) => this.releaseResult(result),
+		const owner: ResultOwner = { release: config.release, released: new SvelteSet() };
+		this.owners.set(attachment, owner);
+		const registry = view.activeUploads;
+		const profile = uploadProfileOf(config);
+		const transfer: AttachmentTransfer = new AttachmentTransfer({
+			...payload,
+			accessKey: config.getAccessKey?.(),
+			upload: config.upload ? config.upload : directUpload(config),
+			checkPayload: (checked) => checkPayload(profile, config, checked, payload.filename),
+			release: (result) => this.releaseThrough(owner, result),
 			onSnapshot: (snapshot) => {
-				if (this.transfers.get(key) !== transfer) return;
+				if (this.transfers.get(payload.key) !== transfer) return;
 				if (snapshot.phase === 'preprocessing') return;
 				this.applyTransferSnapshot(snapshot);
-				if (snapshot.phase === 'success') this.transfers.delete(key);
+				if (snapshot.phase === 'success') this.transfers.delete(payload.key);
 			},
 			onActivityChange: (active) => {
-				if (active) this.markPending(key);
-				else this.settlePending(key);
+				if (active) registry?.claim(transfer);
+				else registry?.release(transfer);
 			},
 			// The tile shows a translated cause; the log adds the code and HTTP status
 			// that tell failures apart. The message and `cause` stay out: they carry
@@ -757,35 +666,13 @@ export class ComposerAttachmentCoordinator {
 					status: error instanceof UploadError ? error.status : undefined
 				})
 		});
-		this.transfers.set(key, transfer);
+		this.transfers.set(payload.key, transfer);
 		return transfer;
-	}
-
-	/** Refuse, in the user's words, a final payload the surface profile does not allow. */
-	private checkPayload(payload: AttachmentTransferPayload, sourceName: string): void {
-		const refusal = checkUploadPayload(this.profile, {
-			filename: payload.filename,
-			mimeType: payload.mimeType,
-			size: payload.blob.size
-		});
-		if (!refusal) return;
-		const translate = this.uploadConfig?.translate;
-		if (refusal.reason === 'type') {
-			throw new AttachmentRefusal(
-				translate?.('chat.error.file_type_not_allowed', { filename: sourceName }) ??
-					`File type not allowed: "${sourceName}"`
-			);
-		}
-		throw new AttachmentRefusal(
-			translate?.('chat.error.file_too_large', { filename: sourceName }) ??
-				`File too large: "${sourceName}"`,
-			translate?.('chat.error.file_max_size', { maxSize: refusal.limit.label }) ??
-				`Maximum size is ${refusal.limit.label}`
-		);
 	}
 
 	/** Drop an attachment whose preparation failed and tell the user why. */
 	private settleRefusedStart(
+		config: UploadConfig,
 		key: string,
 		name: string,
 		result: AttachmentTransferResult,
@@ -806,21 +693,9 @@ export class ComposerAttachmentCoordinator {
 			return;
 		}
 		toast.error(
-			this.uploadConfig?.translate?.('chat.error.upload_failed', { filename: name }) ??
+			config.translate?.('chat.error.upload_failed', { filename: name }) ??
 				`Failed to upload "${name}"`
 		);
-	}
-
-	private directUpload(config: DirectUploadConfig): AttachmentTransferUpload {
-		return (payload, onProgress, signal) =>
-			uploadFileWithProgress(
-				payload.blob,
-				payload.filename,
-				onProgress,
-				config,
-				payload.dimensions,
-				signal
-			);
 	}
 
 	private applyTransferSnapshot(snapshot: AttachmentTransferSnapshot): void {
@@ -844,49 +719,86 @@ export class ComposerAttachmentCoordinator {
 		this.patchAttachment(snapshot.key, patch);
 	}
 
-	/** Rewrite every live or parked list which contains this transfer identity. */
+	/** Rewrite every entry which contains this transfer identity. */
 	private rewriteLists(key: string, rewrite: (list: Attachment[]) => Attachment[]): void {
-		const holds = (list: Attachment[]) =>
-			list.some((attachment) => 'key' in attachment && attachment.key === key);
-		if (holds(this.attachments)) this.attachments = rewrite(this.attachments);
-		const rewritten: string[] = [];
-		for (const [threadId, attachments] of this.parked) {
-			if (!holds(attachments)) continue;
-			rewritten.push(threadId);
-			const next = rewrite(attachments);
-			if (next.length > 0) this.parked.set(threadId, next);
-			else this.parked.delete(threadId);
+		const rewritten: ConversationKey[] = [];
+		for (const [entry, list] of this.lists) {
+			if (!list.some((attachment) => transferKeyOf(attachment) === key)) continue;
+			rewritten.push(entry);
+			this.setList(entry, rewrite(list));
 		}
 		this.persist(...rewritten);
 	}
 
 	private findAttachment(key: string): Attachment | undefined {
-		const matches = (attachment: Attachment) => 'key' in attachment && attachment.key === key;
-		const live = this.attachments.find(matches);
-		if (live) return live;
-		for (const attachments of this.parked.values()) {
-			const parked = attachments.find(matches);
-			if (parked) return parked;
+		for (const list of this.lists.values()) {
+			const found = list.find((attachment) => transferKeyOf(attachment) === key);
+			if (found) return found;
 		}
 		return undefined;
 	}
 
 	private patchAttachment(key: string, patch: AttachmentSnapshotPatch): void {
-		this.rewriteLists(key, (attachments) =>
-			attachments.map((attachment) =>
-				'key' in attachment && attachment.key === key ? { ...attachment, ...patch } : attachment
+		this.rewriteLists(key, (list) =>
+			list.map((attachment) =>
+				transferKeyOf(attachment) === key
+					? this.copy(attachment, { ...attachment, ...patch })
+					: attachment
 			)
 		);
 	}
 
 	private discardAttachment(key: string): void {
 		const attachment = this.findAttachment(key);
-		if (attachment) {
-			this.releaseUpload(attachment);
-			this.revokePreview(attachment);
-		}
-		this.rewriteLists(key, (attachments) =>
-			attachments.filter((attachment) => !('key' in attachment) || attachment.key !== key)
+		if (attachment) this.drop(attachment);
+		this.rewriteLists(key, (list) => list.filter((candidate) => transferKeyOf(candidate) !== key));
+	}
+}
+
+function attachmentIdentity(attachment: Attachment): string {
+	if ('key' in attachment && attachment.key) return `transfer:${attachment.key}`;
+	if (attachment.type === 'file' || attachment.type === 'screenshot') {
+		return `upload:${attachment.type}:${attachment.name}:${attachment.size}:${attachment.mimeType}:${attachment.url ?? ''}:${attachment.uploadState?.fileId ?? ''}`;
+	}
+	return `${attachment.type}:${attachment.url}:${attachment.filename ?? ''}`;
+}
+
+function directUpload(config: DirectUploadConfig): AttachmentTransferUpload {
+	return (payload, onProgress, signal) =>
+		uploadFileWithProgress(
+			payload.blob,
+			payload.filename,
+			onProgress,
+			config,
+			payload.dimensions,
+			signal
+		);
+}
+
+/** Refuse, in the user's words, a final payload the view's profile does not allow. */
+function checkPayload(
+	profile: UploadProfile,
+	config: UploadConfig,
+	payload: AttachmentTransferPayload,
+	sourceName: string
+): void {
+	const refusal = checkUploadPayload(profile, {
+		filename: payload.filename,
+		mimeType: payload.mimeType,
+		size: payload.blob.size
+	});
+	if (!refusal) return;
+	const translate = config.translate;
+	if (refusal.reason === 'type') {
+		throw new AttachmentRefusal(
+			translate?.('chat.error.file_type_not_allowed', { filename: sourceName }) ??
+				`File type not allowed: "${sourceName}"`
 		);
 	}
+	throw new AttachmentRefusal(
+		translate?.('chat.error.file_too_large', { filename: sourceName }) ??
+			`File too large: "${sourceName}"`,
+		translate?.('chat.error.file_max_size', { maxSize: refusal.limit.label }) ??
+			`Maximum size is ${refusal.limit.label}`
+	);
 }

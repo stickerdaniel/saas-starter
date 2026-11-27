@@ -36,6 +36,7 @@ const localStorageMock: Storage = {
 };
 
 const { ChatUIContext } = await import('./chat-context.svelte.ts');
+const { ChatComposer } = await import('./chat-composer.svelte.ts');
 const { ChatAttachmentStore } = await import('../core/chat-attachment-store.svelte.ts');
 const { clearPersistedChatState } = await import('../core/chat-persisted-state.ts');
 
@@ -60,27 +61,32 @@ function pendingTransfer() {
 
 /**
  * A chat on the surface under test, reading and writing the shared storage.
- *
- * `rendered: false` stands for a context whose chat was never mounted, which
- * the screenshot flow produces: it uploads through the context with the panel
- * closed, so `setDisplayMessages` may never run.
+ * Each call is a page load with its own composer, unless it is handed the
+ * composer of an earlier one.
  */
-function chatAt(threadId: string | null, { rendered = true } = {}) {
+function chatAt(
+	threadId: string | null,
+	composer = new ChatComposer({ surface, storeFiles: true })
+) {
 	const core = createChatSession(threadId);
-	const uploadConfig = {
-		purpose: 'support',
-		attachmentStore: new ChatAttachmentStore(surface)
-	} as unknown as ConstructorParameters<typeof ChatUIContext>[2];
-	const ctx = new ChatUIContext(core, {} as ConvexClient, uploadConfig, 'right', null);
-	// The first call is what gives the context a thread to compare against.
-	if (rendered) ctx.setDisplayMessages([]);
+	const ctx = new ChatUIContext(core, {} as ConvexClient, composer, { purpose: 'support' });
 	return {
 		ctx,
+		composer,
 		switchTo(next: string | null) {
-			core.setThread(next);
-			ctx.setDisplayMessages([]);
+			core.moveTo(next);
+			ctx.activate();
 		}
 	};
+}
+
+/** Send what `ctx` holds the way ChatInput does, and return the send's outcome callback. */
+function sendFrom(ctx: InstanceType<typeof ChatUIContext>) {
+	const snapshot = ctx.captureSendSnapshot();
+	ctx.clearInputForSend(snapshot);
+	const settle = ctx.beginSend(snapshot);
+	ctx.clearAttachmentsForSend(snapshot);
+	return settle;
 }
 
 const shot = () => new Blob(['x'], { type: 'image/png' });
@@ -96,6 +102,25 @@ async function uploadInto(ctx: InstanceType<typeof ChatUIContext>, filename: str
 
 function names(ctx: InstanceType<typeof ChatUIContext>) {
 	return ctx.attachments.map((a) => ('name' in a ? a.name : undefined));
+}
+
+function statuses(ctx: InstanceType<typeof ChatUIContext>) {
+	return ctx.attachments.map((a) => [
+		'name' in a ? a.name : undefined,
+		'uploadState' in a ? a.uploadState?.status : undefined
+	]);
+}
+
+/** Start one screenshot that stays in transfer and one that fails. */
+async function runningAndFailed(ctx: InstanceType<typeof ChatUIContext>) {
+	const running = pendingTransfer();
+	void ctx.uploadScreenshot(shot(), 'running.png');
+	const failing = pendingTransfer();
+	const failed = ctx.uploadScreenshot(shot(), 'failed.png');
+	await vi.waitFor(() => expect(uploadFileWithProgress).toHaveBeenCalledTimes(2));
+	failing.reject(new Error('storage unavailable'));
+	await failed;
+	return running;
 }
 
 function storedFile(key: string, name: string): Attachment {
@@ -210,10 +235,10 @@ describe('ChatUIContext persisted attachments', () => {
 		const first = chatAt('thread-a');
 		await uploadInto(first.ctx, 'earlier.png', 'file-earlier');
 
-		// Left parked under the thread it is standing in, the stored file would be
-		// written over by the very next save, and no render is coming to claim it.
-		const unrendered = chatAt('thread-a', { rendered: false });
-		await uploadInto(unrendered.ctx, 'later.png', 'file-later');
+		// Left out of the composer of the thread it is standing in, the stored file
+		// would be written over by the very next save.
+		const later = chatAt('thread-a');
+		await uploadInto(later.ctx, 'later.png', 'file-later');
 
 		expect(names(chatAt('thread-a').ctx).sort()).toEqual(['earlier.png', 'later.png']);
 	});
@@ -271,8 +296,11 @@ describe('ChatUIContext persisted attachments', () => {
 		await uploadInto(chat.ctx, 'from-b.png', 'file-b');
 
 		// Letting go has to reach what is set aside as well, rather than leaning
-		// on the sweep to empty the whole key afterwards.
-		chat.ctx.forgetPersistedState();
+		// on the sweep to empty the whole key afterwards: another tab's session
+		// end empties nothing here.
+		window.dispatchEvent(
+			new StorageEvent('storage', { key: 'chat:session-ended', newValue: '2-0.5' })
+		);
 
 		expect(chatAt('thread-a').ctx.attachments).toHaveLength(0);
 	});
@@ -347,6 +375,74 @@ describe('ChatUIContext persisted attachments', () => {
 		expect(chatAt('thread-b').ctx.attachments).toHaveLength(0);
 	});
 
+	it('keeps a failed transfer but not a stored file another tab took out while it was away', async () => {
+		const steppedOut = chatAt('thread-b');
+		await uploadInto(steppedOut.ctx, 'stored.png', 'file-b');
+		const failing = pendingTransfer();
+		const failed = steppedOut.ctx.uploadScreenshot(shot(), 'failed.png');
+		await vi.waitFor(() => expect(uploadFileWithProgress).toHaveBeenCalledTimes(2));
+		failing.reject(new Error('storage unavailable'));
+		await failed;
+		steppedOut.switchTo('thread-a');
+
+		const stillThere = chatAt('thread-b');
+		expect(names(stillThere.ctx)).toEqual(['stored.png']);
+		stillThere.ctx.removeAttachment(0);
+
+		steppedOut.switchTo('thread-b');
+		expect(statuses(steppedOut.ctx)).toEqual([['failed.png', 'error']]);
+	});
+
+	it('does not bring back a stored file that expired while its thread was off screen', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		try {
+			vi.setSystemTime(new Date('2026-08-01T08:00:00Z'));
+			const chat = chatAt('thread-b');
+			await uploadInto(chat.ctx, 'stored.png', 'file-b');
+			chat.switchTo('thread-a');
+
+			vi.setSystemTime(new Date('2026-08-01T21:00:00Z'));
+			chat.switchTo('thread-b');
+
+			expect(chat.ctx.attachments).toHaveLength(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it.each([
+		{ opened: 'on the thread', closed: 'first' },
+		{ opened: 'on the thread', closed: 'second' },
+		{ opened: 'by switching to it', closed: 'first' },
+		{ opened: 'by switching to it', closed: 'second' }
+	] as const)(
+		'shows a running and a failed transfer in a second view opened $opened, also after the $closed view closes',
+		async ({ opened, closed }) => {
+			const first = chatAt('thread-a');
+			const running = await runningAndFailed(first.ctx);
+			const second = chatAt(opened === 'on the thread' ? 'thread-a' : 'thread-b', first.composer);
+			if (opened === 'by switching to it') second.switchTo('thread-a');
+
+			const shown = [
+				['running.png', 'uploading'],
+				['failed.png', 'error']
+			];
+			expect(statuses(first.ctx)).toEqual(shown);
+			expect(statuses(second.ctx)).toEqual(shown);
+
+			const [gone, open] = closed === 'first' ? [first, second] : [second, first];
+			gone.ctx.dispose();
+			expect(statuses(open.ctx)).toEqual(shown);
+			running.succeed('file-running');
+			await vi.waitFor(() =>
+				expect(statuses(open.ctx)).toEqual([
+					['running.png', 'success'],
+					['failed.png', 'error']
+				])
+			);
+		}
+	);
+
 	it('leaves another conversation waiting for its id alone', async () => {
 		// The empty key belongs to every conversation that has none yet. Being
 		// given an id clears what this composer had there, and only that: another
@@ -391,9 +487,11 @@ describe('ChatUIContext persisted attachments', () => {
 		expect(names(reloaded.ctx)).toEqual(['shot.png']);
 	});
 
-	it('reconciles only the matching surface and thread without replacing a later upload', () => {
+	it('puts a refused file back beside a later upload in the matching surface and thread only', () => {
 		const matching = chatAt('thread-a');
-		const otherThread = chatAt('thread-b');
+		const otherThread = chatAt('thread-b', matching.composer);
+		matching.ctx.addAttachments([storedFile('restored', 'restored.txt')]);
+		const settle = sendFrom(matching.ctx);
 		const later: Attachment = {
 			type: 'file',
 			key: 'later',
@@ -403,13 +501,10 @@ describe('ChatUIContext persisted attachments', () => {
 			uploadState: { status: 'uploading', progress: 50 }
 		};
 		matching.ctx.addAttachments([later]);
-		const matchingSurface = surface;
 		surface = 'other-' + Math.random();
 		const otherSurface = chatAt('thread-a');
 
-		new ChatAttachmentStore(matchingSurface).restoreThreadAttachments('thread-a', [
-			storedFile('restored', 'restored.txt')
-		]);
+		settle('refused');
 
 		expect(names(matching.ctx)).toEqual(['restored.txt', 'later.txt']);
 		expect(matching.ctx.attachments[1]).toEqual(later);
@@ -417,16 +512,18 @@ describe('ChatUIContext persisted attachments', () => {
 		expect(otherSurface.ctx.attachments).toHaveLength(0);
 	});
 
-	it('reconciles a replacement context when persistence fails and permits removal', () => {
+	it('puts a refused file back into a replacement view when storage fails, and permits removal', () => {
 		vi.spyOn(console, 'error').mockImplementation(() => {});
-		const replacement = chatAt('thread-a');
+		const first = chatAt('thread-a');
+		first.ctx.addAttachments([storedFile('restored', 'restored.txt')]);
+		const settle = sendFrom(first.ctx);
+		first.ctx.dispose();
+		const replacement = chatAt('thread-a', first.composer);
 		const setItem = vi.spyOn(localStorageMock, 'setItem').mockImplementation(() => {
 			throw new DOMException('QuotaExceededError');
 		});
 
-		new ChatAttachmentStore(surface).restoreThreadAttachments('thread-a', [
-			storedFile('restored', 'restored.txt')
-		]);
+		settle('refused');
 
 		expect(names(replacement.ctx)).toEqual(['restored.txt']);
 		setItem.mockRestore();

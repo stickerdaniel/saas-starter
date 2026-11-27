@@ -15,16 +15,14 @@ import { api } from '#lib/convex/_generated/api.js';
 import { ChatCore } from '../core/chat-core.svelte.ts';
 import { ChatDraftManager } from '../core/chat-draft-manager.svelte.ts';
 import { ChatAttachmentStore } from '../core/chat-attachment-store.svelte.ts';
-import { clearPersistedChatState, getChatSessionEpoch } from '../core/chat-persisted-state.ts';
-import { ChatConversation } from '../core/chat-session-port.svelte.ts';
+import { clearPersistedChatState } from '../core/chat-persisted-state.ts';
 import { DEFAULT_ATTACHMENT_PROFILE, MAX_MESSAGE_LENGTH, type Attachment } from '../core/types.js';
 import type { UploadProfile } from '../../uploads/profiles.js';
-import { ChatUIContext, type ChatSendSnapshot, type UploadConfig } from './chat-context.svelte.ts';
+import { ChatUIContext, type UploadConfig } from './chat-context.svelte.ts';
 import {
 	ChatComposer,
 	acquireChatComposer,
-	type ComposerSendLease,
-	type ComposerSendTarget
+	type ComposerSendLease
 } from './chat-composer.svelte.ts';
 import ChatTestProvider from './test-fixtures/ChatTestProvider.svelte';
 import ChatInputHarness from './test-fixtures/ChatInputHarness.svelte';
@@ -90,15 +88,13 @@ function chatSurface({
 	const store = persistent ? new ChatAttachmentStore(name) : undefined;
 	const release = vi.fn();
 	const uploadConfig: UploadConfig = persistent
-		? {
-				purpose: 'aiChat',
-				attachmentStore: store,
-				profile
-			}
+		? { purpose: 'aiChat', profile }
 		: { upload: vi.fn(), release, profile };
 	const owner =
 		givenOwner?.() ??
-		new ChatComposer({ surface: persistent ? name : undefined, saveDrafts: 'on-switch' });
+		(persistent
+			? new ChatComposer({ surface: name, saveDrafts: 'on-switch', storeFiles: true })
+			: new ChatComposer({ saveDrafts: 'on-switch' }));
 	const sends: Send[] = [];
 	const onSend = vi.fn((prompt: string): Promise<void> => {
 		const send = Object.assign(Promise.withResolvers<void>(), { prompt });
@@ -107,10 +103,7 @@ function chatSurface({
 	});
 
 	async function openComposer(threadId: string | null, core = new ChatCore({ threadId })) {
-		const context = new ChatUIContext(core, client, uploadConfig, 'right', null, {
-			sendOwner: owner
-		});
-		context.setDisplayMessages([]);
+		const context = new ChatUIContext(core, client, owner, uploadConfig);
 		const target = document.body.appendChild(document.createElement('div'));
 		const contentProps = { context, onSend, showFileButton };
 		const component = mount(ChatTestProvider<typeof contentProps>, {
@@ -171,7 +164,7 @@ function leasedSurface(name: string, options: { persistent?: boolean } = {}) {
 		...options,
 		name,
 		owner: () => {
-			lease = acquireChatComposer(name);
+			lease = acquireChatComposer(name, { storeFiles: options.persistent ?? true });
 			return lease.owner;
 		}
 	});
@@ -435,7 +428,7 @@ describe('composers that come and go', () => {
 			const name = `settlement-${crypto.randomUUID()}`;
 			const chat = chatSurface({
 				name,
-				owner: () => new ChatComposer({ surface: name, saveDrafts })
+				owner: () => new ChatComposer({ surface: name, saveDrafts, storeFiles: true })
 			});
 			const core = new ChatCore({ threadId: null });
 			const composer = await chat.open(null, core);
@@ -467,7 +460,7 @@ describe('composers that come and go', () => {
 				const name = `settlement-${crypto.randomUUID()}`;
 				return chatSurface({
 					name,
-					owner: () => new ChatComposer({ surface: name, saveDrafts })
+					owner: () => new ChatComposer({ surface: name, saveDrafts, storeFiles: true })
 				});
 			};
 
@@ -566,7 +559,10 @@ describe('text of a thread across views', () => {
 
 	it('shows the draft another tab stored while the thread was off screen', async () => {
 		const name = `settlement-${crypto.randomUUID()}`;
-		const chat = chatSurface({ name, owner: () => new ChatComposer({ surface: name }) });
+		const chat = chatSurface({
+			name,
+			owner: () => new ChatComposer({ surface: name, storeFiles: true })
+		});
 		const core = new ChatCore({ threadId: 'thread-a' });
 		const composer = await chat.open('thread-a', core);
 		await composer.type('typed here');
@@ -1127,36 +1123,6 @@ describe('sent attachments', () => {
 		expect(reopened.attachments()).toEqual([]);
 		await reopened.close();
 		expect(chat.release).toHaveBeenCalledOnce();
-	});
-});
-
-describe('settlement notices', () => {
-	it('tells the views about each settled send before the group restores its refusals', () => {
-		const owner = new ChatComposer();
-		const conversation = new ChatConversation('thread-a');
-		const calls: string[] = [];
-		const target: ComposerSendTarget = {
-			core: { conversation },
-			restoreAttachments: () => calls.push(`restore ${owner.textOf(conversation)}`),
-			sendResources: () => ({ release: () => calls.push('release') }),
-			pendingSendsChanged: () => calls.push('changed')
-		};
-		owner.attachTarget(target);
-		owner.activate(target);
-		const snapshot = (inputValue: string): ChatSendSnapshot => ({
-			sessionEpoch: getChatSessionEpoch(),
-			conversation,
-			inputValue,
-			attachments: { attachments: [] }
-		});
-		const first = owner.begin(target, snapshot('A'));
-		const second = owner.begin(target, snapshot('B'));
-		calls.length = 0;
-
-		owner.settle(first, 'refused');
-		expect(calls).toEqual(['changed']);
-		owner.settle(second, 'refused');
-		expect(calls).toEqual(['changed', 'changed', 'restore A\n\nB']);
 	});
 });
 

@@ -7,6 +7,7 @@
 
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
 import { toast } from 'svelte-sonner';
+import { ChatComposer } from './chat-composer.svelte.ts';
 import { ChatUIContext } from './chat-context.svelte.ts';
 import { createChatSession } from '../__tests__/session-fixture';
 import type { ConvexClient } from 'convex/browser';
@@ -68,7 +69,7 @@ describe('ChatUIContext attachment cleanup', () => {
 	});
 
 	it('revokes the blob preview when removing an attachment', () => {
-		const ctx = new ChatUIContext(mockCore, mockClient);
+		const ctx = new ChatUIContext(mockCore, mockClient, new ChatComposer());
 		ctx.addAttachments([fileAttachment('blob:http://localhost/a')]);
 
 		ctx.removeAttachment(0);
@@ -78,7 +79,7 @@ describe('ChatUIContext attachment cleanup', () => {
 	});
 
 	it('revokes all blob previews when clearing attachments', () => {
-		const ctx = new ChatUIContext(mockCore, mockClient);
+		const ctx = new ChatUIContext(mockCore, mockClient, new ChatComposer());
 		ctx.addAttachments([
 			fileAttachment('blob:http://localhost/a'),
 			screenshotAttachment('blob:http://localhost/b')
@@ -93,7 +94,7 @@ describe('ChatUIContext attachment cleanup', () => {
 	});
 
 	it('revokes remaining blob previews on dispose', () => {
-		const ctx = new ChatUIContext(mockCore, mockClient);
+		const ctx = new ChatUIContext(mockCore, mockClient, new ChatComposer());
 		ctx.addAttachments([screenshotAttachment('blob:http://localhost/c')]);
 
 		ctx.dispose();
@@ -103,7 +104,7 @@ describe('ChatUIContext attachment cleanup', () => {
 	});
 
 	it('skips attachments without a blob preview', () => {
-		const ctx = new ChatUIContext(mockCore, mockClient);
+		const ctx = new ChatUIContext(mockCore, mockClient, new ChatComposer());
 		ctx.addAttachments([
 			fileAttachment(undefined),
 			fileAttachment('https://example.com/not-a-blob.png')
@@ -118,7 +119,7 @@ describe('ChatUIContext attachment cleanup', () => {
 	it('tolerates attachments that never started an upload', () => {
 		// Attachments can arrive from outside with no key (handleSend restores
 		// them after a failed send), so releasing them must not assume one.
-		const ctx = new ChatUIContext(mockCore, mockClient);
+		const ctx = new ChatUIContext(mockCore, mockClient, new ChatComposer());
 		ctx.addAttachments([{ type: 'image', url: 'https://example.com/a.png' }]);
 
 		expect(() => ctx.clearAttachments()).not.toThrow();
@@ -188,7 +189,7 @@ describe('ChatUIContext upload failures', () => {
 
 	it('keeps a failed upload visible instead of removing it', async () => {
 		scriptRoute(refused);
-		const ctx = new ChatUIContext(mockCore, mockClient, uploadConfig);
+		const ctx = new ChatUIContext(mockCore, mockClient, new ChatComposer(), uploadConfig);
 
 		await ctx.uploadFile(textFile(), 'notes.txt');
 
@@ -198,7 +199,7 @@ describe('ChatUIContext upload failures', () => {
 
 	it('blocks sending while an upload has failed', async () => {
 		scriptRoute(refused);
-		const ctx = new ChatUIContext(mockCore, mockClient, uploadConfig);
+		const ctx = new ChatUIContext(mockCore, mockClient, new ChatComposer(), uploadConfig);
 		ctx.setInputValue('here is the file');
 
 		await ctx.uploadFile(textFile(), 'notes.txt');
@@ -209,7 +210,7 @@ describe('ChatUIContext upload failures', () => {
 
 	it('allows sending again once the failed attachment is discarded', async () => {
 		scriptRoute(refused);
-		const ctx = new ChatUIContext(mockCore, mockClient, uploadConfig);
+		const ctx = new ChatUIContext(mockCore, mockClient, new ChatComposer(), uploadConfig);
 		ctx.setInputValue('here is the file');
 		await ctx.uploadFile(textFile(), 'notes.txt');
 
@@ -220,7 +221,7 @@ describe('ChatUIContext upload failures', () => {
 
 	it('retries with the same payload and succeeds', async () => {
 		scriptRoute(refused, accepted);
-		const ctx = new ChatUIContext(mockCore, mockClient, uploadConfig);
+		const ctx = new ChatUIContext(mockCore, mockClient, new ChatComposer(), uploadConfig);
 		await ctx.uploadFile(textFile(), 'notes.txt');
 
 		ctx.retryUpload(0);
@@ -237,7 +238,7 @@ describe('ChatUIContext upload failures', () => {
 		// its own outcome over the newer one.
 		const held = Promise.withResolvers<Answer>();
 		const opened = scriptRoute(refused, held.promise, accepted);
-		const ctx = new ChatUIContext(mockCore, mockClient, uploadConfig);
+		const ctx = new ChatUIContext(mockCore, mockClient, new ChatComposer(), uploadConfig);
 		await ctx.uploadFile(textFile(), 'notes.txt');
 
 		ctx.retryUpload(0); // stalls
@@ -259,7 +260,7 @@ describe('ChatUIContext upload failures', () => {
 		// empty by the time it resolves. Uploading anyway would store a file
 		// nothing references.
 		const opened = scriptRoute();
-		const ctx = new ChatUIContext(mockCore, mockClient, uploadConfig);
+		const ctx = new ChatUIContext(mockCore, mockClient, new ChatComposer(), uploadConfig);
 
 		let removeDuringPreprocess: (() => void) | undefined;
 		const preprocessing = new Promise<void>((resolve) => {
@@ -286,12 +287,12 @@ describe('ChatUIContext upload failures', () => {
 		// draft, so an attachment left in place would be sent in the wrong thread —
 		// and a failed one would block sending there.
 		const core = createChatSession('thread-a');
-		const ctx = new ChatUIContext(core, mockClient, uploadConfig);
+		const ctx = new ChatUIContext(core, mockClient, new ChatComposer(), uploadConfig);
 		ctx.setDisplayMessages([]);
 		ctx.addAttachments([fileAttachment(undefined)]);
 
 		core.setThread('thread-b');
-		ctx.setDisplayMessages([]);
+		ctx.activate();
 
 		expect(ctx.attachments).toHaveLength(0);
 	});
@@ -300,12 +301,12 @@ describe('ChatUIContext upload failures', () => {
 		// null -> id is this conversation being created, not a move to another
 		// one: a file attached while creation was in flight belongs here.
 		const core = createChatSession(null);
-		const ctx = new ChatUIContext(core, mockClient, uploadConfig);
+		const ctx = new ChatUIContext(core, mockClient, new ChatComposer(), uploadConfig);
 		ctx.setDisplayMessages([]);
 		ctx.addAttachments([fileAttachment(undefined)]);
 
 		core.conversation.assign('thread-a');
-		ctx.setDisplayMessages([]);
+		ctx.activate();
 
 		expect(ctx.attachments).toHaveLength(1);
 	});
@@ -314,7 +315,7 @@ describe('ChatUIContext upload failures', () => {
 		// Preprocessing cannot be canceled, so it can reject long after the chip
 		// was discarded. Reporting that failure would be noise about a file the
 		// user already dismissed.
-		const ctx = new ChatUIContext(mockCore, mockClient, uploadConfig);
+		const ctx = new ChatUIContext(mockCore, mockClient, new ChatComposer(), uploadConfig);
 
 		let failPreprocess: (() => void) | undefined;
 		const preprocessing = new Promise<void>((resolve) => {
@@ -337,7 +338,7 @@ describe('ChatUIContext upload failures', () => {
 	});
 
 	it('reports a preprocessing failure for an attachment still in the composer', async () => {
-		const ctx = new ChatUIContext(mockCore, mockClient, uploadConfig);
+		const ctx = new ChatUIContext(mockCore, mockClient, new ChatComposer(), uploadConfig);
 
 		await ctx.uploadFile(textFile(), 'notes.txt', {
 			preprocess: async () => {
@@ -350,7 +351,7 @@ describe('ChatUIContext upload failures', () => {
 	});
 
 	it('does nothing when retrying an attachment with no retained payload', () => {
-		const ctx = new ChatUIContext(mockCore, mockClient, uploadConfig);
+		const ctx = new ChatUIContext(mockCore, mockClient, new ChatComposer(), uploadConfig);
 		ctx.addAttachments([fileAttachment(undefined)]);
 
 		expect(() => ctx.retryUpload(0)).not.toThrow();
@@ -367,7 +368,7 @@ describe('ChatUIContext upload failures', () => {
 		try {
 			// A route that never answers keeps the upload in flight for removal.
 			scriptRoute(new Promise<Answer>(() => {}));
-			const ctx = new ChatUIContext(mockCore, mockClient, uploadConfig);
+			const ctx = new ChatUIContext(mockCore, mockClient, new ChatComposer(), uploadConfig);
 			void ctx.uploadFile(textFile(), 'notes.txt');
 			await vi.waitFor(() => expect(ctx.attachments).toHaveLength(1));
 

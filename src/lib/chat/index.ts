@@ -86,7 +86,7 @@ export {
 } from './core/index.js';
 
 // UI exports
-export type { ChatUIContextOptions, UploadConfig } from './ui/index.js';
+export type { UploadConfig } from './ui/index.js';
 
 export {
 	ChatUIContext,

@@ -9,7 +9,6 @@
 	import { ChatUIContext, type UploadConfig } from '#lib/chat/ui/chat-context.svelte.ts';
 	import { ChatCore } from '#lib/chat/core/chat-core.svelte.ts';
 	import { ChatComposer } from '#lib/chat/ui/chat-composer.svelte.ts';
-	import { ChatAttachmentStore } from '#lib/chat/core/chat-attachment-store.svelte.ts';
 	import { createOptimisticUpdate, type ListMessagesArgs } from '#lib/chat/core/optimistic.js';
 	import { CHAT_PAGE_SIZE } from '#lib/chat/core/types.js';
 	import { Button } from '#lib/components/ui/button/index.js';
@@ -45,7 +44,7 @@
 		canImpersonate = false,
 		viewerId,
 		onBackClick,
-		sendOwner
+		composer
 	}: {
 		threadId: string;
 		initialThread?: {
@@ -59,8 +58,8 @@
 		/** The signed-in admin, who has no one to impersonate in their own ticket. */
 		viewerId?: string;
 		onBackClick?: () => void;
-		/** Holds text and settles sends past this keyed view; the page owns it with the draft store. */
-		sendOwner?: ChatComposer;
+		/** Holds text and files and settles sends past this keyed view; the page owns it so a thread switch keeps it. */
+		composer?: ChatComposer;
 	} = $props();
 
 	const media = useMedia();
@@ -73,8 +72,7 @@
 		purpose: 'support',
 		getAttachmentText: api.support.files.getAttachmentText,
 		locale: page.data.lang,
-		translate: (key, params) => $t(key, params),
-		attachmentStore: new ChatAttachmentStore('admin-support')
+		translate: (key, params) => $t(key, params)
 	};
 
 	// Create ChatCore for this thread (needed for ChatUIContext)
@@ -92,13 +90,17 @@
 	// Report transfers to the app so a navigation that would kill one asks first.
 	// Absent outside the app shell (isolated tests, the standalone example), where
 	// there is no layout to ask.
-	// The owner is fixed for this keyed instance.
+	// The composer is fixed for this keyed instance.
 	// svelte-ignore state_referenced_locally
-	const owner = sendOwner ?? new ChatComposer();
-	const chatUIContext = new ChatUIContext(chatCore, client, uploadConfig, 'left', activeUploads, {
-		forgetSession: () => chatCore.forgetChatSession(),
-		sendOwner: owner
-	});
+	const chatComposer = composer ?? new ChatComposer({ surface: 'admin-support', storeFiles: true });
+	const chatUIContext = new ChatUIContext(
+		chatCore,
+		client,
+		chatComposer,
+		uploadConfig,
+		'left',
+		activeUploads
+	);
 
 	// Revoke blob preview URLs of unsent attachments when this thread view unmounts
 	onDestroy(() => chatUIContext.dispose());

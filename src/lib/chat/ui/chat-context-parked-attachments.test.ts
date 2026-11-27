@@ -22,11 +22,12 @@ vi.mock('../core/file-uploader.js', () => ({
 }));
 
 const { ChatUIContext } = await import('./chat-context.svelte.ts');
+const { ChatComposer } = await import('./chat-composer.svelte.ts');
 const { ActiveUploads } = await import('#lib/hooks/active-uploads.svelte.ts');
 
 const uploadConfig = {
 	purpose: 'support'
-} satisfies NonNullable<ConstructorParameters<typeof ChatUIContext>[2]>;
+} satisfies NonNullable<ConstructorParameters<typeof ChatUIContext>[3]>;
 
 /** A transfer the test decides the outcome of, plus the signal that cancels it. */
 function pendingTransfer() {
@@ -56,14 +57,19 @@ function pendingTransfer() {
 /** A chat sitting in one thread, able to move to another. */
 function threadedChat(threadId: string, uploads: InstanceType<typeof ActiveUploads> | null = null) {
 	const core = createChatSession(threadId);
-	const ctx = new ChatUIContext(core, {} as ConvexClient, uploadConfig, 'right', uploads);
-	// The first call is what gives the context a thread to compare against.
-	ctx.setDisplayMessages([]);
+	const ctx = new ChatUIContext(
+		core,
+		{} as ConvexClient,
+		new ChatComposer(),
+		uploadConfig,
+		'right',
+		uploads
+	);
 	return {
 		ctx,
 		switchTo(next: string | null) {
-			core.setThread(next);
-			ctx.setDisplayMessages([]);
+			core.moveTo(next);
+			ctx.activate();
 		}
 	};
 }
@@ -316,9 +322,8 @@ describe('ChatUIContext parked attachments', () => {
 		const keyedConfig = {
 			upload: transport,
 			getAccessKey: () => core.threadId ?? undefined
-		} satisfies NonNullable<ConstructorParameters<typeof ChatUIContext>[2]>;
-		const ctx = new ChatUIContext(core, {} as ConvexClient, keyedConfig, 'right', null);
-		ctx.setDisplayMessages([]);
+		} satisfies NonNullable<ConstructorParameters<typeof ChatUIContext>[3]>;
+		const ctx = new ChatUIContext(core, {} as ConvexClient, new ChatComposer(), keyedConfig);
 
 		let finishEncoding!: () => void;
 		const encoded = new Promise<void>((resolve) => {
@@ -341,7 +346,7 @@ describe('ChatUIContext parked attachments', () => {
 			.waitFor(() => expect(ctx.attachments).toHaveLength(1))
 			.then(async () => {
 				core.setThread('thread-b');
-				ctx.setDisplayMessages([]);
+				ctx.activate();
 				finishEncoding();
 				await vi.waitFor(() => expect(transport).toHaveBeenCalledTimes(1));
 

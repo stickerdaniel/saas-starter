@@ -6,7 +6,7 @@
  */
 
 // Context
-export type { ChatUIContextOptions, UploadConfig } from './chat-context.svelte.ts';
+export type { UploadConfig } from './chat-context.svelte.ts';
 
 export {
 	ChatUIContext,

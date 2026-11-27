@@ -48,7 +48,7 @@
 	// page stays open (signed out in another tab) hands over the next session's
 	// owner, and ThreadChat is rebuilt around it below.
 	let sendLease = $state.raw(
-		acquireChatComposer('ai-chat', { renewed: (next) => (sendLease = next) })
+		acquireChatComposer('ai-chat', { storeFiles: true, renewed: (next) => (sendLease = next) })
 	);
 	onDestroy(() => sendLease.release());
 
@@ -137,7 +137,7 @@
 					onUpgrade={handleUpgrade}
 					isUpgrading={billingCheckout.isLoading}
 					onMessageSent={() => autumn.refetch()}
-					sendOwner={sendLease.owner}
+					composer={sendLease.owner}
 				/>
 			{/key}
 		{:else}

@@ -1,5 +1,3 @@
-import type { Attachment } from './types.js';
-
 /**
  * The chat state that outlives a document, and how to get rid of it.
  *
@@ -18,12 +16,6 @@ const PREFIXES = [DRAFT_STORAGE_PREFIX, ATTACHMENT_STORAGE_PREFIX];
 export interface PersistedChatHolder {
 	/** Let go of everything belonging to the session that is ending. */
 	forgetPersistedState(): void;
-	/** Adopt a rejected send restored for this holder's current composer. */
-	reconcilePersistedAttachments?(
-		namespace: string,
-		threadId: string | null,
-		attachments: Attachment[]
-	): void;
 }
 
 /**
@@ -90,21 +82,6 @@ export function registerPersistedChatHolder(holder: PersistedChatHolder): () => 
 	listenForSessionEnd();
 	holders.add(holder);
 	return () => holders.delete(holder);
-}
-
-/** Reconcile a restored attachment list into matching mounted composers. */
-export function reconcilePersistedChatAttachments(
-	namespace: string,
-	threadId: string | null,
-	attachments: Attachment[]
-): void {
-	for (const holder of holders) {
-		try {
-			holder.reconcilePersistedAttachments?.(namespace, threadId, attachments);
-		} catch {
-			console.error('[ChatPersistence.reconcileAttachments] Failed');
-		}
-	}
 }
 
 /**

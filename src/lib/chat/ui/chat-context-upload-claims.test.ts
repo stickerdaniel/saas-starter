@@ -20,16 +20,18 @@ vi.mock('../core/file-uploader.js', () => ({
 }));
 
 const { ChatUIContext } = await import('./chat-context.svelte.ts');
+const { ChatComposer } = await import('./chat-composer.svelte.ts');
 const { ActiveUploads } = await import('#lib/hooks/active-uploads.svelte.ts');
 
 const uploadConfig = {
 	purpose: 'support'
-} satisfies NonNullable<ConstructorParameters<typeof ChatUIContext>[2]>;
+} satisfies NonNullable<ConstructorParameters<typeof ChatUIContext>[3]>;
 
 function context(uploads: InstanceType<typeof ActiveUploads> | null = null) {
 	return new ChatUIContext(
 		new ChatCore({ threadId: null }),
 		{} as ConvexClient,
+		new ChatComposer(),
 		uploadConfig,
 		'right',
 		uploads

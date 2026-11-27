@@ -6,6 +6,7 @@ import { computeAccessibleName } from 'dom-accessibility-api';
 import { api } from '#lib/convex/_generated/api.js';
 import { ChatCore } from '../core/chat-core.svelte.ts';
 import type { DisplayMessage } from '../core/types.js';
+import { ChatComposer } from './chat-composer.svelte.ts';
 import { ChatUIContext } from './chat-context.svelte.ts';
 import ChatTestProvider from './test-fixtures/ChatTestProvider.svelte';
 import ChatMessagesHarness from './test-fixtures/ChatMessagesHarness.svelte';
@@ -79,6 +80,7 @@ beforeEach(() => {
 			api: { sendMessage: api.aiChat.messages.sendMessage }
 		}),
 		client,
+		new ChatComposer(),
 		undefined,
 		'right'
 	);
@@ -191,7 +193,7 @@ describe('scroll intent across threads', () => {
 			api: { sendMessage: api.aiChat.messages.sendMessage }
 		});
 		ctx.dispose();
-		ctx = new ChatUIContext(core, client, undefined, 'right');
+		ctx = new ChatUIContext(core, client, new ChatComposer(), undefined, 'right');
 		ctx.setDisplayMessages(thread);
 		await renderThread(undefined);
 

@@ -13,7 +13,7 @@
 	// Initial seed for the fixture's own mutable thread prop.
 	// svelte-ignore state_referenced_locally
 	let threadId = $state(initialThreadId);
-	const adminSendOwner = new ChatComposer({ surface: 'admin-support' });
+	const adminComposer = new ChatComposer({ surface: 'admin-support', storeFiles: true });
 	threadChatConsumerHarness.setThreadId = (next) => (threadId = next);
 </script>
 
@@ -21,6 +21,6 @@
 	<AIThreadChat {threadId} hasMessagesAvailable={true} />
 {:else}
 	{#key threadId}
-		<AdminThreadChat {threadId} sendOwner={adminSendOwner} />
+		<AdminThreadChat {threadId} composer={adminComposer} />
 	{/key}
 {/if}

@@ -1,10 +1,7 @@
 import { PersistedState } from 'runed';
 import * as v from 'valibot';
 import type { Attachment } from './types.js';
-import {
-	ATTACHMENT_STORAGE_PREFIX,
-	reconcilePersistedChatAttachments
-} from './chat-persisted-state.js';
+import { ATTACHMENT_STORAGE_PREFIX } from './chat-persisted-state.js';
 
 /**
  * How long a stored attachment is offered back.
@@ -236,15 +233,7 @@ export class ChatAttachmentStore {
 		const next = { ...previous };
 		if (alive.length > 0) next[key] = alive;
 		else delete next[key];
-		try {
-			if (JSON.stringify(next) !== JSON.stringify(previous)) this.stored.current = next;
-		} finally {
-			reconcilePersistedChatAttachments(
-				this.namespace,
-				threadId,
-				alive.map((item) => this.revive(item))
-			);
-		}
+		if (JSON.stringify(next) !== JSON.stringify(previous)) this.stored.current = next;
 	}
 
 	/** Drop what the vacuum may already have collected. */

@@ -23,18 +23,20 @@ export class SupportContext {
 	readonly handoff: SupportHandoffCommands;
 	readonly notifications: SupportNotificationCommands;
 	/**
-	 * Holds the widget's text and settles its sends, while its view comes and goes with the panel.
+	 * Holds the widget's text and files and settles its sends, while its view comes and goes with the panel.
 	 * Replaced by the next session's composer when a session ends under a mounted root.
 	 */
-	sendOwner: ChatComposer;
+	composer: ChatComposer;
 
-	/** @param sendOwner the surface's composer when it outlives this root; one is made otherwise. */
-	constructor(isAiUsable: () => boolean = () => true, sendOwner?: ChatComposer) {
+	/** @param composer the surface's composer when it outlives this root; one is made otherwise. */
+	constructor(isAiUsable: () => boolean = () => true, composer?: ChatComposer) {
 		this.navigation = new SupportNavigationState();
 		this.conversation = new SupportConversation(this.navigation, isAiUsable);
 		this.handoff = new SupportHandoffCommands(this.conversation);
 		this.notifications = new SupportNotificationCommands(this.conversation);
-		this.sendOwner = sendOwner ?? new ChatComposer({ surface: 'support', saveDrafts: 'on-switch' });
+		this.composer =
+			composer ??
+			new ChatComposer({ surface: 'support', saveDrafts: 'on-switch', storeFiles: true });
 	}
 
 	requestWidgetOpen(): void {

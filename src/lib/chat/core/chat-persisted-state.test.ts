@@ -15,7 +15,6 @@ const localStorageMock: Storage = {
 import {
 	clearPersistedChatState,
 	getChatSessionEpoch,
-	reconcilePersistedChatAttachments,
 	registerPersistedChatHolder
 } from './chat-persisted-state.ts';
 
@@ -100,24 +99,6 @@ describe('clearPersistedChatState', () => {
 		expect(() => clearPersistedChatState()).not.toThrow();
 
 		expect(error).toHaveBeenCalledExactlyOnceWith('[ChatPersistence.forgetHolder] Failed');
-		expect(error.mock.calls.flat()).not.toContain(diagnostic);
-		expect(error.mock.calls.flat().join(' ')).not.toContain(diagnostic.message);
-		unregister();
-	});
-
-	it('logs only a safe marker when attachment reconciliation fails', () => {
-		const diagnostic = new Error('attachment URL contained a signed user token');
-		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
-		const unregister = registerPersistedChatHolder({
-			forgetPersistedState: () => {},
-			reconcilePersistedAttachments: () => {
-				throw diagnostic;
-			}
-		});
-
-		expect(() => reconcilePersistedChatAttachments('support', 'thread-1', [])).not.toThrow();
-
-		expect(error).toHaveBeenCalledExactlyOnceWith('[ChatPersistence.reconcileAttachments] Failed');
 		expect(error.mock.calls.flat()).not.toContain(diagnostic);
 		expect(error.mock.calls.flat().join(' ')).not.toContain(diagnostic.message);
 		unregister();
