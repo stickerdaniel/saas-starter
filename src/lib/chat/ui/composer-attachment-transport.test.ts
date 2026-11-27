@@ -76,6 +76,9 @@ function composerOn(
 	contexts.push(ctx);
 	return {
 		ctx,
+		get conversation() {
+			return session.conversation;
+		},
 		/** Replace the shown conversation with a new one for `next`. */
 		replaceWith(next: string | null) {
 			session.setThread(next);
@@ -673,6 +676,61 @@ describe('results across the views of one composer', () => {
 		await pending;
 		expect(first.ctx.uploadedFileIds).toEqual(['upload-notes']);
 		expect(uploads.owners.size).toBe(0);
+	});
+
+	it.each([
+		{ name: 'the view that stays leaves, then the other closes on the thread', leaving: ['first'] },
+		{ name: 'the view that closes leaves first, then the other', leaving: ['second', 'first'] },
+		{ name: 'the view that stays leaves first, then the other', leaving: ['first', 'second'] }
+	] as const)(
+		'keeps a transfer two views left on their thread when one closes: $name',
+		async ({ leaving }) => {
+			const transport = surfaceTransport();
+			const config = { upload: transport.upload, release: transport.release };
+			const uploads = claims();
+			const shared = new ChatComposer();
+			const views = {
+				first: composerOn(config, 'thread-1', uploads.registry, shared),
+				second: composerOn(config, 'thread-1', uploads.registry, shared)
+			};
+			const pending = views.first.ctx.uploadFile(textFile());
+			for (const view of leaving) views[view].replaceWith(`thread-${view}`);
+
+			views.second.ctx.dispose();
+			expect(transport.attempts[0]!.signal.aborted).toBe(false);
+			expect(uploads.owners.size).toBe(1);
+
+			views.first.replaceWith('thread-1');
+			expect(uploadState(views.first.ctx.attachments[0])?.status).toBe('uploading');
+			transport.attempts[0]!.succeed(result('notes'));
+			await pending;
+			expect(views.first.ctx.uploadedFileIds).toEqual(['upload-notes']);
+		}
+	);
+
+	it('keeps both views interested in a thread an id-less conversation joins off screen', () => {
+		const transport = surfaceTransport();
+		const config = { upload: transport.upload, release: transport.release };
+		const shared = new ChatComposer();
+		const first = composerOn(config, null, null, shared);
+		const second = composerOn(config, 'thread-1', null, shared);
+		void first.ctx.uploadFile(textFile('first.txt'));
+		void second.ctx.uploadFile(textFile('second.txt'));
+		const joining = first.conversation;
+		first.replaceWith('thread-2');
+		second.replaceWith('thread-3');
+		joining.assign('thread-1');
+
+		second.ctx.dispose();
+		expect(transport.attempts.map((attempt) => attempt.signal.aborted)).toEqual([false, false]);
+
+		first.replaceWith('thread-1');
+		expect(first.ctx.attachments.map((a) => 'name' in a && a.name).sort()).toEqual([
+			'first.txt',
+			'second.txt'
+		]);
+		first.ctx.dispose();
+		expect(transport.attempts.map((attempt) => attempt.signal.aborted)).toEqual([true, true]);
 	});
 
 	it('cancels the off-screen transfer of a view once that view closes', () => {
