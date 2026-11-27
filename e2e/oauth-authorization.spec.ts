@@ -44,6 +44,7 @@ const VIEW_CAPABILITIES = [
 	'Read the messages in the community chat'
 ];
 const CHANGE_CAPABILITY = 'Post messages in the community chat as you';
+const HOSTED_REDIRECT_URI = 'https://mcp-client.example.com/oauth/callback';
 
 const loopbackOrigin = (url: string) => new URL(url.replace('//localhost:', '//127.0.0.1:')).origin;
 
@@ -217,7 +218,10 @@ test('the chosen level and the requested scopes decide the scopes of the token',
 	await expect(page.getByRole('list')).toHaveCount(0);
 });
 
-test('the consent page names every capability under its level', async ({ page, request }) => {
+test('the consent page names every capability under its level and where the access goes', async ({
+	page,
+	request
+}) => {
 	const metadata = await fetchMetadata(request);
 	await signedInPage(page, 'capabilities');
 	const rows = page.getByRole('list', { name: 'Permissions' }).getByRole('listitem');
@@ -232,8 +236,15 @@ test('the consent page names every capability under its level', async ({ page, r
 			page,
 			authorization(metadata, await registerClient(request, metadata, 'Listed client'), scope)
 		);
-		await expect(rows).toHaveText(levels);
+		await expect(rows).toHaveText([...levels, /^\s*An app on this device gets this access\s*$/]);
 	}
+
+	const hosted = await registerClient(request, metadata, 'Listed client', HOSTED_REDIRECT_URI);
+	await openConsent(
+		page,
+		authorization(metadata, hosted, BOTH_SCOPES, { redirectUri: HOSTED_REDIRECT_URI })
+	);
+	await expect(rows).toHaveText([...levels, /^\s*mcp-client\.example\.com gets this access\s*$/]);
 });
 
 test('every authorization server metadata URL serves the rewritten document', async ({

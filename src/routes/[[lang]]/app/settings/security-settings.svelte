@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { authClient } from '#lib/auth-client.js';
 	import TruncatedText from '#lib/components/truncated-text.svelte';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import PasskeyDeleteButton from '#lib/components/ui/owned/passkey-delete-button.svelte';
@@ -45,7 +44,8 @@
 	async function loadPasskeys() {
 		isLoading = true;
 		try {
-			const { data, error: err } = await authClient.passkey.listUserPasskeys();
+			const { oauthAuthClient } = await import('#lib/auth-client-oauth.js');
+			const { data, error: err } = await oauthAuthClient.passkey.listUserPasskeys();
 			if (err) {
 				error = getAuthErrorKey(err, 'auth.messages.passkey_load_failed');
 			} else {
@@ -97,7 +97,8 @@
 		const executeDelete = async () => {
 			if (undone) return;
 			try {
-				const { error: err } = await authClient.passkey.deletePasskey({ id });
+				const { oauthAuthClient } = await import('#lib/auth-client-oauth.js');
+				const { error: err } = await oauthAuthClient.passkey.deletePasskey({ id });
 				if (err) {
 					toast.error($t(getAuthErrorKey(err, 'auth.messages.passkey_delete_failed')));
 					restore();

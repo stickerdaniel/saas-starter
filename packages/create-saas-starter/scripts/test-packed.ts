@@ -8,6 +8,7 @@ import {
 	mkdtempSync,
 	readdirSync,
 	readFileSync,
+	renameSync,
 	rmSync,
 	statSync,
 	writeFileSync
@@ -113,7 +114,9 @@ async function serveRegistry(configPath: string, readyPath: string): Promise<voi
 				reject(new Error('Registry did not bind a TCP port.'));
 				return;
 			}
-			writeFileSync(readyPath, `http://127.0.0.1:${address.port}`);
+			const written = `${readyPath}.written`;
+			writeFileSync(written, `http://127.0.0.1:${address.port}`);
+			renameSync(written, readyPath);
 			resolve();
 		});
 	});

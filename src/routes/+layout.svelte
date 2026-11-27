@@ -40,7 +40,7 @@
 	import { FALLBACK_TRANSLATIONS } from '#lib/i18n/browser-translations.generated.js';
 	import type { LayoutProps } from './$types';
 	import RouteProgress from '#lib/components/RouteProgress.svelte';
-	import { Toaster } from '#lib/components/ui/sonner/index.js';
+	import LazyToaster from '#lib/components/ui/sonner/lazy-toaster.svelte';
 	import { watch } from 'runed';
 	import { devNotice } from '#lib/dev/notice.js';
 	import { preloads } from 'fontless/runtime';
@@ -252,10 +252,10 @@
 
 <AppAuthProvider>
 	<AppAutumnProvider>
-		<Toaster />
 		<RouteProgress />
 
 		<TolgeeProvider {tolgee}>
+			<LazyToaster />
 			<a
 				href="#main-content"
 				class="sr-only z-70 focus-visible:not-sr-only focus-visible:fixed focus-visible:top-4 focus-visible:left-4 focus-visible:rounded-md focus-visible:bg-background focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:font-medium focus-visible:text-foreground focus-visible:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"

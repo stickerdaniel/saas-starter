@@ -169,13 +169,12 @@ export async function runCli(
 		throwIfAborted(controller.signal);
 		const archive = await validateTemplateArchive(compressed);
 		throwIfAborted(controller.signal);
-		const canOmitTests = templateProfiles(archive, resolved.sha).includes('tests');
-		if (!canOmitTests && !options.withTests) {
-			io.stdout(
-				`Template revision ${resolved.sha} cannot leave out the test suite, so the project includes it.`
+		const profiles = templateProfiles(archive, resolved.sha);
+		if (options.withoutTests && !profiles.includes('tests')) {
+			throw new Error(
+				`Template revision ${resolved.sha} cannot leave out the test suite: its package.json has no "tests" in templateProfiles.`
 			);
 		}
-		const withoutTests = canOmitTests && !options.withTests;
 		validateArchiveTargetPaths(target.path, archive);
 		await confirmTemplateTrust(
 			resolved.sha,
@@ -203,16 +202,16 @@ export async function runCli(
 		recoveryPath = staging;
 		validateArchiveTargetPaths(staging, archive);
 		await writeArchive(staging, archive, controller.signal);
-		const archiveList = withoutTests ? await writeArchiveList(staging, archive) : undefined;
+		const archiveList = options.withoutTests ? await writeArchiveList(staging, archive) : undefined;
 		phase = 'setup';
 		marker = await runtime.updateMarker(staging, marker, 'incomplete', phase);
-		if (archiveList) {
-			recovery = [
-				'To repeat setup without the test suite, run these commands:',
-				navigation(staging),
-				commandLine('bun', setupArguments(options, archiveList))
-			];
-		}
+		recovery = [
+			options.withoutTests
+				? 'To repeat setup without the test suite, run these commands:'
+				: 'To repeat setup, run these commands:',
+			navigation(staging),
+			commandLine('bun', setupArguments(options, archiveList))
+		];
 
 		const state = await runtime.runSetupAndInstall({
 			bun: bun.executable,
@@ -225,12 +224,14 @@ export async function runCli(
 				if (archiveList) {
 					await rm(archiveList, { force: true }).catch(() => {});
 					await rmdir(path.dirname(archiveList)).catch(() => {});
-					recovery = [
-						'Setup left out the test suite. To install the dependencies, run these commands:',
-						navigation(staging),
-						...installSteps(true).map((args) => commandLine('bun', args))
-					];
 				}
+				recovery = [
+					options.withoutTests
+						? 'Setup left out the test suite. To install the dependencies, run these commands:'
+						: 'To install the dependencies, run these commands:',
+					navigation(staging),
+					...installSteps(options.withoutTests).map((args) => commandLine('bun', args))
+				];
 				phase = 'install';
 				marker = await runtime.updateMarker(staging, marker!, 'incomplete', phase);
 			}
@@ -251,7 +252,7 @@ export async function runCli(
 		io.stdout(`Created ${options.brand} at ${target.path}`);
 		io.stdout(navigation(target.path));
 		if (state === 'needs-install') {
-			const [first, ...checks] = installSteps(withoutTests);
+			const [first, ...checks] = installSteps(options.withoutTests);
 			io.stdout(`Run bun ${first.join(' ')} before starting the app.`);
 			for (const check of checks)
 				io.stdout(`Then run bun ${check.join(' ')} to check the lockfile.`);

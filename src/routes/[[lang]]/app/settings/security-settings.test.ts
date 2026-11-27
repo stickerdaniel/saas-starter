@@ -25,7 +25,7 @@ const passkey = vi.hoisted(() => ({
 	deletePasskey: vi.fn()
 }));
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
-vi.mock('#lib/auth-client.js', () => ({ authClient: { passkey } }));
+vi.mock('#lib/auth-client-oauth.js', () => ({ oauthAuthClient: { passkey } }));
 vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));
 vi.mock('$app/state', () => ({ page: { data: { lang: 'en' } } }));
 vi.mock('svelte-sonner', () => ({ toast }));

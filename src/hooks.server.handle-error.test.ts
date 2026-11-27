@@ -172,6 +172,8 @@ describe('handleError with Sentry', () => {
 			defaultIntegrations: false,
 			enableOpenTelemetrySetup: false,
 			enableRuntimeChannelInjection: false,
+			transport: (options: Parameters<typeof sentry.createTransport>[0]) =>
+				sentry.createTransport(options, async () => ({})),
 			beforeSend: (event) => {
 				events.push(event);
 				return null;

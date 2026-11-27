@@ -2,19 +2,13 @@ import { createAuthClient } from 'better-auth/svelte';
 import { convexClient } from '@convex-dev/better-auth/client/plugins';
 import { adminClient, inferAdditionalFields } from 'better-auth/client/plugins';
 import type { createAuth } from './confect/authServer';
-import { passkeyClient } from '@better-auth/passkey/client';
 import { browser } from '$app/env';
 
 export const authBaseURL = browser ? window.location.origin : undefined;
 
 export const authClient = createAuthClient({
 	baseURL: authBaseURL,
-	plugins: [
-		convexClient(),
-		passkeyClient(),
-		adminClient(),
-		inferAdditionalFields<ReturnType<typeof createAuth>>()
-	]
+	plugins: [convexClient(), adminClient(), inferAdditionalFields<ReturnType<typeof createAuth>>()]
 });
 
 /**

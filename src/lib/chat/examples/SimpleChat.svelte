@@ -6,11 +6,12 @@
 -->
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { useConvexClient } from 'convex-svelte';
-	import { registerPersistedChatHolder } from '../core/chat-persisted-state.ts';
-	import SimpleChatSessionObserver from './SimpleChatSessionObserver.svelte';
+	import { ChatDraftManager } from '#lib/chat/index.js';
+	import {
+		ComposerSendCoordinator,
+		acquireComposerSendCoordinator
+	} from '#lib/chat/ui/composer-send-coordinator.ts';
 	import SimpleChatThread from './SimpleChatThread.svelte';
-	import { acquireSimpleChatSessionRegistry } from './simple-chat-session.svelte.ts';
 
 	let {
 		threadId,
@@ -25,28 +26,22 @@
 		greeting?: string;
 	} = $props();
 
-	const client = useConvexClient();
-	let registryLease = $state.raw(acquireSimpleChatSessionRegistry(client));
-	const unregisterSessionHolder = registerPersistedChatHolder({
-		forgetPersistedState() {
-			const previousLease = registryLease;
-			registryLease = acquireSimpleChatSessionRegistry(client);
-			previousLease.registry.releaseOwner(previousLease.owner);
-		}
-	});
-
-	onDestroy(() => {
-		unregisterSessionHolder();
-		registryLease.registry.releaseOwner(registryLease.owner);
-	});
+	let sendLease = $state.raw(
+		acquireComposerSendCoordinator(
+			'simple-chat',
+			() => new ComposerSendCoordinator({ drafts: new ChatDraftManager('simple-chat') }),
+			(next) => (sendLease = next)
+		)
+	);
+	onDestroy(() => sendLease.release());
 </script>
 
-{#each registryLease.registry.retainedSessionsFor(registryLease.owner) as session (session.threadId)}
-	<SimpleChatSessionObserver {session} />
-{/each}
+<div class="flex h-full w-full flex-col overflow-hidden rounded-lg border bg-background shadow-lg">
+	<div class="border-b px-4 py-3">
+		<h2 class="font-semibold">{title}</h2>
+	</div>
 
-{#key registryLease.owner}
-	{#key threadId}
-		<SimpleChatThread {threadId} {title} {greeting} registry={registryLease.registry} />
+	{#key sendLease.owner}
+		<SimpleChatThread {threadId} {greeting} sendOwner={sendLease.owner} />
 	{/key}
-{/key}
+</div>

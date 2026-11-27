@@ -364,6 +364,7 @@
 		let url: string | null = null;
 		try {
 			const { oauthAuthClient } = await import('#lib/auth-client-oauth.js');
+			if (left) return;
 			const { data, error } = await signIn(oauthAuthClient);
 			if (error) failure = getAuthErrorKey(error, fallbackKey);
 			else {
@@ -491,7 +492,11 @@
 		}
 
 		try {
-			const result = await authClient.signIn.passkey();
+			const { oauthAuthClient } = await import('#lib/auth-client-oauth.js');
+			if (left) return;
+			const result = await oauthAuthClient.signIn.passkey();
+			if (!result.error) authClient.$store.notify('$sessionSignal');
+			if (left) return;
 			if (result.error) {
 				formError = getAuthErrorKey(result.error, 'auth.messages.passkey_failed');
 			} else {

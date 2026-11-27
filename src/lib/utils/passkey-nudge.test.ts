@@ -2,8 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConvexClient } from 'convex/browser';
 
 const auth = vi.hoisted(() => ({ getSession: vi.fn(), listUserPasskeys: vi.fn() }));
-vi.mock('#lib/auth-client.js', () => ({
-	authClient: { getSession: auth.getSession, passkey: { listUserPasskeys: auth.listUserPasskeys } }
+vi.mock('#lib/auth-client.js', () => ({ authClient: { getSession: auth.getSession } }));
+vi.mock('#lib/auth-client-oauth.js', () => ({
+	oauthAuthClient: { passkey: { listUserPasskeys: auth.listUserPasskeys } }
 }));
 
 import { claimPasskeyNudge, deferPasskeyNudge } from './passkey-nudge';

@@ -24,6 +24,13 @@ export async function withNudgeDeadline<T>(work: Promise<T>, milliseconds = 6000
 	}
 }
 
+async function listUserPasskeys() {
+	const { oauthAuthClient } = await import('#lib/auth-client-oauth.js');
+	return oauthAuthClient.passkey.listUserPasskeys({
+		fetchOptions: { signal: AbortSignal.timeout(5000) }
+	});
+}
+
 /** Optional onboarding fails open; an outage must never hold up a successful login. */
 export async function claimPasskeyNudge(
 	client: ConvexClient,
@@ -42,12 +49,7 @@ export async function claimPasskeyNudge(
 		if (sessionStorage.getItem(seenKey) || Number(localStorage.getItem(deferredKey)) > Date.now())
 			return null;
 		const [passkeys, deferredUntil] = await withNudgeDeadline(
-			Promise.all([
-				authClient.passkey.listUserPasskeys({
-					fetchOptions: { signal: AbortSignal.timeout(5000) }
-				}),
-				client.query(api.users.getPasskeyNudgeDismissal, {})
-			])
+			Promise.all([listUserPasskeys(), client.query(api.users.getPasskeyNudgeDismissal, {})])
 		);
 		if (passkeys.error || !passkeys.data || passkeys.data.length || deferredUntil > Date.now())
 			return null;

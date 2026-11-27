@@ -356,7 +356,6 @@
 	<!-- Chat Messages -->
 	<ChatRoot
 		{threadId}
-		userAlignment="left"
 		externalCore={chatCore}
 		externalUIContext={chatUIContext}
 		api={{ listMessages: api.admin.support.queries.listMessagesForAdmin }}

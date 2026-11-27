@@ -1468,7 +1468,11 @@
 			"footer_after": "entfernen.",
 			"error_title": "Diese Verbindung kann nicht fortgesetzt werden",
 			"error_description": "Starte die Verbindung erneut in der App, die du verbinden möchtest.",
-			"unnamed_app": "Eine App"
+			"unnamed_app": "Eine App",
+			"destination": {
+				"hosted": "{host} erhält diesen Zugriff",
+				"device": "Eine App auf diesem Gerät erhält diesen Zugriff"
+			}
 		},
 		"connections": {
 			"title": "Verbundene Apps",

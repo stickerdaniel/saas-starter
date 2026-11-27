@@ -176,8 +176,8 @@ describe('creator workflows', () => {
 		expect(jobs['release-gate']!.needs).toContain('generated-project');
 		expect(generated.needs).toBe('verify');
 		expect(generated.strategy?.matrix.include.map((entry) => entry.flag)).toEqual([
-			'',
-			'--with-tests'
+			'--without-tests',
+			''
 		]);
 		expect(
 			runs.find((run) => run?.includes('npx --yes --package "$tarball" create-saas-starter'))

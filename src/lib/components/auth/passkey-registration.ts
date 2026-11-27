@@ -1,5 +1,4 @@
 import type { DefaultParamType, TFnType, TranslationKey } from '@tolgee/svelte';
-import { authClient } from '#lib/auth-client.js';
 import type { getPasskeyDevice } from '#lib/utils/passkey-device.js';
 
 type Translate = TFnType<DefaultParamType, string, TranslationKey>;
@@ -29,7 +28,8 @@ export type PasskeyRegistration = { ok: true } | { ok: false; error: unknown };
  */
 export async function addPasskey(name: string): Promise<PasskeyRegistration> {
 	try {
-		const result = await authClient.passkey.addPasskey({ name });
+		const { oauthAuthClient } = await import('#lib/auth-client-oauth.js');
+		const result = await oauthAuthClient.passkey.addPasskey({ name });
 		if (result.error || !result.data) return { ok: false, error: result.error };
 		return { ok: true };
 	} catch (error) {

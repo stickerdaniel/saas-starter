@@ -3,6 +3,8 @@
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
+	import GlobeIcon from '@lucide/svelte/icons/globe';
+	import LaptopIcon from '@lucide/svelte/icons/laptop';
 	import SEOHead from '#lib/components/SEOHead.svelte';
 	import AuthPanel from '#lib/components/auth/auth-panel.svelte';
 	import Logo from '#lib/components/icons/logo.svelte';
@@ -10,6 +12,7 @@
 	import { Checkbox } from '#lib/components/ui/checkbox/index.js';
 	import { oauthAuthClient } from '#lib/auth-client-oauth.js';
 	import { capabilitiesAt, capabilityKey, type CapabilityLevel } from '#lib/mcp/capabilities.js';
+	import { consentDestination } from '#lib/mcp/consent-destination.js';
 	import { localizedHref } from '#lib/utils/i18n.js';
 	import AuthGate from '../../AuthGate.svelte';
 
@@ -24,6 +27,7 @@
 	const canView = $derived(requested.includes('mcp:read'));
 	const offersChoice = $derived(canView && requested.includes('mcp:write'));
 	const app = $derived(data.client?.name || $t('mcp.consent.unnamed_app'));
+	const destination = $derived(consentDestination(page.url.searchParams));
 
 	const capabilities = [...capabilitiesAt('view'), ...capabilitiesAt('change')];
 	const levelKey = {
@@ -76,7 +80,7 @@
 			<div class="h-1"></div>
 			<div class="flex flex-1 flex-col justify-center p-6 md:p-8">
 				<Logo class="mb-6 size-6 text-foreground" />
-				{#if data.client === null || failed}
+				{#if data.client === null || destination.kind === 'unknown' || failed}
 					<div class="flex flex-col gap-2" role={failed ? 'alert' : undefined}>
 						<h1 class="text-2xl font-bold"><T keyName="mcp.consent.error_title" /></h1>
 						<p class="text-balance text-muted-foreground">
@@ -134,6 +138,25 @@
 											</span>
 										</li>
 									{/each}
+									<li class="flex items-start gap-3 bg-muted/50 p-3 text-sm leading-snug">
+										{#if destination.kind === 'hosted'}
+											<GlobeIcon
+												aria-hidden="true"
+												class="mt-px size-4 shrink-0 text-muted-foreground"
+											/>
+											<span class="flex-1 wrap-anywhere text-muted-foreground">
+												{$t('mcp.consent.destination.hosted', { host: destination.host })}
+											</span>
+										{:else}
+											<LaptopIcon
+												aria-hidden="true"
+												class="mt-px size-4 shrink-0 text-muted-foreground"
+											/>
+											<span class="flex-1 text-muted-foreground">
+												{$t('mcp.consent.destination.device')}
+											</span>
+										{/if}
+									</li>
 								</ul>
 							</div>
 						{:else}

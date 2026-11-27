@@ -1468,7 +1468,11 @@
 			"footer_after": "at any time.",
 			"error_title": "This connection cannot continue",
 			"error_description": "Start the connection again in the app you want to connect.",
-			"unnamed_app": "An app"
+			"unnamed_app": "An app",
+			"destination": {
+				"hosted": "{host} gets this access",
+				"device": "An app on this device gets this access"
+			}
 		},
 		"connections": {
 			"title": "Connected apps",

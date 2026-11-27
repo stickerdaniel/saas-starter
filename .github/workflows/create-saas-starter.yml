@@ -139,10 +139,10 @@ jobs:
       matrix:
         include:
           - profile: without tests
-            flag: ''
+            flag: --without-tests
             suite: absent
           - profile: with tests
-            flag: --with-tests
+            flag: ''
             suite: present
     env:
       HUSKY: '0'

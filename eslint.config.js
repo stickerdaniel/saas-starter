@@ -23,6 +23,7 @@ import noDestructuredLiveGettersRule from './eslint/rules/no-destructured-live-g
 import noAnimatedPixelPressRule from './eslint/rules/no-animated-pixel-press.js';
 import preferShadcnPrimitivesRule from './eslint/rules/prefer-shadcn-primitives.js';
 import preferShadcnSliderImportsRule from './eslint/rules/prefer-shadcn-slider-imports.js';
+import noOwnBarrelImportRule from './eslint/rules/no-own-barrel-import.js';
 import variantsThroughCnRule from './eslint/rules/variants-through-cn.js';
 import safeSvelteParser from './eslint/parsers/safe-svelte-parser.js';
 import noMiddleDotOrEmDashRule from './eslint/rules/no-middle-dot-or-em-dash.js';
@@ -155,6 +156,7 @@ const localPlugin = {
 		'no-animated-pixel-press': noAnimatedPixelPressRule,
 		'prefer-shadcn-primitives': preferShadcnPrimitivesRule,
 		'prefer-shadcn-slider-imports': preferShadcnSliderImportsRule,
+		'no-own-barrel-import': noOwnBarrelImportRule,
 		'variants-through-cn': variantsThroughCnRule,
 		'no-middle-dot-or-em-dash': noMiddleDotOrEmDashRule,
 		'no-test-in-loop': noTestInLoopRule,
@@ -389,6 +391,16 @@ export default defineConfig(
 		rules: {
 			'local/prefer-shadcn-slider-imports': 'error',
 			'local/variants-through-cn': 'error'
+		}
+	},
+	{
+		files: ['src/**/*.ts', 'src/**/*.js', 'src/**/*.svelte'],
+		ignores: ['src/**/*.test.ts'],
+		plugins: {
+			local: localPlugin
+		},
+		rules: {
+			'local/no-own-barrel-import': 'error'
 		}
 	},
 	{

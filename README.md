@@ -61,7 +61,7 @@ npm create saas-starter@latest my-app
 cd my-app && bun run dev
 ```
 
-The project leaves out the starter's test suite unless you pass `--with-tests`.
+The project includes the starter's test suite, and `--without-tests` leaves it out.
 
 To create a GitHub template repository instead, run the commands below and then [rebrand it](docs/getting-started.md#rebrand-the-template):
 

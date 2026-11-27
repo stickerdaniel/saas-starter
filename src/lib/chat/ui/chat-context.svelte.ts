@@ -30,19 +30,8 @@ export type {
 	UploadConfig
 } from './composer-attachment-coordinator.svelte.ts';
 
-export type ChatInputProjectionReason = 'user-edit' | 'send-clear' | 'send-restore';
-
-export type ChatInputProjection = {
-	value: string;
-	reason: ChatInputProjectionReason;
-	sessionEpoch: number;
-	conversation: ChatConversation;
-	inputRevision: number;
-};
-
 export type ChatUIContextOptions = {
 	forgetSession?: () => void;
-	projectInput?: (projection: ChatInputProjection) => void;
 	/**
 	 * Settles this surface's sends and outlives this context, so a refusal that
 	 * arrives after the composer unmounted still finds its way back. Without one,
@@ -58,7 +47,6 @@ export type ChatSendSnapshot = {
 	conversation: ChatConversation;
 	inputValue: string;
 	inputRevision: number;
-	inputClearedRevision?: number;
 	attachments: ComposerAttachmentSendSnapshot;
 };
 
@@ -93,7 +81,6 @@ export class ChatUIContext implements ComposerSendTarget {
 	inputValue = $state('');
 	private inputRevision = 0;
 	private disposed = false;
-	private readonly options: ChatUIContextOptions;
 	private readonly sendOwner: ComposerSendCoordinator;
 	private readonly detachFromSendOwner: () => void;
 	/** Moves whenever the send owner's pending sends do. */
@@ -121,7 +108,6 @@ export class ChatUIContext implements ComposerSendTarget {
 		this.client = client;
 		this.uploadConfig = uploadConfig;
 		this.userAlignment = userAlignment;
-		this.options = options;
 		this.sendOwner = options.sendOwner ?? new ComposerSendCoordinator();
 		this.attachmentCoordinator = new ComposerAttachmentCoordinator({
 			getThreadId: () => core.threadId,
@@ -269,36 +255,9 @@ export class ChatUIContext implements ComposerSendTarget {
 	}
 
 	setInputValue(value: string): void {
-		if (!this.applyInputValue(value)) return;
-		this.emitInputProjection('user-edit', getChatSessionEpoch(), this.conversation);
-	}
-
-	/** Apply a same-session peer projection without rebroadcasting it. */
-	projectInputValue(value: string): void {
-		this.applyInputValue(value);
-	}
-
-	private applyInputValue(value: string): boolean {
-		if (this.disposed || this.inputValue === value) return false;
+		if (this.disposed || this.inputValue === value) return;
 		this.inputValue = value;
 		this.inputRevision++;
-		return true;
-	}
-
-	private emitInputProjection(
-		reason: ChatInputProjectionReason,
-		sessionEpoch: number,
-		conversation: ChatConversation,
-		inputRevision = this.inputRevision,
-		value = this.inputValue
-	): void {
-		this.options.projectInput?.({
-			value,
-			reason,
-			sessionEpoch,
-			conversation,
-			inputRevision
-		});
 	}
 
 	clearInput(): void {
@@ -327,14 +286,7 @@ export class ChatUIContext implements ComposerSendTarget {
 		) {
 			return;
 		}
-		if (!this.applyInputValue('')) return;
-		snapshot.inputClearedRevision = this.inputRevision;
-		this.emitInputProjection(
-			'send-clear',
-			snapshot.sessionEpoch,
-			snapshot.conversation,
-			snapshot.inputRevision
-		);
+		this.setInputValue('');
 	}
 
 	clearAttachmentsForSend(snapshot: ChatSendSnapshot): void {
@@ -361,9 +313,7 @@ export class ChatUIContext implements ComposerSendTarget {
 
 	restoreFailedSend(text: string, attachments: Attachment[]): void {
 		if (this.disposed) return;
-		if (this.applyInputValue(text)) {
-			this.emitInputProjection('send-restore', getChatSessionEpoch(), this.conversation);
-		}
+		this.setInputValue(text);
 		this.attachmentCoordinator.restoreSendAttachments({ attachments });
 	}
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1
+
+- A new project includes the template's test suite by default. `--without-tests` leaves it out.
+- `--without-tests` on a template revision without `tests` in `templateProfiles` fails before the CLI writes anything, and the error names the revision.
+- The CLI refuses `--with-tests` as an unknown option.
+- After a failed setup or install, the output contains the commands for a repeat, also for a project with the test suite.
+
 ## 0.2.0
 
 - A new project leaves out the template's test suite by default. `--with-tests` keeps it.
