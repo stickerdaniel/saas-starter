@@ -86,11 +86,15 @@
 					<span class="ml-1 font-mono lowercase">{node.lang}</span>
 				</div>
 				<div class="relative h-fit w-full overflow-visible bg-muted p-2 font-mono text-sm">
-					<pre class="overflow-x-auto bg-muted/40 p-0 font-mono"><code>{node.value}</code></pre>
+					<pre class="overflow-x-auto overflow-y-hidden bg-muted/40 p-0 font-mono"><code
+							>{node.value}</code
+						></pre>
 				</div>
 			</div>
 		{:else if node.type === 'table'}
-			<div class="group my-4 max-w-full overflow-x-auto rounded-lg border border-border">
+			<div
+				class="group my-4 max-w-full overflow-x-auto overflow-y-hidden rounded-lg border border-border"
+			>
 				<table class="w-full min-w-full border-collapse">
 					<thead class="bg-muted/80">{@render cells(node.head, true)}</thead>
 					<tbody>

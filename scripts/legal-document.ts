@@ -12,6 +12,7 @@ const DOCUMENT_ORIGIN = 'https://legal.invalid';
 const EXTERNAL_LINK_PROTOCOLS = new Set(['https:', 'mailto:']);
 const AMBIGUOUS_URL_CHARACTERS = /[\p{Cc}\\]/u;
 const HEADING_DEPTHS = [1, 2, 3, 4, 5, 6] as const;
+const NAMED_ENTITY = /&[a-z][\da-z]*;/i;
 
 const legalLiteral: TokenizerExtension = {
 	name: 'legalLiteral',
@@ -73,11 +74,32 @@ function parseLink(token: Tokens.Link, state: ParseState): LegalNode {
 	return { ...target, ...(token.title ? { title: token.title } : {}), children };
 }
 
+function plainText(tokens: readonly Token[]): string {
+	return tokens
+		.map((token) =>
+			'tokens' in token && token.tokens
+				? plainText(token.tokens)
+				: 'text' in token
+					? token.text
+					: ''
+		)
+		.join('');
+}
+
 function parseImage(token: Tokens.Image, state: ParseState): LegalNode {
 	const src = imageSource(token.href, state.base);
-	return src === null
-		? { type: 'text', value: token.text }
-		: { type: 'image', src, alt: token.text };
+	const alt = plainText(token.tokens);
+	return src === null ? { type: 'text', value: alt } : { type: 'image', src, alt };
+}
+
+function parseText(token: Tokens.Text, state: ParseState): LegalNode {
+	const entity = NAMED_ENTITY.exec(token.raw)?.[0];
+	if (entity !== undefined) {
+		throw new Error(
+			`HTML entity ${entity} is not supported in ${state.documentName}. Write the character itself.`
+		);
+	}
+	return { type: 'text', value: token.text.replaceAll('&amp;', '&') };
 }
 
 function parseTable(token: Tokens.Table, state: ParseState): LegalNode {
@@ -133,9 +155,7 @@ function parseToken(token: Token, state: ParseState): LegalNode[] {
 		case 'codespan':
 			return [{ type: 'codespan', value: known.text }];
 		case 'text':
-			return known.tokens
-				? parseTokens(known.tokens, state)
-				: [{ type: 'text', value: known.text }];
+			return known.tokens ? parseTokens(known.tokens, state) : [parseText(known, state)];
 		case 'link':
 			return [parseLink(known, state)];
 		case 'image':

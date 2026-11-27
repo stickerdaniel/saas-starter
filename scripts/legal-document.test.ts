@@ -131,6 +131,27 @@ describe('parseLegalMarkdown', () => {
 		);
 	});
 
+	it('keeps ampersands, decodes numeric references and rejects named entities', () => {
+		expect(ofType(parse('A & B'), 'text')).toEqual([{ type: 'text', value: 'A & B' }]);
+		expect(ofType(parse('A & B &#169; &#xA9; &#38;'), 'text')).toEqual([
+			{ type: 'text', value: 'A & B © © &' }
+		]);
+		for (const entity of ['&copy;', '&nbsp;']) {
+			expect(() => parseLegalMarkdown('sample', `Text ${entity} here`)).toThrow(
+				`HTML entity ${entity} is not supported in sample. Write the character itself.`
+			);
+		}
+	});
+
+	it('flattens formatting in image alt text', () => {
+		const nodes = parse('![**Company** logo](/logo.png) ![*Blocked* pixel](javascript:alert(1))');
+
+		expect(ofType(nodes, 'image')).toEqual([
+			{ type: 'image', src: '/logo.png', alt: 'Company logo' }
+		]);
+		expect(ofType(nodes, 'text').map((text) => text.value)).toContain('Blocked pixel');
+	});
+
 	it('keeps placeholders in headings, lists, tables and link labels', () => {
 		const { nodes } = parseLegalMarkdown(
 			'sample',
