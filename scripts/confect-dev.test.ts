@@ -91,6 +91,13 @@ function written(file: string): Promise<string> {
 	});
 }
 
+let revision = 0;
+
+function edit(file: string): void {
+	revision += 1;
+	writeFileSync(file, `export default { revision: ${revision} };\n`);
+}
+
 async function until(condition: () => boolean): Promise<void> {
 	const deadline = Date.now() + 10_000;
 	while (!condition()) {
@@ -259,7 +266,6 @@ describe('restart notice', () => {
 		const nestedConfig = path.join(root, 'config/nested.config.js');
 		write(root, 'launcher.config.ts', 'export default {};\n');
 		write(root, 'config/nested.config.js', 'export default {};\n');
-		await new Promise((resolve) => setTimeout(resolve, 20));
 		const logs: string[] = [];
 		let requests = 0;
 		const watcher = watchCheckoutForRuns({
@@ -271,12 +277,16 @@ describe('restart notice', () => {
 			log: (line) => logs.push(line)
 		});
 		try {
-			await new Promise((resolve) => setTimeout(resolve, 20));
-			writeFileSync(launcherConfig, 'export default { a: 1 };\n');
-			await until(() => logs.length >= 1);
-			writeFileSync(launcherConfig, 'export default { a: 2 };\n');
-			writeFileSync(nestedConfig, 'export default { a: 1 };\n');
-			await until(() => logs.length >= 2);
+			await until(() => {
+				edit(launcherConfig);
+				return logs.length >= 1;
+			});
+			expect(logs).toEqual(['launcher.config.ts changed. Restart the dev server to apply it.']);
+			await until(() => {
+				edit(launcherConfig);
+				edit(nestedConfig);
+				return logs.length >= 2;
+			});
 		} finally {
 			watcher.close();
 		}
@@ -293,7 +303,6 @@ describe('restart notice', () => {
 		const alias = `${root}-alias`;
 		const launcherConfig = path.join(root, 'launcher.config.ts');
 		write(root, 'launcher.config.ts', 'export default {};\n');
-		await new Promise((resolve) => setTimeout(resolve, 20));
 		const logs: string[] = [];
 		symlinkSync(root, alias, 'dir');
 		try {
@@ -304,9 +313,10 @@ describe('restart notice', () => {
 				log: (line) => logs.push(line)
 			});
 			try {
-				await new Promise((resolve) => setTimeout(resolve, 20));
-				writeFileSync(launcherConfig, 'export default { a: 1 };\n');
-				await until(() => logs.length >= 1);
+				await until(() => {
+					edit(launcherConfig);
+					return logs.length >= 1;
+				});
 			} finally {
 				watcher.close();
 			}

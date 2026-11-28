@@ -1,6 +1,14 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
-import { lstatSync, readFileSync, realpathSync, rmSync, watch, type FSWatcher } from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
+import {
+	lstatSync,
+	readFileSync,
+	realpathSync,
+	rmSync,
+	watch,
+	type BigIntStats,
+	type FSWatcher
+} from 'node:fs';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
@@ -212,6 +220,22 @@ export function createChangeFilter(since = Date.now()): (file: string) => boolea
 	};
 }
 
+function versionOf(file: string): string | undefined {
+	let stat: BigIntStats;
+	try {
+		stat = lstatSync(file, { bigint: true });
+	} catch {
+		return undefined;
+	}
+	const identity = `${stat.dev}:${stat.ino}:${stat.ctimeNs}`;
+	if (!stat.isFile()) return identity;
+	try {
+		return `${identity}:${createHash('sha256').update(readFileSync(file)).digest('hex')}`;
+	} catch {
+		return identity;
+	}
+}
+
 const slashed = (file: string) => file.split(path.sep).join('/');
 
 export function watchCheckout(
@@ -221,34 +245,42 @@ export function watchCheckout(
 ): Pick<FSWatcher, 'close'> {
 	const changed = createChangeFilter();
 	const checkout = realpathSync.native(root);
-	const restart = new Set(restartFiles.map((file) => realpathSync.native(file)));
+	const schema = path.join(checkout, ENV_SCHEMA);
+	const named = new Set([
+		schema,
+		...[...RESTART_FILES].map((file) => path.join(checkout, file)),
+		...restartFiles.map((file) => realpathSync.native(file))
+	]);
+	const versions = new Map([...named].map((file) => [file, versionOf(file)]));
+	const compare = (file: string) => {
+		if (!named.has(file)) return;
+		const version = versionOf(file);
+		if (version === versions.get(file)) return;
+		versions.set(file, version);
+		if (file === schema) handlers.onSource();
+		else handlers.onRestart(slashed(path.relative(checkout, file)));
+	};
 	const dispatch = (file: string) => {
-		const kind = classifyChange(file);
-		if (kind === 'ignored' || !changed(path.join(checkout, file))) return;
-		if (kind === 'source') handlers.onSource();
-		else if (kind === 'restart') handlers.onRestart(file);
+		if (classifyChange(file) !== 'source' || !changed(path.join(checkout, file))) return;
+		handlers.onSource();
 	};
 	const source = watch(path.join(checkout, 'src'), { recursive: true }, (_event, filename) => {
 		if (filename === null) handlers.onSource();
 		else dispatch(`src/${slashed(filename.toString())}`);
 	});
-	const top = watch(checkout, (_event, filename) => {
-		if (filename !== null) dispatch(filename.toString());
-	});
-	const named = [...new Set([...restart].map((file) => path.dirname(file)))].map((directory) =>
-		watch(directory, (_event, filename) => {
-			if (filename === null) return;
-			const file = path.join(directory, filename.toString());
-			if (restart.has(file) && changed(file)) {
-				handlers.onRestart(slashed(path.relative(checkout, file)));
-			}
-		})
-	);
+	const directories = new Set([...named].map((file) => path.dirname(file)));
+	const watchers = [
+		source,
+		...[...directories].map((directory) =>
+			watch(directory, (_event, filename) => {
+				if (filename !== null) compare(path.join(directory, filename.toString()));
+			})
+		)
+	];
+	for (const file of named) compare(file);
 	return {
 		close: () => {
-			source.close();
-			top.close();
-			for (const watcher of named) watcher.close();
+			for (const watcher of watchers) watcher.close();
 		}
 	};
 }
