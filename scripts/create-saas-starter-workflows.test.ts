@@ -115,7 +115,7 @@ const ROOT_TESTS_RUN = 'bun vitest --config vitest.tooling.config.ts --run ';
 const PACKAGE_TESTS_RUN = 'bun run --cwd packages/create-saas-starter vitest --run ';
 const SELECTOR_ASSIGNMENT = /^(?:runner|test)_pattern='/;
 const TEST_NAME_OPTION = / -t '[^']*'$/;
-const ROOT_TEST_FILE = /^scripts\/[\w.-]+\.test\.ts$/;
+const ROOT_TEST_FILE = /^scripts\/[\w./-]+\.test\.ts$/;
 
 const READ_FROM_THE_CHECKOUT = {
 	'scripts/create-saas-starter.integration.test.ts': [
@@ -143,35 +143,91 @@ const READ_FROM_THE_CHECKOUT = {
 		'.github/workflows/create-saas-starter.yml',
 		'.github/workflows/static-checks.yml',
 		'.github/workflows/windows-process-lifecycle.yml'
+	],
+	'scripts/third-party-licenses/kit-build.test.ts': [
+		'scripts/third-party-licenses/index.ts',
+		'scripts/third-party-licenses/collect.ts',
+		'scripts/third-party-licenses/config.ts',
+		'scripts/third-party-licenses/generated.ts',
+		'scripts/third-party-licenses/inputs.ts',
+		'scripts/third-party-licenses/resolve.ts',
+		'scripts/third-party-licenses/serialize.ts'
 	]
 } as const satisfies Record<string, readonly string[]>;
 
-type RootCreatorTest = keyof typeof READ_FROM_THE_CHECKOUT;
+type GuardedRootTest = keyof typeof READ_FROM_THE_CHECKOUT;
 
-const CREATOR_WORKFLOW_TESTS = Object.keys(READ_FROM_THE_CHECKOUT) as RootCreatorTest[];
-const WINDOWS_JOB_TESTS: RootCreatorTest[] = ['scripts/create-saas-starter.integration.test.ts'];
+const CREATOR_WORKFLOW_TESTS: GuardedRootTest[] = [
+	'scripts/create-saas-starter.integration.test.ts',
+	'scripts/create-saas-starter-marker-format.test.ts',
+	'scripts/create-saas-starter-release-gate.test.ts',
+	'scripts/create-saas-starter-workflows.test.ts'
+];
+const WINDOWS_JOB_TESTS: GuardedRootTest[] = [
+	'scripts/third-party-licenses/kit-build.test.ts',
+	'scripts/create-saas-starter.integration.test.ts'
+];
 
-interface WorkflowSteps {
-	jobs: Record<string, { steps?: Array<{ run?: string }> }>;
+const RUNS_TESTS = "steps.changes.outputs.run_tests == 'true'";
+const CREATOR_STEP_CONDITIONS = [undefined];
+const WINDOWS_STEP_CONDITIONS = [
+	RUNS_TESTS,
+	`${RUNS_TESTS} && hashFiles('packages/create-saas-starter/package.json') != ''`
+];
+
+const ROOT_TEST_STEP_KEYS = ['env', 'if', 'name', 'run'];
+const ROOT_TEST_STEP_ENV = ['CREATE_SAAS_STARTER_RELEASE_GATE_TEST', 'TEMP', 'TMP'];
+const SETTINGS_A_STEP_INHERITS = ['env', 'defaults', 'continue-on-error'] as const;
+
+type InheritedSettings = Partial<Record<(typeof SETTINGS_A_STEP_INHERITS)[number], unknown>>;
+
+interface WorkflowSteps extends InheritedSettings {
+	jobs: Record<
+		string,
+		InheritedSettings & {
+			steps?: Array<{ run?: string; if?: string; env?: Record<string, unknown> }>;
+		}
+	>;
 }
 
-function rootTests(workflow: WorkflowSteps): string[] {
-	return Object.values(workflow.jobs)
-		.flatMap((job) => job.steps ?? [])
-		.flatMap((step) => step.run?.split('\n') ?? [])
-		.map((command) => command.trim())
-		.filter(
-			(command) =>
-				command.includes('vitest') &&
-				!command.startsWith(PACKAGE_TESTS_RUN) &&
-				!SELECTOR_ASSIGNMENT.test(command)
+function rootTests(
+	workflow: WorkflowSteps,
+	conditions: ReadonlyArray<string | undefined>
+): string[] {
+	return Object.values(workflow.jobs).flatMap((job) =>
+		(job.steps ?? []).flatMap((step) =>
+			(step.run?.split('\n') ?? [])
+				.map((command) => command.trim())
+				.filter(
+					(command) =>
+						command.includes('vitest') &&
+						!command.startsWith(PACKAGE_TESTS_RUN) &&
+						!SELECTOR_ASSIGNMENT.test(command)
+				)
+				.flatMap((command) => {
+					expect(command.startsWith(ROOT_TESTS_RUN), command).toBe(true);
+					expect(step.run?.trim(), command).toBe(command);
+					expect(conditions, command).toContain(step.if);
+					expect(ROOT_TEST_STEP_KEYS, command).toEqual(expect.arrayContaining(Object.keys(step)));
+					expect(ROOT_TEST_STEP_ENV, command).toEqual(
+						expect.arrayContaining(Object.keys(step.env ?? {}))
+					);
+					for (const setting of SETTINGS_A_STEP_INHERITS) {
+						expect(workflow[setting], `${setting} of the workflow of ${command}`).toBeUndefined();
+						expect(job[setting], `${setting} of the job of ${command}`).toBeUndefined();
+					}
+					const files = command
+						.slice(ROOT_TESTS_RUN.length)
+						.replace(TEST_NAME_OPTION, '')
+						.split(' ');
+					for (const file of files) {
+						expect(file, command).toMatch(ROOT_TEST_FILE);
+						expect(path.posix.normalize(file), command).toBe(file);
+					}
+					return TEST_NAME_OPTION.test(command) ? [] : files;
+				})
 		)
-		.flatMap((command) => {
-			expect(command.startsWith(ROOT_TESTS_RUN), command).toBe(true);
-			const files = command.slice(ROOT_TESTS_RUN.length).replace(TEST_NAME_OPTION, '').split(' ');
-			for (const file of files) expect(file, command).toMatch(ROOT_TEST_FILE);
-			return files;
-		});
+	);
 }
 
 function isFile(relative: string): boolean {
@@ -198,7 +254,7 @@ function sourcesImportedFrom(seeds: readonly string[]): string[] {
 	return [...sources];
 }
 
-function inputsOf(tests: readonly RootCreatorTest[]): string[] {
+function inputsOf(tests: readonly GuardedRootTest[]): string[] {
 	const { tsconfig } = toolingConfig;
 	if (tsconfig === undefined) throw new Error('vitest.tooling.config.ts names no tsconfig');
 	return [
@@ -221,13 +277,16 @@ function selects(paths: readonly string[], input: string): boolean {
 }
 
 describe('creator workflows', () => {
-	it('starts the creator workflow and the Windows job on every input of the root creator tests', () => {
+	it('starts the creator workflow and the Windows job on every input of the root tests they run', () => {
+		expect(new Set([...CREATOR_WORKFLOW_TESTS, ...WINDOWS_JOB_TESTS])).toEqual(
+			new Set(Object.keys(READ_FROM_THE_CHECKOUT))
+		);
 		const creator = parseYaml(
 			read('.github/workflows/create-saas-starter.yml')
 		) as WorkflowSteps & {
 			on: { push: { paths: string[] }; pull_request: { paths: string[] } };
 		};
-		expect(rootTests(creator)).toEqual(CREATOR_WORKFLOW_TESTS);
+		expect(rootTests(creator, CREATOR_STEP_CONDITIONS)).toEqual(CREATOR_WORKFLOW_TESTS);
 		for (const input of inputsOf(CREATOR_WORKFLOW_TESTS)) {
 			expect(isFile(input), `a file: ${input}`).toBe(true);
 			expect(selects(creator.on.push.paths, input), `push: ${input}`).toBe(true);
@@ -238,7 +297,7 @@ describe('creator workflows', () => {
 		const selectsWindows = windows.match(/^ {10}runner_pattern='([^']+)'$/m)?.[1];
 		const runsTests = windows.match(/^ {10}test_pattern='([^']+)'$/m)?.[1];
 		expect(
-			rootTests(parseYaml(windows) as WorkflowSteps).filter(
+			rootTests(parseYaml(windows) as WorkflowSteps, WINDOWS_STEP_CONDITIONS).filter(
 				(test) => test in READ_FROM_THE_CHECKOUT
 			)
 		).toEqual(WINDOWS_JOB_TESTS);

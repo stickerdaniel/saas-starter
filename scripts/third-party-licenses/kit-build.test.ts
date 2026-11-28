@@ -1,13 +1,5 @@
 import { spawn } from 'node:child_process';
-import {
-	existsSync,
-	mkdirSync,
-	mkdtempSync,
-	readFileSync,
-	rmSync,
-	symlinkSync,
-	writeFileSync
-} from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +7,7 @@ import { parse, type DefaultTreeAdapterMap } from 'parse5';
 import * as v from 'valibot';
 import { afterEach, describe, expect, it } from 'vitest';
 import { catalogueSchema } from '../../src/lib/licenses/catalogue';
+import { linkPhysical } from '../__fixtures__/static-checks/private-checkout';
 
 // Builds a small SvelteKit app with the installed Vite, Kit, and Svelte and the
 // real notice plugins, then reads what Kit's builder.writeClient published and
@@ -129,7 +122,7 @@ function createFixture(
 	for (const name of LINKED_PACKAGES) {
 		const target = path.join(root, 'node_modules', ...name.split('/'));
 		mkdirSync(path.dirname(target), { recursive: true });
-		symlinkSync(path.join(REPO_ROOT, 'node_modules', ...name.split('/')), target, 'junction');
+		linkPhysical(path.join(REPO_ROOT, 'node_modules', ...name.split('/')), target);
 	}
 	for (const pkg of BASE_PACKAGES) {
 		writeTree(path.join(root, 'node_modules', pkg.name), {
