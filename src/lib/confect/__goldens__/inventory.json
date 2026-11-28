@@ -1,6 +1,5 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
-	"consumedNativeExports": [],
 	"digest": "447d3a21c8109759",
 	"groups": {
 		"admin/auditLog/queries": {

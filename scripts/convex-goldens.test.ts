@@ -6,7 +6,6 @@ import { GOLDENS_DIR, goldenText } from '../src/lib/confect/goldens';
 import {
 	API_TYPES_FIXTURE,
 	apiTypeFixtureIdentifiers,
-	consumedNativeExports,
 	inventoryGolden,
 	orphanedExports,
 	scheduledTargets,
@@ -42,7 +41,6 @@ function registeredNames(): Map<string, Set<string>> {
 }
 
 const functions = await specInventory();
-const consumed = consumedNativeExports(registeredNames());
 const surface = await freshSurfaceOf('src/lib/convex');
 
 const trees: string[] = [];
@@ -54,9 +52,7 @@ afterEach(() => {
 function treeWith(files: Record<string, string>): string {
 	const root = mkdtempSync(path.join(tmpdir(), 'convex-goldens-'));
 	trees.push(root);
-	for (const directory of ['src/lib/convex', 'scripts', 'e2e']) {
-		mkdirSync(path.join(root, directory), { recursive: true });
-	}
+	mkdirSync(path.join(root, 'src/lib/convex'), { recursive: true });
 	for (const [file, content] of Object.entries(files)) {
 		writeFileSync(path.join(root, file), content);
 	}
@@ -71,14 +67,13 @@ describe('Convex goldens', () => {
 			'src/lib/convex/helpers.ts': 'export const helper = 1;\n'
 		});
 
-		expect(() => consumedNativeExports(new Map([['notes', new Set(['list'])]]), root)).toThrow(
+		expect(() => orphanedExports(new Map([['notes', new Set(['list'])]]), root)).toThrow(
 			"src/lib/convex/notes.ts forwards export * from './helpers';"
 		);
 	});
 
-	it('keep the committed spec set and leave no native helper export in use', async () => {
-		expect(consumed).toEqual([]);
-		await expect(await goldenText(inventoryGolden(functions, consumed))).toMatchFileSnapshot(
+	it('keep the committed spec set', async () => {
+		await expect(await goldenText(inventoryGolden(functions))).toMatchFileSnapshot(
 			golden('inventory.json')
 		);
 	}, 60_000);

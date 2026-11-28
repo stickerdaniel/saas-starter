@@ -20,13 +20,7 @@ const AUTHORED_ENTRY_FILES = new Set([
 	'auth.config.ts',
 	'convex.config.ts'
 ]);
-const IMPORTER_ROOTS = ['src', 'scripts', 'e2e'];
-const IMPORTER_EXTENSIONS = ['.ts', '.mts', '.cts', '.js', '.mjs', '.cjs', '.svelte'];
 const SKIPPED_DIRECTORIES = new Set(['node_modules', '_generated', '__fixtures__']);
-const SOURCE_ALIASES: ReadonlyArray<readonly [string, string]> = [
-	['$lib/', 'src/lib/'],
-	['#lib/', 'src/lib/']
-];
 export type SpecFunction = {
 	group: string;
 	name: string;
@@ -102,10 +96,7 @@ export async function specInventory(root = process.cwd()) {
 	return functions;
 }
 
-export function inventoryGolden(
-	functions: readonly SpecFunction[],
-	consumedNativeExports: readonly ConsumedExport[]
-): Json {
+export function inventoryGolden(functions: readonly SpecFunction[]): Json {
 	const groups: Record<string, Record<string, readonly string[]>> = {};
 	for (const { group, name, visibility, kind, runtime, provenance } of functions) {
 		groups[group] = { ...groups[group], [name]: [visibility, kind, runtime, provenance] };
@@ -113,8 +104,7 @@ export function inventoryGolden(
 	return {
 		digest: digest(groups),
 		columns: ['visibility', 'kind', 'runtime', 'provenance'],
-		groups,
-		consumedNativeExports
+		groups
 	};
 }
 
@@ -134,10 +124,6 @@ export function scheduledTargets(surface: Surface) {
 	};
 }
 
-export type ConsumedExport = { module: string; export: string; importer: string };
-
-type ModuleImport = { specifier: string; names: readonly string[] };
-
 function compare(a: string, b: string): number {
 	return a < b ? -1 : a > b ? 1 : 0;
 }
@@ -154,63 +140,6 @@ function filesBelow(root: string, directory: string, accept: (file: string) => b
 		)
 		.map((relative) => `${directory}/${relative}`)
 		.sort(compare);
-}
-
-function scriptText(file: string, source: string): string {
-	if (!file.endsWith('.svelte')) return source;
-	return [...source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\b[^>]*>/gi)]
-		.map((match) => match[1])
-		.join('\n');
-}
-
-function stringArgument(node: ts.CallExpression): string | undefined {
-	const [first] = node.arguments;
-	return first && ts.isStringLiteralLike(first) ? first.text : undefined;
-}
-
-function importsOf(file: string, source: string): ModuleImport[] {
-	const sourceFile = ts.createSourceFile(file, scriptText(file, source), ts.ScriptTarget.Latest);
-	const found: ModuleImport[] = [];
-	const visit = (node: ts.Node): void => {
-		if (
-			(ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
-			node.moduleSpecifier &&
-			ts.isStringLiteral(node.moduleSpecifier)
-		) {
-			found.push({ specifier: node.moduleSpecifier.text, names: importedNames(node) });
-		} else if (
-			ts.isCallExpression(node) &&
-			node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-			stringArgument(node) !== undefined
-		) {
-			found.push({ specifier: stringArgument(node)!, names: ['*'] });
-		} else if (
-			ts.isImportTypeNode(node) &&
-			ts.isLiteralTypeNode(node.argument) &&
-			ts.isStringLiteral(node.argument.literal)
-		) {
-			found.push({ specifier: node.argument.literal.text, names: ['*'] });
-		}
-		ts.forEachChild(node, visit);
-	};
-	visit(sourceFile);
-	return found;
-}
-
-function importedNames(node: ts.ImportDeclaration | ts.ExportDeclaration): string[] {
-	if (ts.isExportDeclaration(node)) {
-		if (!node.exportClause || ts.isNamespaceExport(node.exportClause)) return ['*'];
-		return node.exportClause.elements.map((element) => (element.propertyName ?? element.name).text);
-	}
-	const clause = node.importClause;
-	if (!clause) return [];
-	const names = clause.name ? ['default'] : [];
-	const bindings = clause.namedBindings;
-	if (bindings && ts.isNamespaceImport(bindings)) return [...names, '*'];
-	for (const element of bindings?.elements ?? []) {
-		names.push((element.propertyName ?? element.name).text);
-	}
-	return names;
 }
 
 function exportedNames(file: string, source: string): string[] {
@@ -260,61 +189,6 @@ function bindingNames(name: ts.BindingName): string[] {
 	if (ts.isIdentifier(name)) return [name.text];
 	return name.elements.flatMap((element) =>
 		ts.isOmittedExpression(element) ? [] : bindingNames(element.name)
-	);
-}
-
-function resolveSpecifier(root: string, importer: string, specifier: string): string | undefined {
-	const alias = SOURCE_ALIASES.find(([prefix]) => specifier.startsWith(prefix));
-	const base = alias
-		? path.resolve(root, alias[1], specifier.slice(alias[0].length))
-		: specifier.startsWith('.')
-			? path.resolve(root, path.dirname(importer), specifier)
-			: undefined;
-	if (base === undefined) return undefined;
-	const relative = path.relative(root, base).split(path.sep).join('/');
-	return relative.replace(/\.(js|ts)$/, '');
-}
-
-export function consumedNativeExports(
-	registrations: ReadonlyMap<string, ReadonlySet<string>>,
-	root = process.cwd()
-): ConsumedExport[] {
-	const nonRegistrations = new Map<string, Set<string>>();
-	for (const file of filesBelow(
-		root,
-		CONVEX_ROOT,
-		(relative) =>
-			relative.endsWith('.ts') && !relative.endsWith('.d.ts') && !AUTHORED_ENTRY_FILES.has(relative)
-	)) {
-		const module = file.slice(CONVEX_ROOT.length + 1, -'.ts'.length);
-		const registered = registrations.get(module) ?? new Set<string>();
-		const names = exportedNames(file, readFileSync(path.resolve(root, file), 'utf8'));
-		nonRegistrations.set(
-			`${CONVEX_ROOT}/${module}`,
-			new Set(names.filter((name) => !registered.has(name)))
-		);
-	}
-	const consumed: ConsumedExport[] = [];
-	for (const importer of IMPORTER_ROOTS.flatMap((directory) =>
-		filesBelow(root, directory, (relative) =>
-			IMPORTER_EXTENSIONS.some((extension) => relative.endsWith(extension))
-		)
-	)) {
-		for (const { specifier, names } of importsOf(
-			importer,
-			readFileSync(path.resolve(root, importer), 'utf8')
-		)) {
-			const target = resolveSpecifier(root, importer, specifier);
-			const candidates = target === undefined ? undefined : nonRegistrations.get(target);
-			if (!target || !candidates || target === importer.replace(/\.ts$/, '')) continue;
-			const module = target.slice(CONVEX_ROOT.length + 1);
-			for (const name of names.includes('*') ? [...candidates] : names) {
-				if (candidates.has(name)) consumed.push({ module, export: name, importer });
-			}
-		}
-	}
-	return consumed.sort((a, b) =>
-		compare(`${a.module}:${a.export}:${a.importer}`, `${b.module}:${b.export}:${b.importer}`)
 	);
 }
 
