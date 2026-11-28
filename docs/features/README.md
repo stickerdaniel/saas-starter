@@ -2,11 +2,8 @@
 
 What a product built on this template can do from its first deploy. Each page says what the feature does for you and where its code starts.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="../assets/lighthouse-dark.gif">
-  <source media="(prefers-color-scheme: light)" srcset="../assets/lighthouse-light.gif">
-  <img alt="Desktop Lighthouse scores: 100 Performance, Accessibility, Best Practices, and SEO" src="../assets/lighthouse-light.gif">
-</picture>
+![Desktop Lighthouse scores: 100 Performance, Accessibility, Best Practices, and SEO](../assets/lighthouse-light.gif#gh-light-mode-only)
+![Desktop Lighthouse scores: 100 Performance, Accessibility, Best Practices, and SEO](../assets/lighthouse-dark.gif#gh-dark-mode-only)
 
 ## Feature pages
 
@@ -19,7 +16,7 @@ What a product built on this template can do from its first deploy. Each page sa
 - **[Analytics](analytics.md).** Opt-in PostHog analytics that loads only after consent and only on the hostnames you list.
 - **[Remote MCP](mcp.md).** Users connect Claude, ChatGPT or another MCP app to their account, choose view or change access, and revoke it in the settings.
 - **[Agents and SEO](agents-and-seo.md).** Markdown versions of the marketing pages, `/llms.txt`, social cards, and `hreflang` alternates.
-- **[Accessibility](accessibility.md).** Automated WCAG 2.1 AA checks on the main public pages in light and dark mode.
+- **[Accessibility](accessibility.md).** Automated WCAG 2.1 AA checks on the main public pages in light and dark mode, when the project includes the test suite.
 
 ## Also included
 

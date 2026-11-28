@@ -1,6 +1,6 @@
 # Accessibility
 
-The main public pages (home, sign-in, password reset, pricing, terms, and privacy) run automated axe-core checks against WCAG 2.1 AA rules in light and dark mode, with a few documented exceptions. Automated checks do not replace a manual audit. The template includes a skip-to-content link, semantic HTML throughout, and translated `aria-label` attributes. For visitors who ask for reduced motion, a lint rule requires sliding and flying transitions to respect `prefers-reduced-motion`, and a banned-pattern scan requires the `motion-safe:` prefix on spinners.
+When the project includes the test suite, the main public pages (home, sign-in, password reset, pricing, terms, and privacy) run automated axe-core checks against WCAG 2.1 AA rules in light and dark mode, with a few documented exceptions. Automated checks do not replace a manual audit. The template includes a skip-to-content link, semantic HTML throughout, and translated `aria-label` attributes. For visitors who ask for reduced motion, a lint rule requires sliding and flying transitions to respect `prefers-reduced-motion`, and a banned-pattern scan requires the `motion-safe:` prefix on spinners.
 
 ## Where to start in the code
 
