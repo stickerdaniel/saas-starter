@@ -53,7 +53,9 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if !isScreenshotMode}
-	<div class="fixed right-5 bottom-5 z-40 flex flex-col items-end justify-end gap-3">
+	<div
+		class="fixed right-5 bottom-5 z-40 scroll-lock-inset flex flex-col items-end justify-end gap-3"
+	>
 		{#if isFeedbackOpen && !disabled}
 			{#await preloadWidget() then { default: FeedbackWidget }}
 				<FeedbackWidget onClose={closeWidget} bind:isScreenshotMode {chatUIContext} />

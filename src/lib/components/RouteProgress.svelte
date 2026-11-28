@@ -159,7 +159,8 @@
 		z-index: 50;
 		top: 0;
 		left: 0;
-		width: 100%;
+		right: 0;
+		margin-right: var(--scrollbar-width, 0px);
 		height: 2px;
 		overflow: hidden;
 	}
