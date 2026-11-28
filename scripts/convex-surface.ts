@@ -26,8 +26,10 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import ts from 'typescript';
+
+export const SURFACE_READER = fileURLToPath(import.meta.url);
 
 export type Visibility = 'public' | 'internal';
 export type Kind = 'mutation' | 'query' | 'action';

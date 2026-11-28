@@ -843,7 +843,7 @@ export const FLAT_CHECK_LAYOUT: CheckLayout = {
 		'svelte-kit sync': { runsIn: 'web', args: ['svelte-kit', 'sync'] },
 		'build-emails': { runsIn: 'emails', args: ['scripts/build-emails.ts'] },
 		'Autumn config': { runsIn: 'web', args: ['scripts/check-autumn-config.ts'] },
-		'convex compat': { runsIn: 'backend', args: ['scripts/convex-consumer-compat.ts'] }
+		'convex compat': { runsIn: 'root', args: ['scripts/convex-consumer-compat.ts'] }
 	}
 };
 

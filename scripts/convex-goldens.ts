@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { Spec } from '@confect/core';
 import typescript from 'typescript';
 import { GOLDENS_DIR, digest, type Json } from '../src/lib/confect/goldens';
-import { workingTreeScheduledTargets } from './convex-consumer-compat';
+import { backendPaths, workingTreeScheduledTargets } from './convex-references';
 import { freshSurfaceOf, type Kind, type Surface, type Visibility } from './convex-surface';
 
 import ts = typescript;
@@ -111,7 +111,7 @@ export function inventoryGolden(functions: readonly SpecFunction[]): Json {
 }
 
 export function scheduledTargets(surface: Surface) {
-	const { references, unresolved } = workingTreeScheduledTargets();
+	const { references, unresolved } = workingTreeScheduledTargets(backendPaths(CONVEX_ROOT));
 	const targets = [...new Set(references.map(({ identifier }) => identifier))]
 		.sort(compare)
 		.map((identifier) => {

@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { identifiersIn, namespaceReferencesIn } from './convex-consumer-compat';
+import { identifiersIn, namespaceReferencesIn } from './convex-references';
 
 type SpecName = { group: string; name: string };
 export type Source = { file: string; source: string };
