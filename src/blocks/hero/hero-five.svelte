@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { T, getTranslate } from '@tolgee/svelte';
 	import { localizedHref } from '#lib/utils/i18n.js';
 

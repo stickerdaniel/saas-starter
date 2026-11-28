@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import SEOHead from '#lib/components/SEOHead.svelte';
 	import { getTranslate } from '@tolgee/svelte';
 	import HeroFive from '#blocks/hero/hero-five.svelte';
