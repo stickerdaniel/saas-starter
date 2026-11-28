@@ -336,18 +336,7 @@ export async function discoverPreview(
 class RevisionMismatch extends Error {}
 
 function servedRevision(version: unknown): string {
-	const value =
-		version && typeof version === 'object' && 'version' in version ? version.version : undefined;
-	if (typeof value === 'string') return JSON.stringify(value).slice(0, 80);
-	const shape =
-		version === null
-			? 'null'
-			: Array.isArray(version)
-				? 'an array'
-				: typeof version === 'object'
-					? `an object with keys ${JSON.stringify(Object.keys(version)).slice(0, 80)}`
-					: `a ${typeof version}`;
-	return `no version string in ${shape}`;
+	return (JSON.stringify(version) ?? String(version)).slice(0, 120);
 }
 
 export function assertMetadata(

@@ -882,7 +882,7 @@ describe('workflow compatibility', () => {
 		]);
 		expect(lagging.code, lagging.output).toBe(0);
 		expect(lagging.reads).toBe(2);
-		expect(lagging.output).toContain(`served "${stale}", expected ${sha}`);
+		expect(lagging.output).toContain(`served {"version":"${stale}"}, expected ${sha}`);
 		expect(moved.code).toBe(1);
 		expect(moved.reads).toBe(1);
 		expect(rebuilt.code).toBe(1);
@@ -891,6 +891,6 @@ describe('workflow compatibility', () => {
 		expect(stuck.code).toBe(1);
 		expect(stuck.reads).toBeGreaterThan(1);
 		expect(stuck.reads).toBeLessThanOrEqual(20);
-		expect(stuck.output).toContain(`served "${stale}", expected ${sha}`);
+		expect(stuck.output).toContain(`served {"version":"${stale}"}, expected ${sha}`);
 	}, 30_000);
 });
