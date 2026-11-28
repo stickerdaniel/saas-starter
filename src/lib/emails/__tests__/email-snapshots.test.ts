@@ -14,7 +14,9 @@ const { JSDOM } = createRequire(import.meta.url)('jsdom') as {
 	JSDOM: new (html: string) => { window: Window & typeof globalThis };
 };
 
-type LegalSlots = Record<'brandName' | 'companyName', string> & { address: LegalPostalAddress };
+type LegalSlots = Record<'brandName' | 'companyName' | 'operatorName', string> & {
+	address: LegalPostalAddress;
+};
 
 const outputNames = Object.values(EMAIL_TEMPLATES).map(({ outputName }) => outputName);
 
@@ -179,6 +181,7 @@ describe('Generated Email Templates', () => {
 				{
 					brandName: 'Northwind <Labs> & "Co"',
 					companyName: 'Northwind & <Partners> "Ltd."',
+					operatorName: 'Anne Weber',
 					address: {
 						streetAddress: '1 <Harbour> Road & "Quay"',
 						postalCode: 'PO1\u00a03AX',
@@ -193,11 +196,27 @@ describe('Generated Email Templates', () => {
 				{
 					brandName: 'Northwind',
 					companyName: 'Northwind',
+					operatorName: 'Anne Weber',
 					address: {
 						streetAddress: '1 Harbour Road',
 						postalCode: 'PO1 3AX',
 						addressLocality: 'Portsmouth',
 						addressCountry: 'GB'
+					}
+				},
+				thisYear
+			],
+			[
+				'a sole proprietor without a company',
+				{
+					brandName: 'Northwind',
+					companyName: '',
+					operatorName: 'Anne Weber',
+					address: {
+						streetAddress: 'Hauptstrasse 5',
+						postalCode: '12345',
+						addressLocality: 'Berlin',
+						addressCountry: 'DE'
 					}
 				},
 				thisYear
@@ -208,7 +227,7 @@ describe('Generated Email Templates', () => {
 			async (_, identity, year) => {
 				const built = await buildForIdentity(vite!, identity, year);
 				const brand = collapse(identity.brandName);
-				const company = collapse(identity.companyName);
+				const company = collapse(identity.companyName || identity.operatorName);
 				const address = collapse(formatPostalAddress(identity.address));
 				for (const { name, html, text } of built) {
 					const dom = new JSDOM(html);

@@ -9,9 +9,10 @@
  *   bun run setup --slug my-app --repo owner/my-app --brand "My App"
  *
  * Non-interactive mode (piped stdin, CI, agents) requires --slug, --repo, --brand
- * while those still hold their template values. Identity fields (brand, company,
- * operator, address fields, email) preserve the current legal.ts values when no flag
- * is given, so a re-run without flags keeps the configured identity. A legal.ts that
+ * while those still hold their template values. While site.ts still names the
+ * template repository, operator, address fields and email without a flag get
+ * placeholder values, so a new project never inherits the template operator's
+ * identity. After that, setup keeps the current legal.ts values when no flag is given. A legal.ts that
  * still stores the address as one string needs all four address fields first.
  *
  * Runs before dependencies are installed: imports are limited to Node built-ins
@@ -53,6 +54,18 @@ const ROOT = join(import.meta.dirname, '..');
 const TEMPLATE_SLUG = 'saas-starter';
 const TEMPLATE_REPOSITORY = 'stickerdaniel/saas-starter';
 const TEMPLATE_BRAND = 'SaaS Starter';
+
+/** The legal identity a first setup writes for every value that no flag or answer supplies. */
+const PLACEHOLDER_IDENTITY = {
+	operatorName: 'Max Mustermann',
+	address: {
+		streetAddress: 'Musterstraße 1',
+		postalCode: '12345',
+		addressLocality: 'Musterstadt',
+		addressCountry: 'DE'
+	},
+	email: 'max@example.com'
+} as const satisfies { operatorName: string; address: AddressFields; email: string };
 
 function normalizeFlag(v: unknown): string | undefined {
 	if (typeof v !== 'string') return undefined;
@@ -162,7 +175,9 @@ footer as "street, postal-code city, country".
 
 In non-interactive mode (piped stdin, CI), --slug, --repo, --brand are required
 while they still hold their template values.
-Identity fields without flags preserve current legal.ts values.
+While site.ts still names the template repository, operator, address and email
+without flags get placeholder values. After that, identity fields without flags
+keep the current legal.ts values.
 A legal.ts that still stores the address as one string needs all four address flags.
 In interactive mode, missing flags are prompted with current values as defaults.
 Unknown flags are rejected before any file is written.
@@ -2308,6 +2323,8 @@ async function main() {
 
 	// A chosen template brand and hand-edited package name are valid only with a complete README state.
 	const alreadySetUp = readmeShowsCompletedSetup(readmeFile.source, oldRepo, oldBrand);
+	// Only the template's own repository still holds the template legal identity.
+	const templateIdentity = !alreadySetUp && oldRepo === TEMPLATE_REPOSITORY;
 
 	if (!interactive && !alreadySetUp) {
 		// The three core values remain required until Quick Start carries the generated form.
@@ -2374,7 +2391,7 @@ async function main() {
 	const operator = await resolveValue(
 		operatorFlag,
 		'Operator name (person or org running the service)',
-		oldOperator,
+		templateIdentity ? PLACEHOLDER_IDENTITY.operatorName : oldOperator,
 		singleLineValidator('operator')
 	);
 
@@ -2383,7 +2400,11 @@ async function main() {
 		resolveValue(
 			addressFlags[key],
 			ADDRESS_FIELDS.find((field) => field.key === key)!.question,
-			oldAddress.kind === 'fields' ? oldAddress.fields[key] : '',
+			oldAddress.kind === 'legacy'
+				? ''
+				: templateIdentity
+					? PLACEHOLDER_IDENTITY.address[key]
+					: oldAddress.fields[key],
 			(value) => validateAddressField(key, value)
 		);
 	const address: AddressFields = {
@@ -2396,7 +2417,7 @@ async function main() {
 	const email = await resolveValue(
 		emailFlag,
 		'Contact email (user@domain.tld)',
-		oldEmail,
+		templateIdentity ? PLACEHOLDER_IDENTITY.email : oldEmail,
 		(value) =>
 			parseContactEmail(value)
 				? undefined

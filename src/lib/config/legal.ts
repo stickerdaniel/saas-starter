@@ -1,12 +1,12 @@
 export const LEGAL_CONFIG = {
 	brandName: 'SaaS Starter',
-	companyName: 'ACME Inc.',
+	companyName: '',
 	operatorName: 'Daniel Sticker',
 	address: {
-		streetAddress: '123 Main Street, Suite 100',
-		postalCode: '94102',
-		addressLocality: 'San Francisco',
-		addressCountry: 'US'
+		streetAddress: 'Jülicher Str. 209q/s',
+		postalCode: '52070',
+		addressLocality: 'Aachen',
+		addressCountry: 'DE'
 	},
 	email: {
 		user: 'daniel',
