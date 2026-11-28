@@ -2,6 +2,15 @@
 
 Two runtimes, two schemas, both managed by [varlock](https://github.com/nickreese/varlock) for type-safe access. `.env.schema` covers SvelteKit (Vite), `.env-convex.schema` covers the Convex backend. The matrix below shows every variable and where it needs to be set.
 
+Bun loads no default dotenv file: `env = false` heads the `bunfig.toml` of the root and of each package. A Bun process still gets the inherited environment and a file passed with `--env-file`. A dotenv file reaches a process through one of four readers:
+
+- the Varlock graph of the two schemas
+- Vite's map of the build mode (`loadEnv` in `vite.config.ts` and `scripts/build.ts`)
+- the Convex CLI
+- a parser that a script names, such as `.env.local` in `scripts/generate-convex.ts` or `.env.convex.local` in `scripts/model-eval/openrouter.ts`
+
+A launcher flag comes from the shell or the host, as in `PORTLESS_SITE_URL=http://myapp.localhost bun run dev`. The launcher flags are `DEV_VITE_PORT`, `TEST_VITE_PORT`, `PORTLESS_SITE_URL`, `E2E_OVERRIDE_SITE_URL`, `CI`, `HUSKY`, `RESET_LOCAL_BACKEND`, `ANALYZE`, and the build identifiers that a host sets, such as `WORKERS_CI`, `WORKERS_CI_BRANCH`, `WORKERS_CI_COMMIT_SHA` and `VERCEL_GIT_COMMIT_SHA`.
+
 `✓` required | `○` optional | `·` auto-set by tooling
 
 **Convex backend** (`.env.convex.local` for local, [dashboard](https://dashboard.convex.dev) for cloud):
