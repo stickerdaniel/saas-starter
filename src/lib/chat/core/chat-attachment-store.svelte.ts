@@ -1,4 +1,4 @@
-import { PersistedState } from 'runed';
+import { persisted, type Persisted } from '../../storage/persisted.svelte.ts';
 import * as v from 'valibot';
 import type { Attachment } from './types.js';
 import { ATTACHMENT_STORAGE_PREFIX } from './chat-persisted-state.js';
@@ -109,7 +109,7 @@ function fromStored(stored: StoredAttachment): Attachment {
  */
 export class ChatAttachmentStore {
 	readonly namespace: string;
-	private readonly stored: PersistedState<StoredRecord>;
+	private readonly stored: Persisted<StoredRecord>;
 
 	/**
 	 * When each attachment reached the server, by transfer identity, for the
@@ -139,7 +139,7 @@ export class ChatAttachmentStore {
 	 */
 	constructor(surface: string) {
 		this.namespace = `${ATTACHMENT_STORAGE_PREFIX}${surface}`;
-		this.stored = new PersistedState<StoredRecord>(this.namespace, {});
+		this.stored = persisted<StoredRecord>(this.namespace, {});
 	}
 
 	/** Everything still on offer, with expired entries dropped. */

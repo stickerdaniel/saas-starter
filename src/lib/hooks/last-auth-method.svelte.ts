@@ -1,4 +1,4 @@
-import { PersistedState } from 'runed';
+import { persisted } from '#lib/storage/persisted.svelte.ts';
 
 export type LastAuthMethod = 'google' | 'github' | 'passkey';
 export type PendingOAuthProvider = 'google' | 'github';
@@ -6,14 +6,12 @@ export type PendingOAuthProvider = 'google' | 'github';
 const LAST_AUTH_METHOD_STORAGE_KEY = 'auth:last-auth-method';
 const PENDING_OAUTH_PROVIDER_STORAGE_KEY = 'auth:pending-oauth-provider';
 
-// eslint-disable-next-line local/no-module-state-singleton -- PersistedState is browser-written only (localStorage), no per-request SSR state
-export const lastSuccessfulAuthMethod = new PersistedState<LastAuthMethod | null>(
+export const lastSuccessfulAuthMethod = persisted<LastAuthMethod | null>(
 	LAST_AUTH_METHOD_STORAGE_KEY,
 	null
 );
 
-// eslint-disable-next-line local/no-module-state-singleton -- PersistedState is browser-written only (sessionStorage), no per-request SSR state
-export const pendingOAuthProvider = new PersistedState<PendingOAuthProvider | null>(
+export const pendingOAuthProvider = persisted<PendingOAuthProvider | null>(
 	PENDING_OAUTH_PROVIDER_STORAGE_KEY,
 	null,
 	{

@@ -1,4 +1,4 @@
-import type { PersistedState } from 'runed';
+import type { Persisted } from '#lib/storage/persisted.svelte.ts';
 import { clamp } from '#lib/utils/math.js';
 import type { ConvexCursorTableState } from './create-convex-cursor-table.svelte.ts';
 
@@ -20,7 +20,7 @@ export function createCountPrediction({
 	cache
 }: {
 	table: CountedTable;
-	cache: PersistedState<number | null>;
+	cache: Persisted<number | null>;
 }) {
 	// The cache lives in storage, outside Svelte, so an effect writes it.
 	$effect(() => {

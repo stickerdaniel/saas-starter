@@ -19,11 +19,20 @@
 				// flight, which the reload would discard; the attempt then stays
 				// unspent for the next failure. Never preventDefault: Vite rethrows
 				// the failed import to its caller only while the event is unprevented.
+				// Storage that cannot hold the marker gets no reload, so it cannot loop.
 				let hold = null;
 				window.addEventListener('vite:preloadError', () => {
-					if (sessionStorage.getItem('sk:preload-reloaded')) return;
+					try {
+						if (sessionStorage.getItem('sk:preload-reloaded')) return;
+					} catch {
+						return;
+					}
 					if (hold !== null && hold()) return;
-					sessionStorage.setItem('sk:preload-reloaded', '1');
+					try {
+						sessionStorage.setItem('sk:preload-reloaded', '1');
+					} catch {
+						return;
+					}
 					location.reload();
 				});
 				window.__deployRecovery = {

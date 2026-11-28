@@ -26,6 +26,16 @@ export interface BrowserStores {
 	secure: boolean;
 }
 
+/** The browser's store, or `undefined` when it is missing or blocked. */
+export function browserStorage(name: 'localStorage' | 'sessionStorage'): Storage | undefined {
+	try {
+		return window[name];
+	} catch {
+		// Reading the property throws when the browser blocks site data.
+		return undefined;
+	}
+}
+
 function removeItem(storage: Storage | undefined, key: string): void {
 	try {
 		storage?.removeItem(key);

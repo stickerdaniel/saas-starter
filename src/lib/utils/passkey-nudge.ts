@@ -1,6 +1,7 @@
 import { authClient } from '#lib/auth-client.js';
 import { api } from '#lib/convex/_generated/api.js';
 import type { ConvexClient } from 'convex/browser';
+import { readItem, writeItem } from '#lib/storage/web-storage.ts';
 import { PASSKEY_NUDGE_DELAY, isFreshPasskeySession } from './passkey-nudge-policy';
 
 export type PasskeyNudgeUser = {
@@ -46,14 +47,15 @@ export async function claimPasskeyNudge(
 		if (expectedSessionId && data.session.id !== expectedSessionId) return null;
 		const seenKey = `auth:passkey-nudge:session:${data.session.id}`;
 		const deferredKey = `auth:passkey-nudge:deferred:${data.user.id}`;
-		if (sessionStorage.getItem(seenKey) || Number(localStorage.getItem(deferredKey)) > Date.now())
-			return null;
+		const seen = readItem('session', seenKey);
+		const deferred = readItem('local', deferredKey);
+		if (seen !== null || deferred === undefined || Number(deferred) > Date.now()) return null;
 		const [passkeys, deferredUntil] = await withNudgeDeadline(
 			Promise.all([listUserPasskeys(), client.query(api.users.getPasskeyNudgeDismissal, {})])
 		);
 		if (passkeys.error || !passkeys.data || passkeys.data.length || deferredUntil > Date.now())
 			return null;
-		sessionStorage.setItem(seenKey, '1');
+		if (!writeItem('session', seenKey, '1')) return null;
 		return {
 			userId: data.user.id,
 			sessionId: data.session.id,
@@ -66,14 +68,12 @@ export async function claimPasskeyNudge(
 }
 
 export async function deferPasskeyNudge(client: ConvexClient, userId: string): Promise<void> {
-	try {
-		localStorage.setItem(
-			`auth:passkey-nudge:deferred:${userId}`,
-			String(Date.now() + PASSKEY_NUDGE_DELAY)
-		);
-	} catch {
-		// The server still remembers the choice when browser storage is unavailable.
-	}
+	// The server still remembers the choice when browser storage is unavailable.
+	writeItem(
+		'local',
+		`auth:passkey-nudge:deferred:${userId}`,
+		String(Date.now() + PASSKEY_NUDGE_DELAY)
+	);
 	try {
 		await withNudgeDeadline(client.mutation(api.users.dismissPasskeyNudge, {}), 2500);
 	} catch {

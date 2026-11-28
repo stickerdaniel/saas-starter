@@ -536,3 +536,66 @@ describe('schema library imports through the flat config', () => {
 		]);
 	}, 60_000);
 });
+
+describe('Web Storage access through the flat config', () => {
+	async function storageReports(text: string, filePath: string) {
+		const [result] = await eslint.lintText(text, { filePath });
+		expect(result.fatalErrorCount).toBe(0);
+		return result.messages
+			.filter(
+				(message) =>
+					message.ruleId === 'no-restricted-globals' ||
+					message.ruleId === '@typescript-eslint/no-restricted-imports'
+			)
+			.map((message) => [message.ruleId, message.line]);
+	}
+
+	const reads = `localStorage.getItem('a');
+window.sessionStorage.getItem('b');
+self.localStorage.getItem('c');
+globalThis.sessionStorage.getItem('d');
+`;
+
+	it('refuses every native storage read in application code', async () => {
+		expect(await storageReports(reads, 'src/lib/example.ts')).toEqual([
+			['no-restricted-globals', 1],
+			['no-restricted-globals', 2],
+			['no-restricted-globals', 3],
+			['no-restricted-globals', 4]
+		]);
+	}, 60_000);
+
+	it('refuses a storage read in a component', async () => {
+		const component = `<script lang="ts">
+	const stored = window.localStorage.getItem('key');
+</script>
+<p>{stored}</p>`;
+		expect(await storageReports(component, 'src/routes/+layout.svelte')).toEqual([
+			['no-restricted-globals', 2]
+		]);
+	}, 60_000);
+
+	it('refuses runed PersistedState and keeps the other import restrictions', async () => {
+		const imports = `import { PersistedState } from 'runed';
+import { Menu } from '@lucide/svelte';
+export const state = [PersistedState, Menu];
+`;
+		expect(await storageReports(imports, 'src/lib/example.ts')).toEqual([
+			['@typescript-eslint/no-restricted-imports', 1],
+			['@typescript-eslint/no-restricted-imports', 2]
+		]);
+	}, 60_000);
+
+	it.each([
+		['the storage boundary', 'src/lib/storage/web-storage.ts'],
+		['the analytics durability probe', 'src/lib/analytics/storage.ts'],
+		['a test that seeds storage', 'src/lib/theme.svelte.test.ts']
+	])(
+		'leaves %s alone',
+		async (_label, filePath) => {
+			expect(existsSync(filePath)).toBe(true);
+			expect(await storageReports(reads, filePath)).toEqual([]);
+		},
+		60_000
+	);
+});

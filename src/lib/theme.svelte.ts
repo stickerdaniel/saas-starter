@@ -1,11 +1,12 @@
 import { on } from 'svelte/events';
+import { readItem, writeItem } from '#lib/storage/web-storage.ts';
 
 export type Scheme = 'light' | 'dark';
 type UserMode = Scheme | 'system';
 
 export const MODE_STORAGE_KEY = 'mode-watcher-mode';
 
-const toUserMode = (value: string | null): UserMode =>
+const toUserMode = (value: string | null | undefined): UserMode =>
 	value === 'light' || value === 'dark' ? value : 'system';
 
 let userMode: UserMode = 'system';
@@ -17,24 +18,6 @@ function write(scheme: Scheme) {
 	const root = document.documentElement;
 	root.classList.toggle('dark', scheme === 'dark');
 	root.style.colorScheme = scheme;
-}
-
-function stored(): string | null {
-	try {
-		return localStorage.getItem(MODE_STORAGE_KEY);
-	} catch {
-		return null;
-	}
-}
-
-function persist(next: UserMode): boolean {
-	try {
-		localStorage.setItem(MODE_STORAGE_KEY, next);
-		return true;
-	} catch (error) {
-		console.error(error);
-		return false;
-	}
 }
 
 function apply() {
@@ -57,8 +40,8 @@ function apply() {
 
 if (typeof window !== 'undefined') {
 	const prefersLight = window.matchMedia?.('(prefers-color-scheme: light)');
-	userMode = toUserMode(stored());
-	persist(userMode);
+	userMode = toUserMode(readItem('local', MODE_STORAGE_KEY));
+	writeItem('local', MODE_STORAGE_KEY, userMode);
 	systemLight = prefersLight?.matches ?? false;
 	apply();
 	const stopSystem = prefersLight
@@ -86,7 +69,7 @@ export const mode = {
 
 export function toggleMode(): void {
 	const next = current === 'dark' ? 'light' : 'dark';
-	if (!persist(next)) return;
+	if (!writeItem('local', MODE_STORAGE_KEY, next)) return;
 	userMode = next;
 	apply();
 }

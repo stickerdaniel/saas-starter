@@ -108,6 +108,59 @@ const FONTLESS_RUNTIME_IMPORT = {
 	message:
 		'Import fontless/runtime only in src/routes/+layout.svelte. Elsewhere, its dev invalidation re-evaluates its importers mid-request. Server code can read the preload links the layout rendered.'
 };
+const SOURCE_RESTRICTED_IMPORT_PATHS = [
+	{
+		name: '@lucide/svelte',
+		message: "Import individual icons instead: import Icon from '@lucide/svelte/icons/icon-name'",
+		allowTypeImports: true
+	},
+	{
+		name: 'lucide-svelte',
+		message: "Import individual icons instead: import Icon from 'lucide-svelte/icons/icon-name'",
+		allowTypeImports: true
+	},
+	{
+		name: '@tabler/icons-svelte',
+		message:
+			"Import individual icons instead: import Icon from '@tabler/icons-svelte/icons/icon-name'",
+		allowTypeImports: true
+	},
+	{
+		name: '$app/stores',
+		message: '$app/stores was removed in SvelteKit 3. Use $app/state instead.'
+	},
+	{
+		name: '$app/environment',
+		message: '$app/environment was renamed to $app/env in SvelteKit 3.'
+	},
+	{
+		name: '#lib/utils/utils.js',
+		message: 'Import from #lib/utils.js instead (canonical location).'
+	},
+	...[
+		'$env/static/public',
+		'$env/static/private',
+		'$env/dynamic/public',
+		'$env/dynamic/private'
+	].map((name) => ({
+		name,
+		message:
+			'Use $app/env/public or $app/env/private and declare the variable in src/env.ts. Public variables are static there, so they are known at build time.'
+	})),
+	{
+		name: 'svelte',
+		importNames: ['createRawSnippet'],
+		allowTypeImports: true,
+		message:
+			'createRawSnippet renders an unescaped HTML string. Render table text with renderTextCell from #lib/components/ui/data-table/index.js, or render a component.'
+	}
+];
+// Web Storage throws a SecurityError from its getter when a browser blocks site
+// data, and runed's PersistedState reads it in its constructor. These files own
+// the guarded access; everything else goes through them.
+const WEB_STORAGE_OWNERS = ['src/lib/storage/**', 'src/lib/analytics/storage.ts'];
+const WEB_STORAGE_MESSAGE =
+	'Use readItem, writeItem or usable from #lib/storage/web-storage.ts: the getter throws when the browser blocks site data.';
 const SCHEMA_LIBRARY_MESSAGE =
 	'Convex code validates with effect/Schema. A file that must keep valibot is listed in SCHEMA_LIBRARY_EXCEPTIONS with its reason.';
 const SCHEMA_LIBRARY_EXCEPTIONS = {
@@ -282,54 +335,40 @@ export default defineConfig(
 			'local/require-svelte-module-extension': ['error', { aliases: { '#lib/': 'src/lib/' } }],
 			'@typescript-eslint/no-restricted-imports': [
 				'error',
+				{ paths: SOURCE_RESTRICTED_IMPORT_PATHS }
+			]
+		}
+	},
+	// Tests seed and inspect real storage, so they stay outside.
+	{
+		files: ['src/**/*.{ts,js,svelte}'],
+		ignores: [
+			...WEB_STORAGE_OWNERS,
+			'**/*.test.ts',
+			'src/**/testing/**',
+			'src/**/test-fixtures/**'
+		],
+		rules: {
+			'no-restricted-globals': [
+				'error',
+				{
+					globals: ['localStorage', 'sessionStorage'].map((name) => ({
+						name,
+						message: WEB_STORAGE_MESSAGE
+					})),
+					checkGlobalObject: true
+				}
+			],
+			'@typescript-eslint/no-restricted-imports': [
+				'error',
 				{
 					paths: [
+						...SOURCE_RESTRICTED_IMPORT_PATHS,
 						{
-							name: '@lucide/svelte',
+							name: 'runed',
+							importNames: ['PersistedState'],
 							message:
-								"Import individual icons instead: import Icon from '@lucide/svelte/icons/icon-name'",
-							allowTypeImports: true
-						},
-						{
-							name: 'lucide-svelte',
-							message:
-								"Import individual icons instead: import Icon from 'lucide-svelte/icons/icon-name'",
-							allowTypeImports: true
-						},
-						{
-							name: '@tabler/icons-svelte',
-							message:
-								"Import individual icons instead: import Icon from '@tabler/icons-svelte/icons/icon-name'",
-							allowTypeImports: true
-						},
-						{
-							name: '$app/stores',
-							message: '$app/stores was removed in SvelteKit 3. Use $app/state instead.'
-						},
-						{
-							name: '$app/environment',
-							message: '$app/environment was renamed to $app/env in SvelteKit 3.'
-						},
-						{
-							name: '#lib/utils/utils.js',
-							message: 'Import from #lib/utils.js instead (canonical location).'
-						},
-						...[
-							'$env/static/public',
-							'$env/static/private',
-							'$env/dynamic/public',
-							'$env/dynamic/private'
-						].map((name) => ({
-							name,
-							message:
-								'Use $app/env/public or $app/env/private and declare the variable in src/env.ts. Public variables are static there, so they are known at build time.'
-						})),
-						{
-							name: 'svelte',
-							importNames: ['createRawSnippet'],
-							allowTypeImports: true,
-							message:
-								'createRawSnippet renders an unescaped HTML string. Render table text with renderTextCell from #lib/components/ui/data-table/index.js, or render a component.'
+								'Use persisted() from #lib/storage/persisted.svelte.ts: PersistedState reads storage in its constructor and throws when the browser blocks site data.'
 						}
 					]
 				}

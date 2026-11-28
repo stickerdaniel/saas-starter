@@ -1,4 +1,4 @@
-import { PersistedState } from 'runed';
+import { persisted } from '#lib/storage/persisted.svelte.ts';
 
 // Backward-compatible serializer:
 // Legacy clients wrote raw strings via localStorage.setItem('supportUserId', id) like `anon_abc123`.
@@ -23,12 +23,9 @@ const serializer = {
 // Initial value is `undefined` (not `null`) so PersistedState does not eagerly write to storage
 // on import. The constructor writes the initial value when the key is absent, and #serialize
 // is a no-op for `undefined`.
-// eslint-disable-next-line local/no-module-state-singleton -- PersistedState is browser-written only (localStorage), no per-request SSR state
-export const supportUserId = new PersistedState<string | null | undefined>(
-	'supportUserId',
-	undefined,
-	{ serializer }
-);
+export const supportUserId = persisted<string | null | undefined>('supportUserId', undefined, {
+	serializer
+});
 
 /**
  * Forgets the anonymous id once its tickets belong to an account. Stores `null` and keeps the

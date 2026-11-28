@@ -5,6 +5,7 @@
 	import { authClient } from '#lib/auth-client.js';
 	import { setAnalyticsController } from '#lib/analytics/client.js';
 	import { AnalyticsController } from '#lib/analytics/controller.js';
+	import { browserStorage } from '#lib/analytics/storage.js';
 	import { loadPosthog } from '#lib/analytics/posthog.js';
 	import { followSession } from '#lib/analytics/session.js';
 	import { analyticsPreferencesContext } from '#lib/analytics/preferences.svelte.ts';
@@ -13,15 +14,6 @@
 
 	const preferences = analyticsPreferencesContext.get();
 	let controller: AnalyticsController | undefined;
-
-	function storage(name: 'localStorage' | 'sessionStorage'): Storage | undefined {
-		try {
-			return window[name];
-		} catch {
-			// Reading the property throws when the browser blocks site data.
-			return undefined;
-		}
-	}
 
 	function applyRoute(): void {
 		controller?.setRoute(page.route.id, page.url.pathname, page.status < 400);
@@ -50,14 +42,14 @@
 		controller = new AnalyticsController({
 			config,
 			stores: {
-				localStorage: storage('localStorage'),
-				sessionStorage: storage('sessionStorage'),
+				localStorage: browserStorage('localStorage'),
+				sessionStorage: browserStorage('sessionStorage'),
 				document,
 				hostname: location.hostname,
 				secure: location.protocol === 'https:'
 			},
-			getLocalStorage: () => storage('localStorage'),
-			getSessionStorage: () => storage('sessionStorage'),
+			getLocalStorage: () => browserStorage('localStorage'),
+			getSessionStorage: () => browserStorage('sessionStorage'),
 			cookies: {
 				read: () => document.cookie,
 				write: (cookie) => {

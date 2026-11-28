@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/env';
 	import { T } from '@tolgee/svelte';
-	import { PersistedState } from 'runed';
+	import { persisted } from '#lib/storage/persisted.svelte.ts';
 	import { clockSkewContext } from '#lib/hooks/clock-skew.svelte.ts';
 	import { Button } from '#lib/components/ui/button/index.js';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
@@ -11,7 +11,7 @@
 	// Dismiss for the session only: a wrong clock is rare and the user may be
 	// mid-fix, so don't nag across reloads, but reappear in a fresh session if
 	// still skewed.
-	const dismissed = new PersistedState<boolean>('clock-skew-dismissed', false, {
+	const dismissed = persisted<boolean>('clock-skew-dismissed', false, {
 		storage: 'session'
 	});
 
