@@ -239,7 +239,6 @@ const BACKEND_SCRIPTS = [
 	'generate-authored-content.test.ts',
 	'generate-convex.ts',
 	'local-convex-binary.ts',
-	'local-convex-binary.test.ts',
 	'local-convex-env.ts',
 	'test-backend-exit.ts'
 ];

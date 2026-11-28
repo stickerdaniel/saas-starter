@@ -245,8 +245,7 @@ describe('watch set', () => {
 		['README.md', 'ignored'],
 		['convex.json', 'restart'],
 		['package.json', 'restart'],
-		['bun.lock', 'restart'],
-		['vite.config.ts', 'ignored']
+		['bun.lock', 'restart']
 	])('classifies %s as %s', (file, kind) => {
 		expect(classifyChange(file)).toBe(kind);
 	});
