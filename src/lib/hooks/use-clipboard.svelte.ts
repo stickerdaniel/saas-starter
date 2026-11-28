@@ -48,7 +48,7 @@ export class UseClipboard {
 	 * @param text
 	 * @returns
 	 */
-	async copy(text: string) {
+	async copy(text: string | Promise<string>) {
 		const attempt = ++this.#attempt;
 		// Re-copy while a reset is pending: clear the badge first so the
 		// success/failure transition re-fires
@@ -83,16 +83,27 @@ export class UseClipboard {
 	}
 }
 
-async function copyText(text: string): Promise<'success' | 'failure'> {
+async function copyText(text: string | Promise<string>): Promise<'success' | 'failure'> {
 	try {
 		if (navigator.clipboard && window.isSecureContext) {
-			await navigator.clipboard.writeText(text);
+			if (typeof text === 'string') await navigator.clipboard.writeText(text);
+			else if (
+				typeof ClipboardItem === 'undefined' ||
+				typeof navigator.clipboard.write !== 'function'
+			)
+				await navigator.clipboard.writeText(await text);
+			else
+				await navigator.clipboard.write([
+					new ClipboardItem({
+						'text/plain': text.then((value) => new Blob([value], { type: 'text/plain' }))
+					})
+				]);
 			return 'success';
 		}
 
 		// when navigator.clipboard is unavailable we fallback to this for wider browser compatibility
 		const textArea = document.createElement('textarea');
-		textArea.value = text;
+		textArea.value = await text;
 		textArea.style.position = 'fixed';
 		textArea.style.top = '0';
 		textArea.style.left = '0';

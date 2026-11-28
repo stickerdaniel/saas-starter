@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { codeColors } from '#lib/docs/code-colors.js';
 
 // WCAG 2 AA for normal-size text. Muted text carries placeholders, group headings,
 // footers and keyboard hints, which sit on the muted surface as well as the page.
@@ -14,8 +15,18 @@ function tokens(selector: string): Map<string, string> {
 	return new Map([...block.matchAll(/--([\w-]+):\s*([^;]+);/g)].map((m) => [m[1]!, m[2]!.trim()]));
 }
 
-/** sRGB relative luminance of an opaque `oklch(L C H)` color. */
+/** sRGB relative luminance of an opaque `#rrggbb` color. */
+function hexLuminance(value: string): number {
+	const [r, g, b] = [1, 3, 5].map((at) => {
+		const channel = parseInt(value.slice(at, at + 2), 16) / 255;
+		return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+	}) as [number, number, number];
+	return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** sRGB relative luminance of an opaque `oklch(L C H)` or `#rrggbb` color. */
 function luminance(value: string): number {
+	if (/^#[\da-f]{6}$/i.test(value)) return hexLuminance(value);
 	const match = /^oklch\(([\d.]+) ([\d.]+) ([\d.]+)\)$/.exec(value);
 	if (!match) throw new Error(`not an opaque oklch color: ${value}`);
 	const [L, C, H] = match.slice(1).map(Number) as [number, number, number];
@@ -48,6 +59,23 @@ describe.each([
 			expect(contrast(theme.get('muted-foreground')!, theme.get(surface)!)).toBeGreaterThanOrEqual(
 				AA_NORMAL_TEXT
 			);
+		}
+	);
+});
+
+describe.each([
+	['light', ':root', codeColors.light],
+	['dark', '.dark', codeColors.dark]
+] as const)('%s code block', (_, selector, colors) => {
+	const theme = tokens(selector);
+	const color = (value: string) => theme.get(/^var\(--([\w-]+)\)$/.exec(value)?.[1] ?? '') ?? value;
+
+	it.each(Object.entries(colors))(
+		'%s tokens stay readable on the code and highlighted-line surfaces',
+		(_, value) => {
+			for (const surface of ['sidebar', 'muted']) {
+				expect(contrast(color(value), theme.get(surface)!)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+			}
 		}
 	);
 });

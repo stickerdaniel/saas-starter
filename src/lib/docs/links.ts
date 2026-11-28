@@ -85,13 +85,18 @@ function isKnownPath(path: string, { root, markdown, assets }: DocsSource): bool
 
 /**
  * Where a link of an authored page points in a served representation: a published page to its
- * docs URL, an asset of the source to its built URL, any other repository path to GitHub.
+ * docs URL, an asset of the source to its built URL, any other repository path to GitHub. In
+ * HTML a fragment of the page's own heading gets the page's path, so it stays a same-page link.
  */
 export function resolveDocsHref(
 	href: string,
 	targets: LinkTargets,
 	context: HrefContext
 ): ResolvedHref {
+	const ownSlug = targets.pages.get(context.page);
+	if (href.startsWith('#') && context.format === 'html' && ownSlug !== undefined) {
+		return { kind: 'page', href: `${docsPath(context.lang, ownSlug)}${href}` };
+	}
 	if (href === '' || href.startsWith('#') || href.startsWith('//') || SCHEME.test(href)) {
 		return { kind: 'unchanged', href };
 	}

@@ -6,7 +6,8 @@ import { docsMarkdown, docsPageView, publishDocs } from './engine';
 import { resolveDocsHref, rewriteHrefs, type HrefContext, type LinkTargets } from './links';
 import { repositoryDocs } from './source.server';
 import type { DocsCatalog, DocsSource } from './types';
-import { fixtureDocs, publishedCatalog } from './__fixtures__/catalogs';
+import { publishedCatalog } from './__fixtures__/catalogs';
+import { fixtureDocs } from './__fixtures__/fixture-docs';
 
 const targets: LinkTargets = {
 	pages: new Map([
@@ -75,6 +76,18 @@ describe('resolveDocsHref', () => {
 		expect(resolveDocsHref('https://svelte.dev', targets, html).kind).toBe('unchanged');
 		expect(resolveDocsHref('#install', targets, html).kind).toBe('unchanged');
 		expect(resolveDocsHref('../../../outside.md', targets, html).kind).toBe('unresolved');
+	});
+
+	it('gives a fragment of a published page its docs path in HTML and leaves it in Markdown', () => {
+		const auth = { ...html, page: 'docs/features/auth.md' } as const;
+		expect(resolveDocsHref('#install', targets, auth)).toEqual({
+			kind: 'page',
+			href: '/de/docs/features/auth#install'
+		});
+		expect(resolveDocsHref('#install', targets, { ...auth, format: 'markdown' })).toEqual({
+			kind: 'unchanged',
+			href: '#install'
+		});
 	});
 
 	it('refuses a docs file, an asset or a docs directory the source does not hold', () => {
@@ -214,9 +227,10 @@ function publishedPage(guide: string) {
 		assets: { 'docs/assets/shot.png': '/_app/immutable/assets/shot.abc.png' }
 	};
 	const docs = publishDocs(catalog, source, site)!;
+	const view = docsPageView(docs, '', 'en')!;
 	return {
-		body: docsPageView(docs, '', 'en')!.body,
-		headings: docsPageView(docs, '', 'en')!.headings,
+		body: `${view.lead}${view.body}`,
+		headings: view.headings,
 		twin: docsMarkdown(docs, '', 'en', 'https://acme.dev')!,
 		sourceFiles: docs.sourceFiles
 	};

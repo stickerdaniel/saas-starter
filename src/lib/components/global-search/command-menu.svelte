@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { computeCommandScore } from 'bits-ui';
 	import { api } from '#lib/convex/_generated/api.js';
 	import * as Command from '#lib/components/ui/command/index.js';
 	import * as Dialog from '#lib/components/ui/dialog/index.js';
@@ -11,6 +13,10 @@
 	import { getTranslate } from '@tolgee/svelte';
 	import { useQuery } from 'convex-svelte';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
+	import { docsPublished } from '#lib/docs/publication.js';
+	import { searchDocs, type DocsSearchPage, type DocsSearchResult } from '#lib/docs/search.js';
+	import { DOCS_SEARCH_INDEX_PATH, docsPath } from '#lib/docs/urls.js';
+	import { DEFAULT_LANGUAGE } from '#lib/i18n/languages.js';
 	import CornerDownLeftIcon from '@lucide/svelte/icons/corner-down-left';
 	import CommandMenuItem from './command-menu-item.svelte';
 	import {
@@ -148,6 +154,38 @@
 		return menuGroups;
 	});
 
+	const DOCS_ITEM = 'docs-result';
+	let search = $state('');
+	let docsIndex = $state.raw<DocsSearchPage[] | null>(null);
+	let docsRequested = false;
+
+	$effect(() => {
+		if (!docsPublished || !globalSearch.open || docsRequested) return;
+		docsRequested = true;
+		fetch(DOCS_SEARCH_INDEX_PATH)
+			.then((response) => (response.ok ? response.json() : Promise.reject(response.status)))
+			.then((index: DocsSearchPage[]) => (docsIndex = index))
+			.catch(() => (docsRequested = false));
+	});
+
+	const docsResults = $derived<DocsSearchResult[]>(
+		docsIndex === null
+			? []
+			: search.trim()
+				? searchDocs(docsIndex, search)
+				: docsIndex.map((entry) => ({ slug: entry.slug, title: entry.title, section: null }))
+	);
+
+	function docsResultHref(result: DocsSearchResult): string {
+		const path = docsPath(page.params.lang ?? DEFAULT_LANGUAGE, result.slug);
+		return result.section ? `${path}#${result.section.id}` : path;
+	}
+
+	/** Docs results arrive ranked by the docs search, so the menu keeps them as they are. */
+	function score(value: string, query: string, keywords?: string[]): number {
+		return keywords?.includes(DOCS_ITEM) ? 1 : computeCommandScore(value, query, keywords);
+	}
+
 	function runCommand(command: () => unknown): void {
 		haptic.trigger('light');
 		globalSearch.closeMenu();
@@ -166,9 +204,10 @@
 		</Dialog.Header>
 		<Command.Root
 			label={$t('search.command.dialog_title')}
+			filter={score}
 			class="h-auto min-h-0 flex-1 rounded-none bg-transparent"
 		>
-			<Command.Input placeholder={$t('search.command.input_placeholder')} />
+			<Command.Input placeholder={$t('search.command.input_placeholder')} bind:value={search} />
 			<Command.List
 				tabindex={-1}
 				aria-label={$t('search.command.results_label')}
@@ -177,6 +216,30 @@
 				<Command.Empty class="py-12 text-center text-sm text-muted-foreground">
 					{$t('search.command.no_results')}
 				</Command.Empty>
+				{#if docsResults.length > 0}
+					<Command.Group
+						heading={$t('docs.label')}
+						class="!p-0 [&_[data-command-group-heading]]:scroll-mt-16 [&_[data-command-group-heading]]:!p-3 [&_[data-command-group-heading]]:!pb-1"
+					>
+						{#each docsResults as result (result.slug)}
+							<CommandMenuItem
+								value="docs:{result.slug}"
+								keywords={[DOCS_ITEM]}
+								onSelect={() => {
+									runCommand(() => {
+										void goto(resolve(docsResultHref(result)));
+									});
+								}}
+							>
+								<ArrowRightIcon />
+								<span class="truncate">{result.title}</span>
+								{#if result.section}
+									<span class="truncate text-muted-foreground">{result.section.heading}</span>
+								{/if}
+							</CommandMenuItem>
+						{/each}
+					</Command.Group>
+				{/if}
 				{#each groupedRoutes as group (group.group)}
 					<Command.Group
 						heading={group.heading}

@@ -19,6 +19,7 @@ import { MODULE_GRAPH_FILE, type ModuleGraphOptions } from './module-graph-plugi
 
 const root = path.resolve(import.meta.dirname, '..');
 const fixtureCatalogs = normalizePath(path.join(root, 'src/lib/docs/__fixtures__/catalogs.ts'));
+const fixtureSource = normalizePath(path.join(root, 'src/lib/docs/__fixtures__/fixture-docs.ts'));
 
 function fixtureCatalog(variant: Variant): Plugin {
 	const prefix = '\0docs-fixture:';
@@ -29,7 +30,7 @@ function fixtureCatalog(variant: Variant): Plugin {
 		],
 		[
 			normalizePath(path.join(root, 'src/lib/docs/source.server.ts')),
-			`export { fixtureDocs as repositoryDocs } from ${JSON.stringify(fixtureCatalogs)};`
+			`export { fixtureDocs as repositoryDocs } from ${JSON.stringify(fixtureSource)};`
 		]
 	]);
 	return {

@@ -196,6 +196,7 @@
 	/* Inline code in legal pages, relative to the surrounding text. No line-height
 	   companion, so the code keeps the line height of its paragraph. */
 	--text-code: 0.9em;
+	--text-nav: 0.8rem;
 	/* Line height of the full chat composers. */
 	--leading-composer: 1.3;
 

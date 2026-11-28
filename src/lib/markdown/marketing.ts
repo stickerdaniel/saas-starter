@@ -22,7 +22,8 @@ import type { DocsDiscoveryEntry } from '#lib/docs/engine.js';
 
 export const MARKDOWN_CONTENT_TYPE = 'text/markdown; charset=utf-8';
 const TEXT_CONTENT_TYPE = 'text/plain; charset=utf-8';
-const MARKETING_CACHE_CONTROL = 'public, max-age=0, s-maxage=300, stale-while-revalidate=300';
+export const PUBLIC_DATA_CACHE_CONTROL =
+	'public, max-age=0, s-maxage=300, stale-while-revalidate=300';
 // Markdown is served on URLs that also serve HTML, negotiated via Accept.
 // CF Edge (and most shared caches) ignore Vary, so a public cache would key
 // one variant under the URL and serve it for the other Accept value, poisoning
@@ -221,7 +222,7 @@ export function createLlmsTxtResponse(
 		status: 200,
 		headers: {
 			'Content-Type': TEXT_CONTENT_TYPE,
-			'Cache-Control': MARKETING_CACHE_CONTROL
+			'Cache-Control': PUBLIC_DATA_CACHE_CONTROL
 		}
 	});
 }
@@ -244,7 +245,7 @@ export function createRobotsTxtResponse(origin: string): Response {
 		status: 200,
 		headers: {
 			'Content-Type': TEXT_CONTENT_TYPE,
-			'Cache-Control': MARKETING_CACHE_CONTROL
+			'Cache-Control': PUBLIC_DATA_CACHE_CONTROL
 		}
 	});
 }
@@ -294,7 +295,7 @@ export function createSitemapXmlResponse(
 		status: 200,
 		headers: {
 			'Content-Type': 'application/xml; charset=utf-8',
-			'Cache-Control': MARKETING_CACHE_CONTROL
+			'Cache-Control': PUBLIC_DATA_CACHE_CONTROL
 		}
 	});
 }

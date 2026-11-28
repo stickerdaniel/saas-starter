@@ -689,7 +689,22 @@
 		}
 	},
 	"docs": {
-		"label": "Documentation"
+		"label": "Documentation",
+		"menu": "Menu",
+		"on_this_page": "Sur cette page",
+		"section_link": "Lien vers la section {heading}",
+		"copy_page": "Copier la page",
+		"page_actions": "Autres actions de la page",
+		"view_markdown": "Afficher en Markdown",
+		"open_in": "Ouvrir dans {app}",
+		"ask_prompt": "Lis {url} et aide-moi à l'utiliser. Explique ses concepts, donne des exemples et aide-moi à déboguer.",
+		"alert": {
+			"note": "Remarque",
+			"tip": "Astuce",
+			"important": "Important",
+			"warning": "Avertissement",
+			"caution": "Attention"
+		}
 	},
 	"email": {
 		"admin_reply": {
