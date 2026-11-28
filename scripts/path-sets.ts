@@ -59,6 +59,7 @@ const flatTests = suiteRule({
 		'src/lib/analytics/testing/sdk-harness.ts',
 		'src/lib/components/ui/loading-bar/loading-bar-motion.ts',
 		'src/lib/components/ui/loading-bar/loading-bar-test-fixture.svelte',
+		'src/lib/storage/testing/blocked-storage.ts',
 		'src/lib/uploads/consumers.ts',
 		'src/lib/uploads/model-capabilities.ts'
 	],
@@ -95,7 +96,8 @@ const workspaceTests = new Map<WorkspaceRoot, (path: string) => boolean>([
 				'scripts/docs-fixture.ts',
 				'scripts/docs-fixture.vite.config.ts',
 				'scripts/e2e-ci.ts',
-				'src/lib/analytics/testing/sdk-harness.ts'
+				'src/lib/analytics/testing/sdk-harness.ts',
+				'src/lib/storage/testing/blocked-storage.ts'
 			],
 			kept: [
 				'src/lib/components/tables/test-fixtures/TableScrollHarness.svelte',
