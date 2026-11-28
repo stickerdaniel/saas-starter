@@ -207,7 +207,7 @@ function overlay(source: string, repository: string): string[] {
 	return written;
 }
 
-function linkPhysical(entry: string, link: string): void {
+export function linkPhysical(entry: string, link: string): void {
 	const target = realpathSync.native(entry);
 	const type = statSync(target).isDirectory()
 		? process.platform === 'win32'
