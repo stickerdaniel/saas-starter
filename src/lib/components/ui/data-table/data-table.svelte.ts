@@ -40,13 +40,9 @@ export type DataTableFeatures = typeof dataTableFeatures;
  */
 export function renderTextCell(
 	text: string,
-	options?: { class?: string; testId?: string }
+	options?: { testId?: string; class?: never }
 ): ReturnType<typeof renderComponent> {
-	return renderComponent(TruncatedText, {
-		text,
-		class: options?.class,
-		testId: options?.testId
-	});
+	return renderComponent(TruncatedText, { text, testId: options?.testId });
 }
 
 export function createSvelteTable<TData extends RowData>(

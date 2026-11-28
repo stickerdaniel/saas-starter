@@ -4,7 +4,7 @@ import type * as Svelte from 'svelte';
 import ReactiveTable from './test-fixtures/ReactiveTable.svelte';
 import DefaultTextTable, { type TextTableOptions } from './test-fixtures/DefaultTextTable.svelte';
 import NameCell from './test-fixtures/NameCell.svelte';
-import { renderComponent } from './index.js';
+import { renderComponent, renderTextCell } from './index.js';
 
 vi.mock('svelte', () =>
 	vi.importActual<typeof Svelte>('../../../../../node_modules/svelte/src/index-client.js')
@@ -192,4 +192,17 @@ describe('columns without their own cell renderer', () => {
 		expect(text('empty')).toBe('');
 		expect(text('missing')).toBe(missing);
 	});
+});
+
+it('refuses a class option in a fresh or a stored options object', () => {
+	const storedWithTestId = { class: 'text-sm', testId: 'cell' };
+	const storedWithoutTestId = { class: 'text-sm' };
+	// @ts-expect-error A column styles its text in markup the app owns.
+	renderTextCell('text', { class: 'text-sm', testId: 'cell' });
+	// @ts-expect-error A column styles its text in markup the app owns.
+	renderTextCell('text', { class: 'text-sm' });
+	// @ts-expect-error A column styles its text in markup the app owns.
+	renderTextCell('text', storedWithTestId);
+	// @ts-expect-error A column styles its text in markup the app owns.
+	renderTextCell('text', storedWithoutTestId);
 });
