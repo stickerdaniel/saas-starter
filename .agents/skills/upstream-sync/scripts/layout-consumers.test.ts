@@ -158,7 +158,9 @@ function consumers({ archive, fixture }: NonNullable<typeof creator>) {
 				: [`${path} -> ${to}: ${before}`];
 		});
 
-		expect(differences).toEqual([]);
+		expect(differences).toEqual([
+			'scripts/__fixtures__/static-checks/workspace-layout.ts -> scripts/workspace-check-layout.ts: true'
+		]);
 	});
 }
 

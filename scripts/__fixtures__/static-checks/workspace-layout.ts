@@ -3,18 +3,15 @@ import {
 	workspaceAt,
 	type StarterWorkspace
 } from '../../../.agents/skills/upstream-sync/layout/v3';
-import {
-	FLAT_CHECK_LAYOUT,
-	type CheckLayout,
-	type LintProject,
-	type Route
-} from '../../static-checks';
+import type { CheckLayout, LintProject, Route } from '../../static-checks';
 
 const EVERY_PATH: Route = { paths: [{ under: '' }] };
 const CATALOGS = 'src/i18n/';
 const SCRIPTS: Route = { paths: [{ under: 'scripts/', name: /\.ts$/ }] };
+const ENGLISH_POLICY_BUNDLE = { file: 'scripts/english-policy/pr-metadata.bundle.mjs' };
+const SKILL_TYPES = '.agents/skills/tsconfig.json';
 
-/** A CheckLayout for the moved tree of the move table, as a product could write it. */
+/** Where each check finds its files and runs in the workspace tree. */
 export const WORKSPACE_CHECK_LAYOUT: CheckLayout = {
 	ownerOf: workspaceAt,
 	sourceShippedText: /^.+\.svg$/,
@@ -93,9 +90,35 @@ export const WORKSPACE_CHECK_LAYOUT: CheckLayout = {
 				'script-types': { paths: [{ under: 'src/', name: /\.ts$/ }] }
 			}
 		},
-		'eslint-plugin': FLAT_CHECK_LAYOUT.owners['eslint-plugin'],
-		'create-saas-starter': FLAT_CHECK_LAYOUT.owners['create-saas-starter'],
-		root: FLAT_CHECK_LAYOUT.owners.root
+		'eslint-plugin': {
+			directory: WORKSPACES['eslint-plugin'].root,
+			routes: { misspell: EVERY_PATH, eslint: EVERY_PATH, 'svelte-check': EVERY_PATH }
+		},
+		'create-saas-starter': {
+			directory: WORKSPACES['create-saas-starter'].root,
+			routes: {
+				misspell: EVERY_PATH,
+				eslint: EVERY_PATH,
+				'cli-types': {
+					paths: [{ under: '', name: /(?:^|\/)(?:package\.json|bun\.lock|tsconfig\.json)$|\.ts$/ }]
+				}
+			}
+		},
+		root: {
+			directory: WORKSPACES.root.root,
+			routes: {
+				misspell: { ...EVERY_PATH, except: [ENGLISH_POLICY_BUNDLE] },
+				eslint: { ...EVERY_PATH, except: [ENGLISH_POLICY_BUNDLE] },
+				'svelte-check': EVERY_PATH,
+				'skill-types': {
+					paths: [
+						{ file: SKILL_TYPES },
+						{ under: '.agents/skills/', name: /^[^/]+\/scripts\/.+\.ts$/ }
+					]
+				},
+				'script-types': SCRIPTS
+			}
+		}
 	},
 	typeProjects: {
 		'svelte-check': {
@@ -108,7 +131,7 @@ export const WORKSPACE_CHECK_LAYOUT: CheckLayout = {
 			config: 'tsconfig.json',
 			args: ['run', 'typecheck']
 		},
-		'skill-types': FLAT_CHECK_LAYOUT.typeProjects['skill-types'],
+		'skill-types': { runsIn: 'root', config: SKILL_TYPES, args: ['run', 'check:skills'] },
 		'script-types': {
 			runsIn: 'web',
 			config: 'scripts/tsconfig.json',

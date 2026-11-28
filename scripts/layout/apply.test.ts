@@ -7,7 +7,9 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { BASE_TABLE } from '../../.agents/skills/upstream-sync/layout/v3.ts';
 import { trackedPaths } from '../../.agents/skills/upstream-sync/scripts/apply-layout.ts';
+import { WORKSPACE_CHECK_LAYOUT } from '../__fixtures__/static-checks/workspace-layout.ts';
 import { apply } from './apply.ts';
+import { layoutDifferences } from './checkout-layout.ts';
 import { unservedAliases } from './exports.ts';
 import { moveScript, ownerProblems, pinProblems, sorted } from './manifests.ts';
 import { editedText } from './mapper-steps.ts';
@@ -224,7 +226,8 @@ describe('replacementProblems', () => {
 describe('the app stylesheet', () => {
 	it('imports the tokens of @repo/ui through its export', () => {
 		const layout = REPLACEMENTS.find(({ from }) => from === 'src/routes/layout.css');
-		const edits = typeof layout?.content === 'object' ? layout.content : [];
+		const edits =
+			typeof layout?.content === 'object' && !('image' in layout.content) ? layout.content : [];
 		const { text } = applyEdits(
 			'apps/web/src/routes/layout.css',
 			read('src/routes/layout.css'),
@@ -241,6 +244,31 @@ describe('sorted', () => {
 			'a.ts',
 			'z.ts',
 			'ä.ts'
+		]);
+	});
+});
+
+describe('layoutDifferences', () => {
+	const paths = ['packages/backend/shared/effect/errors.ts', 'apps/web/src/app.html'];
+
+	it('finds no difference between the workspace layout and itself', () => {
+		expect(layoutDifferences(WORKSPACE_CHECK_LAYOUT, { ...WORKSPACE_CHECK_LAYOUT }, paths)).toEqual(
+			[]
+		);
+	});
+
+	it('names a written layout whose backend lost a source directory', () => {
+		const written = {
+			...WORKSPACE_CHECK_LAYOUT,
+			owners: {
+				...WORKSPACE_CHECK_LAYOUT.owners,
+				backend: { ...WORKSPACE_CHECK_LAYOUT.owners.backend, sources: ['confect/'] }
+			}
+		};
+		expect(layoutDifferences(WORKSPACE_CHECK_LAYOUT, written, paths)).toEqual([
+			'WORKSPACE_CHECK_LAYOUT.owners.backend.sources.1 is undefined',
+			'WORKSPACE_CHECK_LAYOUT.owners.backend.sources.2 is undefined',
+			'WORKSPACE_CHECK_LAYOUT.owners.backend.sources.3 is undefined'
 		]);
 	});
 });
@@ -347,7 +375,8 @@ describe('apply on an invented flat tree', () => {
 	const inputs: Inputs = {
 		owners: { dependencies: {}, peers: {}, scripts: {}, newScripts: {}, replacedRootScripts: {} },
 		projectFiles: [],
-		replacements: []
+		replacements: [],
+		repositoryChecks: false
 	};
 	const flatTree = (files: Record<string, string>) => {
 		directory = mkdtempSync(join(tmpdir(), 'layout-apply-'));
@@ -364,6 +393,7 @@ describe('apply on an invented flat tree', () => {
 	};
 	const tree = {
 		'package.json': `${JSON.stringify({ name: 'fixture', imports: { '#lib/*': './src/lib/*' } })}\n`,
+		'.prettierrc': `${JSON.stringify({ useTabs: true, singleQuote: true, printWidth: 100 })}\n`,
 		'src/lib/chat/core/types.ts': 'export type A = 1;\nexport type B = 2;\n',
 		'src/lib/layout-review/index.js/index.ts': 'export const x = 1;\n',
 		'src/routes/page.ts': [
@@ -373,13 +403,14 @@ describe('apply on an invented flat tree', () => {
 		].join('\n')
 	};
 
-	it('moves the tree, rewrites both equal specifiers of a line and writes one entry per target', async () => {
+	it('moves the tree, rewrites both equal specifiers of a line, formats it and writes one entry per target', async () => {
 		const root = flatTree(tree);
 		await apply(root, () => {}, inputs);
 		const at = (path: string) => readFileSync(join(root, path), 'utf8');
 		expect(at('apps/web/src/routes/page.ts')).toBe(
 			[
-				"import type { A } from '@repo/backend/shared/chat/core/types.ts'; import type { B } from '@repo/backend/shared/chat/core/types.ts';",
+				"import type { A } from '@repo/backend/shared/chat/core/types.ts';",
+				"import type { B } from '@repo/backend/shared/chat/core/types.ts';",
 				"import { x } from '#lib/layout-review/index.js/index.js';",
 				''
 			].join('\n')

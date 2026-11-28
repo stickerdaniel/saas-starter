@@ -73,6 +73,10 @@ export const ALLOWED_EDGES = {
 	]
 } as const satisfies Record<StarterWorkspace, readonly StarterWorkspace[]>;
 
+export const CONTENT_INPUTS = {
+	web: ['docs/']
+} as const satisfies Partial<Record<StarterWorkspace, readonly string[]>>;
+
 export const SHARED_EDGES = [
 	'eslint-plugin',
 	'tooling'
@@ -536,6 +540,22 @@ export const BASE_RULES: ReadonlyArray<MoveRule<StarterWorkspace>> = [
 
 	{ from: 'scripts/layout/', to: null, owner: 'root' },
 	{
+		from: 'scripts/layout/tree/check-workspace-graph.ts',
+		to: 'scripts/check-workspace-graph.ts',
+		owner: 'root'
+	},
+	{
+		from: 'scripts/layout/tree/check-workspace-graph.test.ts',
+		to: 'scripts/check-workspace-graph.test.ts',
+		owner: 'root'
+	},
+	{
+		from: 'scripts/__fixtures__/static-checks/workspace-layout.ts',
+		to: 'scripts/workspace-check-layout.ts',
+		owner: 'root'
+	},
+	{ from: 'scripts/__fixtures__/static-checks/moved-differences.ts', to: null, owner: 'root' },
+	{
 		from: '.agents/skills/upstream-sync/scripts/workspace-boundary.test.ts',
 		to: null,
 		owner: 'root'
@@ -544,6 +564,11 @@ export const BASE_RULES: ReadonlyArray<MoveRule<StarterWorkspace>> = [
 
 export const PRODUCED_FILES: ReadonlyArray<{ producer: string; outputs: readonly string[] }> = [
 	{ producer: 'scripts/build-emails.ts', outputs: ['src/lib/emails/generated/index.ts'] }
+];
+
+export const FLAT_PATHS_WRITTEN_ANEW: readonly string[] = [
+	'tsconfig.json',
+	'scripts/tsconfig.json'
 ];
 
 export interface Placement<O extends Owner = Owner> {

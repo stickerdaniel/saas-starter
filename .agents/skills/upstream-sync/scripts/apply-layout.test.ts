@@ -214,7 +214,12 @@ describe('layoutOf', () => {
 
 describe('apply-layout plans', () => {
 	it('lists paths left at a flat location after the move', () => {
-		const root = repository({ 'apps/web/src/app.ts': '', 'scripts/static-checks.ts': '' });
+		const root = repository({
+			'apps/web/src/app.ts': '',
+			'apps/web/tsconfig.json': '{}',
+			'scripts/static-checks.ts': '',
+			'tsconfig.json': '{}'
+		});
 		expect(layout(root, '--stragglers')).toMatchObject({ status: 0, stdout: '' });
 		addFiles(root, { 'src/late.ts': '' });
 		expect(layout(root, '--stragglers')).toMatchObject({ status: 1, stdout: 'src/late.ts\n' });

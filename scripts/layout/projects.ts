@@ -4,9 +4,27 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { WORKSPACES, type StarterWorkspace } from '../../.agents/skills/upstream-sync/layout/v3.ts';
+import {
+	FLAT_PATHS_WRITTEN_ANEW,
+	WORKSPACES,
+	type StarterWorkspace
+} from '../../.agents/skills/upstream-sync/layout/v3.ts';
 import { compareCodeUnits, jsonText, StaleInput, writeText, type Run } from './run.ts';
 import { WORKSPACE_EXPORTS_TEST } from './tree/workspace-exports-test.ts';
+import { WORKSPACE_VERSIONS_TEST } from './tree/workspace-versions-test.ts';
+
+const KNOWLEDGE_SELECTOR_TEST = `import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { expect, it } from 'vitest';
+import { authoredLegalTemplates } from '../../knowledge-policy.config';
+
+const checkout = fileURLToPath(new URL('../..', import.meta.url));
+
+it('excludes legal templates that the checkout tracks', () => {
+\tconst tracked = spawnSync('git', ['ls-files', '-z'], { cwd: checkout, encoding: 'utf8' }).stdout.split('\\0');
+\texpect(tracked.filter((path) => authoredLegalTemplates(path))).not.toEqual([]);
+});
+`;
 
 export interface ProjectFile {
 	readonly path: string;
@@ -82,6 +100,10 @@ export default defineConfig({
 const BASE = '../../tsconfig.base.json';
 
 const KNIP_SCHEMA = 'https://unpkg.com/knip@6/schema.json';
+const KNIP_FLAT_SETTINGS = {
+	ignoreExportsUsedInFile: true,
+	rules: { exports: 'warn', types: 'warn' }
+} as const;
 
 export const PROJECT_FILES: readonly ProjectFile[] = [
 	{
@@ -109,11 +131,19 @@ export const PROJECT_FILES: readonly ProjectFile[] = [
 		})
 	},
 	{
-		path: 'tsconfig.scripts.json',
+		path: 'tsconfig.json',
 		text: json({
 			extends: './tsconfig.base.json',
 			compilerOptions: { types: ['node', 'bun-types'] },
-			include: ['scripts/**/*.ts', 'apps/web/src/legal-document.d.ts']
+			include: ['*.ts']
+		})
+	},
+	{
+		path: 'scripts/tsconfig.json',
+		text: json({
+			extends: '../tsconfig.base.json',
+			compilerOptions: { types: ['node', 'bun-types'] },
+			include: ['**/*.ts', '../apps/web/src/legal-document.d.ts']
 		})
 	},
 	{
@@ -155,7 +185,14 @@ export const PROJECT_FILES: readonly ProjectFile[] = [
 				'confect/_generated/**',
 				'convex-components/betterAuth/_generated/**',
 				'scripts/__fixtures__/**'
-			]
+			],
+			ignoreDependencies: [
+				'@confect/cli',
+				'@confect/test',
+				'@effect/platform-node-shared',
+				'convex-test'
+			],
+			...KNIP_FLAT_SETTINGS
 		})
 	},
 	{
@@ -172,7 +209,8 @@ export const PROJECT_FILES: readonly ProjectFile[] = [
 		text: json({
 			$schema: KNIP_SCHEMA,
 			entry: ['src/**/index.ts'],
-			project: ['src/**/*.{ts,svelte}']
+			project: ['src/**/*.{ts,svelte}'],
+			...KNIP_FLAT_SETTINGS
 		})
 	},
 	{
@@ -194,7 +232,16 @@ export const PROJECT_FILES: readonly ProjectFile[] = [
 			$schema: KNIP_SCHEMA,
 			entry: ['scripts/build-emails.ts', 'src/templates/**/*.svelte'],
 			project: ['{src,scripts}/**/*.{ts,svelte}'],
-			ignore: ['src/generated/**']
+			ignore: ['src/**'],
+			ignoreDependencies: ['@better-svelte-email/server'],
+			...KNIP_FLAT_SETTINGS
+		})
+	},
+	{
+		path: 'packages/emails/components.json',
+		text: json({
+			$schema: 'https://shadcn-svelte.com/schema.json',
+			tailwind: { css: '../../apps/web/src/routes/layout.css' }
 		})
 	},
 	{
@@ -203,7 +250,12 @@ export const PROJECT_FILES: readonly ProjectFile[] = [
 	},
 	{
 		path: 'packages/product-config/knip.json',
-		text: json({ $schema: KNIP_SCHEMA, entry: ['src/**/*.ts'], project: ['src/**/*.ts'] })
+		text: json({
+			$schema: KNIP_SCHEMA,
+			entry: ['src/**/*.ts'],
+			project: ['src/**/*.ts'],
+			...KNIP_FLAT_SETTINGS
+		})
 	},
 	{
 		path: 'packages/tooling/tsconfig.json',
@@ -216,7 +268,13 @@ export const PROJECT_FILES: readonly ProjectFile[] = [
 	{ path: 'packages/tooling/vitest.config.ts', text: NODE_PROJECT('./src/vitest-settings.ts') },
 	{
 		path: 'packages/tooling/knip.json',
-		text: json({ $schema: KNIP_SCHEMA, entry: ['src/*.ts'], project: ['src/**/*.ts'] })
+		text: json({
+			$schema: KNIP_SCHEMA,
+			entry: ['src/*.ts'],
+			project: ['src/**/*.ts'],
+			ignoreBinaries: ['mkfifo'],
+			...KNIP_FLAT_SETTINGS
+		})
 	},
 	{
 		path: 'packages/eslint-plugin/vitest.config.ts',
@@ -228,6 +286,39 @@ export const PROJECT_FILES: readonly ProjectFile[] = [
 		text: readFileSync(new URL('./tree/workspace-exports.ts', import.meta.url), 'utf8')
 	},
 	{ path: 'scripts/workspace-exports.test.ts', text: WORKSPACE_EXPORTS_TEST },
+	{
+		path: 'packages/eslint-plugin/knip.json',
+		text: json({ $schema: KNIP_SCHEMA, project: ['src/**/*.{js,ts}'], ...KNIP_FLAT_SETTINGS })
+	},
+	{
+		path: 'knip.json',
+		text: json({
+			$schema: KNIP_SCHEMA,
+			workspaces: {
+				'.': {
+					entry: [
+						'*.{js,ts}',
+						'scripts/*.ts',
+						'scripts/english-policy/pr-metadata.ts',
+						'scripts/knowledge-policy/policy.ts',
+						'eslint/shadcn-policy.js'
+					],
+					project: ['*.{js,ts}', 'scripts/**/*.ts', 'eslint/**/*.{js,ts}'],
+					ignore: ['scripts/__fixtures__/**']
+				}
+			},
+			ignoreDependencies: ['@oxlint/plugins'],
+			ignoreBinaries: ['scripts/static-checks.ts', 'mkfifo'],
+			ignoreExportsUsedInFile: true,
+			rules: { exports: 'warn', types: 'warn' }
+		})
+	},
+	{
+		path: 'eslint/workspace-aliases.js',
+		text: readFileSync(new URL('./tree/workspace-aliases.js', import.meta.url), 'utf8')
+	},
+	{ path: 'scripts/knowledge-policy/config.test.ts', text: KNOWLEDGE_SELECTOR_TEST },
+	{ path: 'scripts/workspace-versions.test.ts', text: WORKSPACE_VERSIONS_TEST },
 	...Object.values(WORKSPACES)
 		.filter(({ root }) => root !== '')
 		.map(({ root }) => ({ path: `${root}bunfig.toml`, text: 'env = false\n' }))
@@ -270,6 +361,12 @@ export function outputProblems(
 		}
 	}
 	for (const { path, text } of run.inputs.projectFiles) {
+		const moved = run.table.place(path)?.to;
+		if (moved !== undefined && moved !== path && !FLAT_PATHS_WRITTEN_ANEW.includes(path)) {
+			problems.add(
+				`${path} is a project file at a flat path that the table moves, and FLAT_PATHS_WRITTEN_ANEW omits it`
+			);
+		}
 		const occupant = occupants.get(path);
 		if (occupant === undefined || replaced.has(occupant) || run.flatFile(occupant) === text)
 			continue;

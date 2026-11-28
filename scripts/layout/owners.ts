@@ -18,7 +18,7 @@ export const DEPENDENCY_OWNERS = {
 	'@better-svelte-email/components': ['emails'],
 	'@better-svelte-email/server': ['emails'],
 	'@confect/cli': ['backend'],
-	'@confect/core': ['web', 'backend'],
+	'@confect/core': ['root', 'web', 'backend'],
 	'@confect/server': ['web', 'backend'],
 	'@confect/test': ['backend'],
 	'@convex-dev/agent': ['web', 'backend'],
@@ -89,7 +89,7 @@ export const DEPENDENCY_OWNERS = {
 	'convex-vite-plugin': ['web', 'backend'],
 	'date-fns': ['web'],
 	'dom-accessibility-api': ['web'],
-	effect: ['web', 'backend'],
+	effect: ['root', 'web', 'backend'],
 	eld: ['root'],
 	entities: ['web'],
 	esbuild: ['web'],
@@ -102,13 +102,13 @@ export const DEPENDENCY_OWNERS = {
 	globals: ['root'],
 	husky: ['root'],
 	jsdom: ['web', 'backend', 'ui', 'emails'],
-	knip: ['web'],
+	knip: ['web', 'backend', 'ui', 'emails', 'product-config', 'tooling', 'eslint-plugin'],
 	konva: ['web'],
 	marked: ['root', 'web'],
 	miniflare: ['web'],
 	'motion-sv': ['web', 'ui'],
 	nanostores: ['web'],
-	oxlint: ['root', 'web'],
+	oxlint: ['root'],
 	'oxlint-plugin-convex': ['root'],
 	paneforge: ['web'],
 	parse5: ['web', 'backend'],
@@ -202,9 +202,9 @@ export const SCRIPT_OWNERS = {
 	'check:reduced-export': 'root',
 	'build:english-policy': 'root',
 	format: 'root',
-	lint: 'web',
-	'lint:convex': 'web',
-	knip: 'web',
+	lint: null,
+	'lint:convex': null,
+	knip: null,
 	'static-checks': 'root',
 	'static-checks:staged': 'root',
 	'check:precommit': 'root',
@@ -238,6 +238,9 @@ export const SCRIPT_OWNERS = {
  * Scripts the flat root manifest lacks. A root entry replaces a moved script of the same name at
  * the root; a workspace entry gives that workspace a concern of section 3.6.
  */
+const lint = (directory: string) =>
+	`bun run --cwd ../.. eslint:workspace ${directory} --cache-location ${directory}/.eslintcache && bun run --cwd ../.. oxlint:workspace ${directory}`;
+
 export const NEW_SCRIPTS = {
 	root: {
 		postinstall:
@@ -245,19 +248,35 @@ export const NEW_SCRIPTS = {
 		dev: 'bun run --filter @repo/web dev',
 		check:
 			"bun run check:scripts && bun run check:skills && bun run --filter './apps/*' --filter './packages/*' check",
-		'check:scripts': 'tsc -p tsconfig.scripts.json',
+		'check:scripts': 'tsc -p scripts/tsconfig.json && tsc -p tsconfig.json',
+		lint: "eslint . --cache --concurrency auto --ignore-pattern 'apps/**' --ignore-pattern 'packages/**' && oxlint --ignore-pattern 'apps/**' --ignore-pattern 'packages/**'",
+		knip: 'apps/web/node_modules/.bin/knip --workspace .',
+		'eslint:workspace': 'eslint --cache --concurrency auto',
+		'oxlint:workspace': 'oxlint',
 		validate: 'bun run static-checks && bun run test'
 	},
-	web: { codegen: 'bun svelte-kit sync && varlock codegen' },
+	web: { codegen: 'bun svelte-kit sync && varlock codegen', lint: lint('apps/web'), knip: 'knip' },
 	backend: {
 		codegen: 'bun run generate:content && varlock codegen --path .env-convex.schema',
-		check: 'bun run check:convex && tsc -p tsconfig.json --noEmit'
+		check: 'bun run check:convex && tsc -p tsconfig.json --noEmit',
+		lint: lint('packages/backend'),
+		'lint:convex': 'bun run --cwd ../.. oxlint:workspace packages/backend',
+		knip: 'knip'
 	},
-	ui: { check: 'svelte-check --tsconfig ./tsconfig.json' },
-	emails: { check: 'svelte-check --tsconfig ./tsconfig.json' },
-	'product-config': { check: 'tsc -p tsconfig.json --noEmit' },
-	tooling: { check: 'tsc -p tsconfig.json --noEmit' },
-	'create-saas-starter': { check: 'tsc --noEmit' }
+	ui: { check: 'svelte-check --tsconfig ./tsconfig.json', lint: lint('packages/ui'), knip: 'knip' },
+	emails: {
+		check: 'svelte-check --tsconfig ./tsconfig.json',
+		lint: lint('packages/emails'),
+		knip: 'knip'
+	},
+	'product-config': {
+		check: 'tsc -p tsconfig.json --noEmit',
+		lint: lint('packages/product-config'),
+		knip: 'knip'
+	},
+	tooling: { check: 'tsc -p tsconfig.json --noEmit', lint: lint('packages/tooling'), knip: 'knip' },
+	'eslint-plugin': { lint: lint('packages/eslint-plugin'), knip: 'knip' },
+	'create-saas-starter': { check: 'tsc --noEmit', lint: lint('packages/create-saas-starter') }
 } as const satisfies Partial<Record<StarterWorkspace, Readonly<Record<string, string>>>>;
 
 export const REPLACED_ROOT_SCRIPTS = {

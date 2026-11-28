@@ -29,6 +29,7 @@ export interface Inputs {
 	readonly owners: OwnerTables;
 	readonly projectFiles: readonly ProjectFile[];
 	readonly replacements: readonly Replacement[];
+	readonly repositoryChecks: boolean;
 }
 
 export { compareCodeUnits };

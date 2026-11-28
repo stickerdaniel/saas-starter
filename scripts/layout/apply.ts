@@ -31,10 +31,10 @@ export async function apply(
 	}
 	const run = await prepareRun(checkout, git(checkout, ['rev-parse', 'HEAD']).trim(), inputs);
 	log(`Source commit: ${run.source}`);
-	for (const step of STEPS) step.verify?.(run);
+	for (const step of STEPS) await step.verify?.(run);
 	for (const step of STEPS) {
 		log(`${step.name}: ${step.input}`);
-		step.run(run);
+		await step.run(run);
 	}
 	return run;
 }

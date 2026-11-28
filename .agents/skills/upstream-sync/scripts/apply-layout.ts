@@ -27,6 +27,7 @@ import {
 	BASE_RULES,
 	createMoveTable,
 	EFFECT_LEAF_SET,
+	FLAT_PATHS_WRITTEN_ANEW,
 	isAllowedEdge,
 	PRODUCED_FILES,
 	isStarterWorkspace,
@@ -270,11 +271,12 @@ function resolveTracked(path: string, tracked: ReadonlySet<string>): string {
 	return tracked.has(`${base}.d.ts`) ? `${base}.d.ts` : path;
 }
 
-interface Reference {
+export interface FileReference {
 	readonly text: string;
 	readonly line: number;
 	readonly literalOffset: number;
-	readonly kind: 'module' | 'path';
+	readonly kind: 'module' | 'path' | 'glob' | 'url' | 'style' | 'source';
+	readonly typeOnly: boolean;
 }
 
 /** The `<script>` blocks of a Svelte component, each with the line it starts on. */
@@ -283,22 +285,75 @@ function scriptBlocks(
 	text: string
 ): Array<{ code: string; firstLine: number; offset: number }> {
 	if (!path.endsWith('.svelte')) return [{ code: text, firstLine: 0, offset: 0 }];
-	return [...text.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map((match) => {
-		const offset = match.index + match[0].indexOf('>') + 1;
-		return {
-			code: match[1]!,
-			firstLine: text.slice(0, offset).split('\n').length - 1,
-			offset
-		};
-	});
+	return taggedBlocks('script', text);
 }
 
+function taggedBlocks(
+	tag: 'script' | 'style',
+	text: string
+): Array<{ code: string; firstLine: number; offset: number }> {
+	return [...text.matchAll(new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'g'))].map(
+		(match) => {
+			const offset = match.index + match[0].indexOf('>') + 1;
+			return {
+				code: match[1]!,
+				firstLine: text.slice(0, offset).split('\n').length - 1,
+				offset
+			};
+		}
+	);
+}
+
+const STYLESHEET = /\.css$/;
+const STYLE_DIRECTIVE =
+	/@(import|reference|plugin|config|source)\s+(not\s+)?(['"])([^'"]*)\3([^;]*)/g;
+const SOURCE_FUNCTION = /\bsource\(\s*(['"])([^'"]*)\1\s*\)/g;
+
+function styleReferences(text: string, firstLine: number, offset: number): FileReference[] {
+	const code = text.replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\n]/g, ' '));
+	const lineAt = (index: number) => firstLine + code.slice(0, index).split('\n').length;
+	const found: FileReference[] = [];
+	for (const match of code.matchAll(STYLE_DIRECTIVE)) {
+		const [whole, directive, , quote, value, rest] = match;
+		const literalAt = match.index + whole.indexOf(quote!);
+		found.push({
+			text: value!,
+			line: lineAt(match.index),
+			literalOffset: offset + literalAt,
+			kind: directive === 'source' ? 'source' : 'style',
+			typeOnly: false
+		});
+		if (directive !== 'import') continue;
+		const restAt = match.index + whole.length - rest!.length;
+		for (const source of rest!.matchAll(SOURCE_FUNCTION)) {
+			found.push({
+				text: source[2]!,
+				line: lineAt(restAt + source.index),
+				literalOffset: offset + restAt + source.index + source[0].indexOf(source[1]!),
+				kind: 'source',
+				typeOnly: false
+			});
+		}
+	}
+	return found;
+}
+
+const isImportMetaGlob = (node: ts.Expression, source: ts.SourceFile) =>
+	node.getText(source) === 'import.meta.glob';
+
 /**
- * The module specifiers a file names, and the files it reads by path from
- * `import.meta.dirname` with string literals alone. Code inside string literals is no reference.
+ * What a file names by a literal: module specifiers, the files it reads by path from
+ * `import.meta.dirname`, glob patterns, URLs on `import.meta.url` and the directives of its
+ * stylesheets. Code inside string literals is no reference.
  */
-function references(path: string, text: string): Reference[] {
-	const found: Reference[] = [];
+export function fileReferences(path: string, text: string): FileReference[] {
+	if (STYLESHEET.test(path)) return styleReferences(text, 0, 0);
+	const found: FileReference[] = [];
+	if (path.endsWith('.svelte')) {
+		for (const { code, firstLine, offset } of taggedBlocks('style', text)) {
+			found.push(...styleReferences(code, firstLine, offset));
+		}
+	}
 	for (const { code, firstLine, offset } of scriptBlocks(path, text)) {
 		const scriptKind = path.endsWith('.tsx')
 			? ts.ScriptKind.TSX
@@ -306,10 +361,17 @@ function references(path: string, text: string): Reference[] {
 				? ts.ScriptKind.JSX
 				: ts.ScriptKind.TS;
 		const source = ts.createSourceFile(path, code, ts.ScriptTarget.Latest, false, scriptKind);
-		const add = (node: ts.Node, literal: ts.Node, value: string, kind: Reference['kind']) =>
+		const add = (
+			node: ts.Node,
+			literal: ts.Node,
+			value: string,
+			kind: FileReference['kind'],
+			typeOnly = false
+		) =>
 			found.push({
 				text: value,
 				kind,
+				typeOnly,
 				line: firstLine + source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1,
 				literalOffset: offset + literal.getStart(source)
 			});
@@ -319,13 +381,16 @@ function references(path: string, text: string): Reference[] {
 				node.moduleSpecifier &&
 				ts.isStringLiteral(node.moduleSpecifier)
 			) {
-				add(node, node.moduleSpecifier, node.moduleSpecifier.text, 'module');
+				const typeOnly = ts.isImportDeclaration(node)
+					? node.importClause?.phaseModifier === ts.SyntaxKind.TypeKeyword
+					: node.isTypeOnly;
+				add(node, node.moduleSpecifier, node.moduleSpecifier.text, 'module', typeOnly);
 			} else if (
 				ts.isImportTypeNode(node) &&
 				ts.isLiteralTypeNode(node.argument) &&
 				ts.isStringLiteral(node.argument.literal)
 			) {
-				add(node, node.argument.literal, node.argument.literal.text, 'module');
+				add(node, node.argument.literal, node.argument.literal.text, 'module', true);
 			} else if (ts.isCallExpression(node)) {
 				const callee = node.expression.getText(source);
 				const [first, ...rest] = node.arguments;
@@ -342,7 +407,20 @@ function references(path: string, text: string): Reference[] {
 					rest.every(ts.isStringLiteralLike)
 				) {
 					add(node, first, posix.join(...rest.map((argument) => argument.text)), 'path');
+				} else if (isImportMetaGlob(node.expression, source) && first) {
+					const patterns = ts.isArrayLiteralExpression(first) ? first.elements : [first];
+					for (const pattern of patterns) {
+						if (ts.isStringLiteralLike(pattern)) add(node, pattern, pattern.text, 'glob');
+					}
 				}
+			} else if (
+				ts.isNewExpression(node) &&
+				node.expression.getText(source) === 'URL' &&
+				node.arguments?.length === 2 &&
+				ts.isStringLiteralLike(node.arguments[0]!) &&
+				node.arguments[1]!.getText(source) === 'import.meta.url'
+			) {
+				add(node, node.arguments[0]!, node.arguments[0]!.text, 'url');
 			}
 			ts.forEachChild(node, visit);
 		};
@@ -361,10 +439,11 @@ export function readImportEdges(checkout: string, paths: readonly string[]): Imp
 		const absolute = join(checkout, from);
 		if (!existsSync(absolute) || !lstatSync(absolute).isFile()) continue;
 		const directory = posix.dirname(from);
-		for (const { text: specifier, line, literalOffset, kind } of references(
+		for (const { text: specifier, line, literalOffset, kind } of fileReferences(
 			from,
 			readFileSync(absolute, 'utf8')
 		)) {
+			if (kind !== 'module' && kind !== 'path') continue;
 			if (kind === 'path') {
 				const target = posix.join(directory, specifier);
 				if (tracked.has(target))
@@ -690,7 +769,7 @@ async function main() {
 	}
 	const stragglers = paths.filter((path) => {
 		const to = table.place(path)?.to;
-		return to !== undefined && to !== path;
+		return to !== undefined && to !== path && !FLAT_PATHS_WRITTEN_ANEW.includes(path);
 	});
 	for (const path of stragglers) console.log(path);
 	process.exit(stragglers.length ? 1 : 0);
