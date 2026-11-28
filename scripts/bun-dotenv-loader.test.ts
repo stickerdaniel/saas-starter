@@ -16,6 +16,7 @@ const ROOT = path.resolve(import.meta.dirname, '..');
 const BUN = testExecutable('bun');
 const PLANTED = 'BUN_DOTENV_LOADER_PLANTED';
 const CREATOR = 'packages/create-saas-starter';
+const INHERITED_LOADER_INPUTS = [PLANTED, 'BUN_OPTIONS'];
 
 const manifest: { workspaces?: string[] } = JSON.parse(
 	readFileSync(path.join(ROOT, 'package.json'), 'utf8')
@@ -34,7 +35,7 @@ afterEach(() => {
 
 function plantedValue(cwd: string, flags: string[]): unknown {
 	const env = { ...process.env };
-	delete env[PLANTED];
+	for (const name of INHERITED_LOADER_INPUTS) delete env[name];
 	const result = spawnSync(
 		BUN,
 		[...flags, '-e', `console.log(JSON.stringify(process.env.${PLANTED} ?? null))`],
