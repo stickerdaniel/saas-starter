@@ -845,4 +845,55 @@ describe('workflow compatibility', () => {
 			expect(result.output).toContain('Preview build changed');
 		}
 	}, 30_000);
+
+	it('waits for the selected revision before execution and never after it', async () => {
+		const action = parseYaml(
+			readFileSync(join(root, '.github/actions/e2e-run/action.yml'), 'utf8')
+		) as { runs: { steps: Array<{ run?: string }> } };
+		const [before, after] = action.runs.steps.flatMap(({ run }) =>
+			run?.startsWith('bun scripts/e2e-ci.ts ') ? [run.trim().split(/\s+/).slice(2)] : []
+		);
+		const stale = 'f'.repeat(40);
+		const earlier = { version: stale, sourceSha: stale, buildUuid: old };
+		const selected = { version: sha, sourceSha: sha, buildUuid: current };
+		const check = async (args: string[] | undefined, builds: Array<typeof selected>) => {
+			let reads = 0;
+			const site = await serve((request, response) => {
+				const versionRead = request.url === '/_app/version.json';
+				if (versionRead) reads++;
+				const { version, ...identity } = required(
+					builds[Math.max(Math.min(reads, builds.length) - 1, 0)],
+					'served build'
+				);
+				json(response, versionRead ? { version } : { ...backends, ...identity });
+			});
+			const result = await runCli(required(args, 'identity check step'), {
+				PUBLIC_SITE_URL: site.origin,
+				PUBLIC_CONVEX_URL: backends.convexUrl,
+				PUBLIC_CONVEX_SITE_URL: backends.convexSiteUrl,
+				E2E_EXPECTED_SHA: sha,
+				E2E_BUILD_UUID: current,
+				E2E_METADATA_POLICY: 'cf-build'
+			});
+			return { ...result, reads };
+		};
+		const [lagging, moved, rebuilt, stuck] = await Promise.all([
+			check(before, [earlier, selected]),
+			check(after, [earlier, selected]),
+			check(before, [{ ...selected, buildUuid: old }]),
+			check(before, [earlier])
+		]);
+		expect(lagging.code, lagging.output).toBe(0);
+		expect(lagging.reads).toBe(2);
+		expect(lagging.output).toContain(`served {"version":"${stale}"}, expected ${sha}`);
+		expect(moved.code).toBe(1);
+		expect(moved.reads).toBe(1);
+		expect(rebuilt.code).toBe(1);
+		expect(rebuilt.reads).toBe(1);
+		expect(rebuilt.output).toContain('Preview build changed');
+		expect(stuck.code).toBe(1);
+		expect(stuck.reads).toBeGreaterThan(1);
+		expect(stuck.reads).toBeLessThanOrEqual(20);
+		expect(stuck.output).toContain(`served {"version":"${stale}"}, expected ${sha}`);
+	}, 30_000);
 });
