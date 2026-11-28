@@ -100,8 +100,9 @@ beforeEach(() => {
 		}
 	);
 	mocks.mutation.mockReset();
-	mocks.rows = emails.map((email) => ({
+	mocks.rows = emails.map((email, index) => ({
 		email,
+		name: index === 0 ? 'Ada Lovelace' : undefined,
 		isAdminUser: false,
 		notifyNewSupportTickets: false,
 		notifyUserReplies: false,
@@ -144,6 +145,11 @@ const toggle = (field: Field, email: string) =>
 const shown = (field: Field) =>
 	emails.map((email) => toggle(field, email).getAttribute('aria-checked'));
 
+const emailAndName = (email: string) =>
+	Array.from(document.querySelectorAll(`[data-testid="recipient-row-${email}"] td`), (cell) =>
+		cell.textContent?.trim()
+	).slice(1, 3);
+
 const settle = async () => {
 	await new Promise((resolve) => setTimeout(resolve, 0));
 	flushSync();
@@ -182,4 +188,12 @@ it('rolls back only the failed field on rows with another update in flight', asy
 
 	expect(shown('notifyNewSignups')).toEqual(['false', 'false', 'false']);
 	expect(shown('notifyNewSupportTickets')).toEqual(['true', 'true', 'true']);
+});
+
+it('shows each recipient email with its name, or a dash without one', () => {
+	expect(emails.map((email) => emailAndName(email))).toEqual([
+		['first@example.com', 'Ada Lovelace'],
+		['second@example.com', '-'],
+		['third@example.com', '-']
+	]);
 });

@@ -1,13 +1,14 @@
 import type { ColumnDef } from '@tanstack/table-core';
 import type { DataTableFeatures } from '#lib/components/ui/data-table/data-table.svelte.ts';
 import type { DataTableSkeleton } from '#lib/components/ui/data-table/skeleton.ts';
-import { renderComponent, renderTextCell } from '#lib/components/ui/data-table/index.js';
+import { renderComponent } from '#lib/components/ui/data-table/index.js';
 import DataTableColumnHeader from '#lib/components/admin/data-table-column-header.svelte';
 import type { AuditLogItem } from '#lib/confect/admin/auditLog/queries.js';
 import { DEFAULT_LANGUAGE } from '#lib/i18n/languages.js';
 import ActionBadge from './action-badge.svelte';
 import UserRefCell from './user-ref-cell.svelte';
 import DetailsCell from './details-cell.svelte';
+import TimestampCell from './timestamp-cell.svelte';
 
 // The two-line reference sets the audit row height, so it renders its own skeleton.
 const userRefSkeleton: DataTableSkeleton = {
@@ -38,8 +39,8 @@ export function createColumns(
 					testId: 'admin-audit-log-sort-time'
 				}),
 			cell: ({ row }) =>
-				renderTextCell(new Date(row.original.timestamp).toLocaleString(lang || DEFAULT_LANGUAGE), {
-					class: 'text-sm'
+				renderComponent(TimestampCell, {
+					text: new Date(row.original.timestamp).toLocaleString(lang || DEFAULT_LANGUAGE)
 				}),
 			// Timestamps share one format, so every row gets the same bar.
 			meta: { skeleton: { kind: 'text', width: '75%' } }

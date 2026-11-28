@@ -1,9 +1,11 @@
 import type { ColumnDef } from '@tanstack/table-core';
 import type { DataTableFeatures } from '#lib/components/ui/data-table/data-table.svelte.ts';
-import { renderComponent, renderTextCell } from '#lib/components/ui/data-table/index.js';
+import { renderComponent } from '#lib/components/ui/data-table/index.js';
 import type { NotificationRecipient } from '#lib/confect/admin/notificationPreferences/queries.js';
 import DataTableCheckbox from '#lib/components/data-table-checkbox.svelte';
 import DataTableColumnHeader from '#lib/components/admin/data-table-column-header.svelte';
+import EmailCell from './email-cell.svelte';
+import NameCell from './name-cell.svelte';
 import RecipientsActions from './recipients-actions.svelte';
 import RecipientsToggle from './recipients-toggle.svelte';
 import TypeBadge from './type-badge.svelte';
@@ -49,7 +51,7 @@ export const columns: Array<ColumnDef<DataTableFeatures, NotificationRecipient>>
 				titleKey: 'admin.settings.column_email',
 				testId: 'admin-settings-sort-email'
 			}),
-		cell: ({ row }) => renderTextCell(row.original.email, { class: 'font-medium' })
+		cell: ({ row }) => renderComponent(EmailCell, { email: row.original.email })
 	},
 	{
 		accessorKey: 'name',
@@ -62,12 +64,7 @@ export const columns: Array<ColumnDef<DataTableFeatures, NotificationRecipient>>
 				titleKey: 'admin.settings.column_name',
 				testId: 'admin-settings-sort-name'
 			}),
-		cell: ({ row }) => {
-			const { name } = row.original;
-			return renderTextCell(name || '-', {
-				class: name ? 'text-muted-foreground' : 'text-muted-foreground/50'
-			});
-		}
+		cell: ({ row }) => renderComponent(NameCell, { name: row.original.name })
 	},
 	{
 		id: 'type',
