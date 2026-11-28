@@ -88,7 +88,7 @@ describe('canChangeLanding', () => {
 
 describe('lighthouseArgs', () => {
 	it('starts every audit on the origin of the audited page', () => {
-		const url = 'https://5aeae56b-saas-starter.workers.dev/en';
+		const url = 'https://preview.example/en';
 		for (const formFactor of ['desktop', 'mobile'] as const) {
 			const startPage = lighthouseArgs(url, formFactor, 'reports/run')
 				.find((arg) => arg.startsWith('--blank-page='))
