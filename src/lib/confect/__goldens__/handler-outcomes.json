@@ -289,67 +289,12 @@
 		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
 		"user": "Error [capability] billing is misconfigured"
 	},
-	"autumn:cancel": {
-		"anonymous": "Error [capability] billing is misconfigured",
-		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
-		"user": "Error [capability] billing is misconfigured"
-	},
-	"autumn:check": {
-		"anonymous": "Error [capability] billing is misconfigured",
-		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
-		"user": "Error [capability] billing is misconfigured"
-	},
 	"autumn:checkout": {
 		"anonymous": "Error [capability] billing is misconfigured",
 		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
 		"user": "Error [capability] billing is misconfigured"
 	},
 	"autumn:createCustomer": {
-		"anonymous": "Error [capability] billing is misconfigured",
-		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
-		"user": "Error [capability] billing is misconfigured"
-	},
-	"autumn:createEntity": {
-		"anonymous": "Error [capability] billing is misconfigured",
-		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
-		"user": "Error [capability] billing is misconfigured"
-	},
-	"autumn:createReferralCode": {
-		"anonymous": "Error [capability] billing is misconfigured",
-		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
-		"user": "Error [capability] billing is misconfigured"
-	},
-	"autumn:getEntity": {
-		"anonymous": "Error [capability] billing is misconfigured",
-		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
-		"user": "Error [capability] billing is misconfigured"
-	},
-	"autumn:listProducts": {
-		"anonymous": "Error [capability] billing is misconfigured",
-		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
-		"user": "Error [capability] billing is misconfigured"
-	},
-	"autumn:query": {
-		"anonymous": "Error [capability] billing is misconfigured",
-		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
-		"user": "Error [capability] billing is misconfigured"
-	},
-	"autumn:redeemReferralCode": {
-		"anonymous": "Error [capability] billing is misconfigured",
-		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
-		"user": "Error [capability] billing is misconfigured"
-	},
-	"autumn:setupPayment": {
-		"anonymous": "Error [capability] billing is misconfigured",
-		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
-		"user": "Error [capability] billing is misconfigured"
-	},
-	"autumn:track": {
-		"anonymous": "Error [capability] billing is misconfigured",
-		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
-		"user": "Error [capability] billing is misconfigured"
-	},
-	"autumn:usage": {
 		"anonymous": "Error [capability] billing is misconfigured",
 		"invalidArgs": "Error Validator error: Unexpected field `goldenUnexpectedField` in object",
 		"user": "Error [capability] billing is misconfigured"

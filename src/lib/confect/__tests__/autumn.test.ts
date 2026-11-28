@@ -1,23 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { PUBLISHED_ACTION_NAMES, autumnSdkConstruction, check } = vi.hoisted(() => ({
-	PUBLISHED_ACTION_NAMES: [
-		'track',
-		'cancel',
-		'query',
-		'attach',
-		'check',
-		'checkout',
-		'usage',
-		'setupPayment',
-		'createCustomer',
-		'listProducts',
-		'billingPortal',
-		'createReferralCode',
-		'redeemReferralCode',
-		'createEntity',
-		'getEntity'
-	] as const,
+	PUBLISHED_ACTION_NAMES: ['attach', 'billingPortal', 'checkout', 'createCustomer'] as const,
 	autumnSdkConstruction: vi.fn(),
 	check: vi.fn()
 }));
@@ -115,7 +99,7 @@ describe('published Autumn actions', () => {
 	it('constructs autumn-js only after a ready action reaches getAuthParams', async () => {
 		setReadyBilling();
 
-		await registeredAction(autumnModule.check)._handler({}, {});
+		await registeredAction(autumnModule.checkout)._handler({}, {});
 
 		expect(autumnSdkConstruction).toHaveBeenCalledTimes(1);
 		expect(autumnSdkConstruction).toHaveBeenCalledWith('configured-autumn-key');

@@ -194,19 +194,8 @@
 		"autumn": {
 			"attach": ["public", "action", "4fb167449bcc5936", "74234e98afe7498f"],
 			"billingPortal": ["public", "action", "b59d01022c4862cc", "74234e98afe7498f"],
-			"cancel": ["public", "action", "c6e9a32b742f224e", "74234e98afe7498f"],
-			"check": ["public", "action", "5f18963da8760376", "74234e98afe7498f"],
 			"checkout": ["public", "action", "a2e50074da83709f", "74234e98afe7498f"],
-			"createCustomer": ["public", "action", "c8e09f23e7d414b7", "74234e98afe7498f"],
-			"createEntity": ["public", "action", "ddb460c59f75f709", "74234e98afe7498f"],
-			"createReferralCode": ["public", "action", "1b23707d6d6e78ea", "74234e98afe7498f"],
-			"getEntity": ["public", "action", "aa3109c7d3cc3808", "74234e98afe7498f"],
-			"listProducts": ["public", "action", "5151b7eb8536aa97", "74234e98afe7498f"],
-			"query": ["public", "action", "c9f84e1c678f16f9", "74234e98afe7498f"],
-			"redeemReferralCode": ["public", "action", "7ce6507fc4db4d21", "74234e98afe7498f"],
-			"setupPayment": ["public", "action", "fed6229914e01b7f", "74234e98afe7498f"],
-			"track": ["public", "action", "3bbed088e5c8ec10", "74234e98afe7498f"],
-			"usage": ["public", "action", "38ba3d6f83f74bf5", "74234e98afe7498f"]
+			"createCustomer": ["public", "action", "c8e09f23e7d414b7", "74234e98afe7498f"]
 		},
 		"capabilities": { "getUsability": ["public", "query", "5151b7eb8536aa97", "d88eb7e302105a77"] },
 		"emails/events": {

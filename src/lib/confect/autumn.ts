@@ -33,21 +33,10 @@ export const autumn = new GuardedAutumn(components.autumn, {
 type AutumnApi = ReturnType<Autumn['api']>;
 const autumnApi: AutumnApi = autumn.api();
 
-export const track: AutumnApi['track'] = autumnApi.track;
-export const cancel: AutumnApi['cancel'] = autumnApi.cancel;
-export const query: AutumnApi['query'] = autumnApi.query;
 export const attach: AutumnApi['attach'] = autumnApi.attach;
-export const check: AutumnApi['check'] = autumnApi.check;
 export const checkout: AutumnApi['checkout'] = autumnApi.checkout;
-export const usage: AutumnApi['usage'] = autumnApi.usage;
-export const setupPayment: AutumnApi['setupPayment'] = autumnApi.setupPayment;
 export const createCustomer: AutumnApi['createCustomer'] = autumnApi.createCustomer;
-export const listProducts: AutumnApi['listProducts'] = autumnApi.listProducts;
 export const billingPortal: AutumnApi['billingPortal'] = autumnApi.billingPortal;
-export const createReferralCode: AutumnApi['createReferralCode'] = autumnApi.createReferralCode;
-export const redeemReferralCode: AutumnApi['redeemReferralCode'] = autumnApi.redeemReferralCode;
-export const createEntity: AutumnApi['createEntity'] = autumnApi.createEntity;
-export const getEntity: AutumnApi['getEntity'] = autumnApi.getEntity;
 
 /**
  * Get direct Autumn SDK for use in internalActions/scheduled functions

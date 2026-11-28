@@ -54,19 +54,8 @@ export const CONFECT_LIBRARY_FUNCTIONS = {
 	'autumn.api()': [
 		'autumn:attach',
 		'autumn:billingPortal',
-		'autumn:cancel',
-		'autumn:check',
 		'autumn:checkout',
-		'autumn:createCustomer',
-		'autumn:createEntity',
-		'autumn:createReferralCode',
-		'autumn:getEntity',
-		'autumn:listProducts',
-		'autumn:query',
-		'autumn:redeemReferralCode',
-		'autumn:setupPayment',
-		'autumn:track',
-		'autumn:usage'
+		'autumn:createCustomer'
 	]
 };
 

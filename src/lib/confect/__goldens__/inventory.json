@@ -1,6 +1,6 @@
 {
 	"columns": ["visibility", "kind", "runtime", "provenance"],
-	"digest": "447d3a21c8109759",
+	"digest": "357e4f8ffc70fa06",
 	"groups": {
 		"admin/auditLog/queries": {
 			"getAuditLogCount": ["public", "query", "Convex", "Confect"],
@@ -150,19 +150,8 @@
 		"autumn": {
 			"attach": ["public", "action", "Convex", "Convex"],
 			"billingPortal": ["public", "action", "Convex", "Convex"],
-			"cancel": ["public", "action", "Convex", "Convex"],
-			"check": ["public", "action", "Convex", "Convex"],
 			"checkout": ["public", "action", "Convex", "Convex"],
-			"createCustomer": ["public", "action", "Convex", "Convex"],
-			"createEntity": ["public", "action", "Convex", "Convex"],
-			"createReferralCode": ["public", "action", "Convex", "Convex"],
-			"getEntity": ["public", "action", "Convex", "Convex"],
-			"listProducts": ["public", "action", "Convex", "Convex"],
-			"query": ["public", "action", "Convex", "Convex"],
-			"redeemReferralCode": ["public", "action", "Convex", "Convex"],
-			"setupPayment": ["public", "action", "Convex", "Convex"],
-			"track": ["public", "action", "Convex", "Convex"],
-			"usage": ["public", "action", "Convex", "Convex"]
+			"createCustomer": ["public", "action", "Convex", "Convex"]
 		},
 		"capabilities": { "getUsability": ["public", "query", "Convex", "Confect"] },
 		"emails/events": { "handleEmailEvent": ["internal", "mutation", "Convex", "Confect"] },
