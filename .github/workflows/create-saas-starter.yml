@@ -23,6 +23,7 @@ on:
       - static/manifest.webmanifest
       - scripts/windows-job.ts
       - scripts/template-setup.ts
+      - .agents/skills/upstream-sync/scripts/scaffold-marker.ts
       - scripts/export-profile.ts
       - scripts/path-sets.ts
       - scripts/__fixtures__/template-setup/**
@@ -57,6 +58,7 @@ on:
       - static/manifest.webmanifest
       - scripts/windows-job.ts
       - scripts/template-setup.ts
+      - .agents/skills/upstream-sync/scripts/scaffold-marker.ts
       - scripts/export-profile.ts
       - scripts/path-sets.ts
       - scripts/__fixtures__/template-setup/**
