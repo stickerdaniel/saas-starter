@@ -854,16 +854,19 @@ describe('workflow compatibility', () => {
 			run?.startsWith('bun scripts/e2e-ci.ts ') ? [run.trim().split(/\s+/).slice(2)] : []
 		);
 		const stale = 'f'.repeat(40);
-		const check = async (args: string[] | undefined, versions: string[], buildUuid = current) => {
+		const earlier = { version: stale, sourceSha: stale, buildUuid: old };
+		const selected = { version: sha, sourceSha: sha, buildUuid: current };
+		const check = async (args: string[] | undefined, builds: Array<typeof selected>) => {
 			let reads = 0;
-			const site = await serve((request, response) =>
-				json(
-					response,
-					request.url === '/_app/version.json'
-						? { version: versions[Math.min(reads++, versions.length - 1)] }
-						: { ...backends, sourceSha: sha, buildUuid }
-				)
-			);
+			const site = await serve((request, response) => {
+				const versionRead = request.url === '/_app/version.json';
+				if (versionRead) reads++;
+				const { version, ...identity } = required(
+					builds[Math.max(Math.min(reads, builds.length) - 1, 0)],
+					'served build'
+				);
+				json(response, versionRead ? { version } : { ...backends, ...identity });
+			});
 			const result = await runCli(required(args, 'identity check step'), {
 				PUBLIC_SITE_URL: site.origin,
 				PUBLIC_CONVEX_URL: backends.convexUrl,
@@ -875,10 +878,10 @@ describe('workflow compatibility', () => {
 			return { ...result, reads };
 		};
 		const [lagging, moved, rebuilt, stuck] = await Promise.all([
-			check(before, [stale, sha]),
-			check(after, [stale, sha]),
-			check(before, [sha], old),
-			check(before, [stale])
+			check(before, [earlier, selected]),
+			check(after, [earlier, selected]),
+			check(before, [{ ...selected, buildUuid: old }]),
+			check(before, [earlier])
 		]);
 		expect(lagging.code, lagging.output).toBe(0);
 		expect(lagging.reads).toBe(2);
