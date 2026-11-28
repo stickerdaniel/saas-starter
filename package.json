@@ -164,6 +164,7 @@
 		"@sveltejs/package": "3.0.3",
 		"@sveltejs/vite-devtools-svelte": "0.11.1",
 		"@sveltejs/vite-plugin-svelte": "7.3.1",
+		"@tailwindcss/node": "4.3.5",
 		"@tailwindcss/oxide": "4.3.5",
 		"@tailwindcss/typography": "0.5.20",
 		"@tailwindcss/vite": "4.3.5",

@@ -7,7 +7,7 @@
 /* shadcn-svelte's shared utilities (shimmer, scroll-fade) used by its registry items. */
 @import 'shadcn-svelte/tailwind.css';
 @plugin '@tailwindcss/typography';
-@import '../lib/components/ui/tokens.css';
+@import '../lib/components/ui/primitives.css';
 
 /* Match prose hr to shadcn separator */
 .prose hr {
