@@ -865,6 +865,14 @@ export const load = () => api.users.settings;
 				'packages/fixture/convex.json': '{ "functions": "./" }\n',
 				'packages/fixture/src/stray.ts': 'export const stray = 1;\n'
 			}
+		],
+		[
+			'a directory whose manifest has an empty name',
+			{
+				'packages/fixture/package.json': '{ "name": "" }\n',
+				'packages/fixture/convex.json': '{ "functions": "./" }\n',
+				'packages/fixture/src/stray.ts': 'export const stray = 1;\n'
+			}
 		]
 	])(
 		'takes no workspace member from %s',
@@ -936,6 +944,14 @@ export const load = () => api.users.settings;
 			(files: CheckoutFiles) =>
 				flatCheckout(files, (manifest) => ({ ...manifest, templateSetupVersion: 3 })),
 			'package.json at the working tree declares templateSetupVersion 3, and convex.json gives it the flat layout, which takes 1 or 2.'
+		],
+		[
+			'a member manifest that is no JSON',
+			(files: CheckoutFiles) => ({
+				...workspaceCheckout(files),
+				'packages/extra/package.json': '{ "name": "@repo/extra", }\n'
+			}),
+			'packages/extra/package.json at the working tree is no JSON, so this check cannot tell whether it is a workspace member.'
 		]
 	] as const)(
 		'refuses a revision with %s',

@@ -404,8 +404,22 @@ function membersOf(tree: RevisionTree, workspaces: unknown): string[] | string {
 		}
 		for (const directory of directories) {
 			const file = `${directory}/package.json`;
-			const manifest = tree.isFile(file) ? jsonObjectAt(tree, file) : undefined;
-			if (typeof manifest === 'object' && typeof manifest.name === 'string') members.add(directory);
+			if (!tree.isFile(file)) continue;
+			let manifest: unknown;
+			try {
+				manifest = JSON.parse(tree.read(file));
+			} catch {
+				return `convex-consumer-compat: ${file} at ${tree.name} is no JSON, so this check cannot tell whether it is a workspace member.`;
+			}
+			if (
+				typeof manifest === 'object' &&
+				manifest !== null &&
+				'name' in manifest &&
+				typeof manifest.name === 'string' &&
+				manifest.name !== ''
+			) {
+				members.add(directory);
+			}
 		}
 	}
 	return [...members].sort();
