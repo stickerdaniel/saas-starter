@@ -11,6 +11,7 @@ const DEPENDENCY_SECTIONS = [
 ] as const;
 
 type Manifest = Partial<Record<(typeof DEPENDENCY_SECTIONS)[number], Record<string, string>>> & {
+	version?: string;
 	workspaces?: string[] | { packages?: string[] };
 	patchedDependencies?: Record<string, string>;
 };
@@ -80,18 +81,24 @@ describe('dependency patches', () => {
 		'%s has every hunk at the line its header names and nowhere else, where Bun 1.4.3 applies it',
 		(dependency, path) => {
 			const name = dependency.slice(0, dependency.lastIndexOf('@'));
+			const version = dependency.slice(name.length + 1);
 			const patched = hunks(readFileSync(join(root, path), 'utf8'));
 			expect(patched).not.toEqual([]);
 			const declaring = manifests.filter(({ manifest }) =>
 				DEPENDENCY_SECTIONS.some((section) => manifest[section]?.[name] !== undefined)
 			);
 			expect(declaring, `no manifest declares ${name}`).not.toEqual([]);
-			for (const { manifestFile, directory } of declaring) {
+			const copies = declaring.map(({ manifestFile, directory }) => {
 				const copy = installedCopy(directory, name);
 				assert(
 					copy,
 					`${manifestFile} declares ${name}, which resolves to no installed copy from there`
 				);
+				return copy;
+			});
+			const patchedCopies = copies.filter((copy) => manifestIn(copy).version === version);
+			expect(patchedCopies, `no declaring manifest resolves ${dependency}`).not.toEqual([]);
+			for (const copy of patchedCopies) {
 				for (const { file, start, lines } of patched) {
 					expect(lines, `${file}, hunk of line ${start} has no context`).not.toEqual([]);
 					const installed = installedLines(copy, file);
