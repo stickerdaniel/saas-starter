@@ -1,7 +1,2 @@
-import { STARTER_PAGES } from './starter-pages';
-import type { DocsCatalog } from './types';
-
-export const docsCatalog: DocsCatalog = {
-	site: 'stickerdaniel/saas-starter',
-	pages: STARTER_PAGES
-};
+// THROWAWAY demo branch: serves the docs fixture catalog so the docs design renders on a preview. Never merge.
+export { publishedCatalog as docsCatalog } from './__fixtures__/catalogs';

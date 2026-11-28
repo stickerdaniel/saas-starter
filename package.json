@@ -30,7 +30,7 @@
 		"postinstall": "bun run install:cli && bun run generate:content && bun svelte-kit sync && varlock codegen && varlock codegen --path .env-convex.schema && bun run build:emails",
 		"prebuild": "bun run confect:codegen && bun run build:emails",
 		"build": "bun scripts/build.ts",
-		"postbuild": "bun scripts/check-build-output.ts && bun scripts/check-bundle-budget.ts",
+		"postbuild": "bun scripts/check-build-output.ts --docs-fixture && bun scripts/check-bundle-budget.ts",
 		"start": "node build",
 		"generate:logos": "bun scripts/generate-logos.ts",
 		"generate:desk-computer": "bun scripts/generate-desk-computer.ts",

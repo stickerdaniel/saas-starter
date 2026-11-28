@@ -1,7 +1,2 @@
-import { docsSource } from './source';
-
-export const repositoryDocs = docsSource(
-	'docs/',
-	import.meta.glob<string>('/docs/**/*.md', { query: '?raw', import: 'default', eager: true }),
-	import.meta.glob<string>('/docs/assets/*', { query: '?url', import: 'default', eager: true })
-);
+// THROWAWAY demo branch: serves the docs fixture pages. Never merge.
+export { fixtureDocs as repositoryDocs } from './__fixtures__/fixture-docs';
