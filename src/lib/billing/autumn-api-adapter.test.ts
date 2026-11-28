@@ -3,22 +3,22 @@ import { getFunctionName } from 'convex/server';
 import { api } from '#lib/convex/_generated/api.js';
 import { toAutumnClientApi, type AppAutumnApi } from './autumn-api-adapter';
 
-const publishedKeys = [
+const publishedKeys = ['attach', 'billingPortal', 'checkout', 'createCustomer'] as const;
+
+const unpublishedKeys = [
 	'track',
+	'usage',
+	'check',
 	'cancel',
 	'query',
-	'attach',
-	'check',
-	'checkout',
-	'usage',
 	'setupPayment',
-	'createCustomer',
 	'listProducts',
-	'billingPortal',
 	'createReferralCode',
 	'redeemReferralCode',
 	'createEntity',
-	'getEntity'
+	'getEntity',
+	'listEvents',
+	'aggregateEvents'
 ] as const;
 
 describe('Autumn SDK endpoint adapter', () => {
@@ -31,11 +31,10 @@ describe('Autumn SDK endpoint adapter', () => {
 		expect(getFunctionName(adapted[key])).toBe(getFunctionName(api.autumn[key]));
 		expect(getFunctionName(adapted[key])).toBe(`autumn:${key}`);
 	});
-	it.each(['listEvents', 'aggregateEvents'] as const)(
-		'refuses unpublished %s before a network call',
-		(key) => {
-			const adapted = toAutumnClientApi(api.autumn);
-			expect(() => adapted[key]).toThrow(`Autumn endpoint ${key} is not published`);
-		}
-	);
+	it.each(unpublishedKeys)('refuses unpublished %s before a network call', (key) => {
+		const adapted = toAutumnClientApi(api.autumn);
+		expect(() => adapted[key]).toThrow(
+			`Autumn endpoint ${key} is not published by this application`
+		);
+	});
 });
