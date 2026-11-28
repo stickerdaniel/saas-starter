@@ -850,6 +850,43 @@ export const load = () => api.users.settings;
 	);
 
 	it.each([
+		[
+			'a hidden directory that a wildcard matches',
+			{
+				'packages/.hidden/package.json': memberManifest('@repo/hidden'),
+				'packages/.hidden/convex.json': '{ "functions": "./" }\n',
+				'packages/.hidden/src/stray.ts': 'export const stray = 1;\n'
+			}
+		],
+		[
+			'a directory whose manifest has no name',
+			{
+				'packages/fixture/package.json': '{ "type": "module" }\n',
+				'packages/fixture/convex.json': '{ "functions": "./" }\n',
+				'packages/fixture/src/stray.ts': 'export const stray = 1;\n'
+			}
+		]
+	])(
+		'takes no workspace member from %s',
+		(_title, stray) => {
+			withLayoutFixture((fixture) => {
+				fixture.checkout(flatCheckout(APP));
+				fixture.commit('Baseline');
+				fixture.checkout({ ...workspaceCheckout(APP), ...stray });
+				fixture.commit('Move');
+
+				const { status, output } = fixture.run();
+				expect(status, output).toBe(0);
+				expect(output).toContain(
+					'convex-consumer-compat: the working tree has the workspace layout with its functions in packages/backend/convex: 2 consumers, 3 scheduler modules.'
+				);
+				expect(output).toContain('4 referenced functions still published unchanged.');
+			});
+		},
+		COMPAT_CASE_TIMEOUT_MS
+	);
+
+	it.each([
 		['flat', flatCheckout, 'src/lib/confect/pick.ts'],
 		['workspace', workspaceCheckout, 'packages/backend/confect/pick.ts']
 	] as const)(

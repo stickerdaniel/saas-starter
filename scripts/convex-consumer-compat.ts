@@ -390,7 +390,12 @@ function membersOf(tree: RevisionTree, workspaces: unknown): string[] | string {
 				segment.includes('*')
 					? tree
 							.directoriesIn(directory)
-							.filter((name) => name !== 'node_modules' && matcher.test(name))
+							.filter(
+								(name) =>
+									name !== 'node_modules' &&
+									(segment.startsWith('.') || !name.startsWith('.')) &&
+									matcher.test(name)
+							)
 							.map((name) => path.posix.join(directory, name))
 					: tree.isDirectory(path.posix.join(directory, segment))
 						? [path.posix.join(directory, segment)]
@@ -398,7 +403,9 @@ function membersOf(tree: RevisionTree, workspaces: unknown): string[] | string {
 			);
 		}
 		for (const directory of directories) {
-			if (tree.isFile(`${directory}/package.json`)) members.add(directory);
+			const file = `${directory}/package.json`;
+			const manifest = tree.isFile(file) ? jsonObjectAt(tree, file) : undefined;
+			if (typeof manifest === 'object' && typeof manifest.name === 'string') members.add(directory);
 		}
 	}
 	return [...members].sort();
