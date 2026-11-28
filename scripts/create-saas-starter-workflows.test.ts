@@ -117,6 +117,8 @@ const SELECTOR_ASSIGNMENT = /^(?:runner|test)_pattern='/;
 const TEST_NAME_OPTION = / -t '[^']*'$/;
 const ROOT_TEST_FILE = /^scripts\/[\w./-]+\.test\.ts$/;
 
+const GENERATED_PROJECT_FIXTURES = 'scripts/__fixtures__/template-setup/';
+
 const READ_FROM_THE_CHECKOUT = {
 	'scripts/create-saas-starter.integration.test.ts': [
 		'scripts/__fixtures__/template-setup/package.json',
@@ -242,7 +244,7 @@ function sourcesImportedFrom(seeds: readonly string[]): string[] {
 	for (let file = pending.pop(); file !== undefined; file = pending.pop()) {
 		if (sources.has(file)) continue;
 		sources.add(file);
-		if (!file.endsWith('.ts')) continue;
+		if (!file.endsWith('.ts') || file.startsWith(GENERATED_PROJECT_FIXTURES)) continue;
 		for (const { fileName } of ts.preProcessFile(read(file), true, true).importedFiles) {
 			if (!fileName.startsWith('.')) continue;
 			const target = path.posix.join(path.posix.dirname(file), fileName);
@@ -264,9 +266,9 @@ function inputsOf(tests: readonly GuardedRootTest[]): string[] {
 			...toolingTestSettings.setupFiles.map((file) =>
 				path.relative(REPOSITORY_ROOT, file).split(path.sep).join('/')
 			),
-			...tests
-		]),
-		...tests.flatMap((test) => READ_FROM_THE_CHECKOUT[test])
+			...tests,
+			...tests.flatMap((test) => READ_FROM_THE_CHECKOUT[test])
+		])
 	];
 }
 
