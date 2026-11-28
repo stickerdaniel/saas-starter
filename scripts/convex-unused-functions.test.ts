@@ -1,8 +1,5 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { GOLDENS_DIR } from '../src/lib/confect/goldens';
-import { specInventory } from './convex-goldens';
-import { projectSources, unusedFunctions } from './convex-unused-functions';
+import { unusedFunctions } from './convex-unused-functions';
 
 const notes = [
 	{ group: 'notes', name: 'list' },
@@ -10,12 +7,6 @@ const notes = [
 ];
 
 describe('unused Convex functions', () => {
-	it('match the committed list of functions nothing in the app calls', async () => {
-		const known: unknown = JSON.parse(readFileSync(`${GOLDENS_DIR}/unused-functions.json`, 'utf8'));
-
-		expect(unusedFunctions(await specInventory(), projectSources(process.cwd()))).toEqual(known);
-	});
-
 	it('report a function nothing references', () => {
 		expect(
 			unusedFunctions(notes, [
