@@ -81,7 +81,7 @@ describe('Tailwind sources of the app stylesheet', () => {
 		const probe = (directory: string) => {
 			const file = join(checkout, directory, 'probe.svelte');
 			mkdirSync(dirname(file), { recursive: true });
-			writeFileSync(file, '<p class="p-[137px]">Probe</p>\n');
+			writeFileSync(file, '<p class="underline">Probe</p>\n');
 			return file;
 		};
 		const scanned = [probe('src/routes'), probe('src/lib/scratch')];
