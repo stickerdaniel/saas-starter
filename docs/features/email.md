@@ -22,7 +22,7 @@ When a bug hit some customers, you write one plain-text email per language and s
 
 ## HTML templates
 
-HTML templates are Svelte components built from a shadcn-style email component library, with the same variants and design tokens as the app, and are compiled to inline HTML at build time. A snapshot test flags any unintended markup change; see [Email Development](../development.md#email-development).
+HTML templates are Svelte components built from a shadcn-style email component library, with the same variants and design tokens as the app, and are compiled to inline HTML at build time. When the project includes the test suite, a snapshot test flags any unintended markup change; see [Email Development](../development.md#email-development).
 
 ## Where to start in the code
 

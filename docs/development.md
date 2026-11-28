@@ -22,7 +22,7 @@ Every commit is checked automatically. `static-checks:staged` first runs spell c
 
 ## Dead Code Detection
 
-[Knip](https://knip.dev/) is configured for SvelteKit file-system routing and Convex backend entry points. It catches unused exports, stale dependencies, and orphaned files so the codebase stays clean. The unit test `scripts/convex-usage.test.ts` fails when a function in the Confect spec has no `api`, `internal` or Confect `refs` reference outside tests and e2e specs, unless `src/lib/confect/__goldens__/unused-functions.json` lists it. Knip runs as the last lint-group step of `bun scripts/static-checks.ts`, so the pre-push file run and CI's lint job fail on an orphaned file, an unlisted import, or a dependency nothing uses. Unused exports and exported types stay warnings because barrel re-exports and schema types are API surface. The pre-commit hook skips Knip because it reads the whole working tree.
+[Knip](https://knip.dev/) is configured for SvelteKit file-system routing and Convex backend entry points. It catches unused exports, stale dependencies, and orphaned files so the codebase stays clean. When the project includes the test suite, the unit test `scripts/convex-usage.test.ts` fails when a function in the Confect spec has no `api`, `internal` or Confect `refs` reference outside tests and e2e specs, unless `src/lib/confect/__goldens__/unused-functions.json` lists it. Knip runs as the last lint-group step of `bun scripts/static-checks.ts`, so the pre-push file run and CI's lint job fail on an orphaned file, an unlisted import, or a dependency nothing uses. Unused exports and exported types stay warnings because barrel re-exports and schema types are API surface. The pre-commit hook skips Knip because it reads the whole working tree.
 
 ## Bundle Analysis
 
@@ -42,4 +42,4 @@ Renovate groups non-major updates into a single PR and creates separate PRs for 
 
 ## Email Development
 
-HTML email templates are Svelte components compiled to inline HTML on `postinstall` and during builds. `bun run build:emails` renders each HTML template with mock data, and the snapshot test `src/lib/emails/__tests__/email-snapshots.test.ts` catches any unexpected markup change.
+HTML email templates are Svelte components compiled to inline HTML on `postinstall` and during builds. `bun run build:emails` renders each HTML template with mock data. When the project includes the test suite, the snapshot test `src/lib/emails/__tests__/email-snapshots.test.ts` catches any unexpected markup change.

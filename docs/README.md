@@ -4,6 +4,7 @@ Guides for building a product on this template, from the first local run to prod
 
 ## Guides
 
+- [Introduction](introduction.md): why you can build on it, the feedback loop after launch, and how template updates reach your product.
 - [Getting started](getting-started.md): create a project, run it locally, use a Convex cloud dev deployment, and rebrand it.
 - [Choose an update model](update-models.md): CLI copy, shared-history clone, or fork, and how template changes and fixes travel between them.
 - [Deployment](deployment/README.md): preview deployments per pull request, Cloudflare Workers, Vercel, production, self-hosting, and custom domains.
