@@ -1,10 +1,8 @@
-import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { identifiersIn, namespaceReferencesIn } from './convex-consumer-compat';
 
 type SpecName = { group: string; name: string };
-type Source = { file: string; source: string };
+export type Source = { file: string; source: string };
 
 const USAGE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.svelte']);
 const IGNORED_GROUPS = ['tests', 'localDev'];
@@ -12,7 +10,7 @@ const MODULE_HANDOFF = /\b(?:api|internal)\.((?:[A-Za-z0-9_]+\.)*[A-Za-z0-9_]+)\
 const REFS_IMPORT =
 	/\bimport\s+([A-Za-z_$][\w$]*)\s+from\s+['"][^'"]*_generated\/refs(?:\.[jt]s)?['"]/g;
 
-function countsAsUsage(file: string): boolean {
+export function countsAsUsage(file: string): boolean {
 	return (
 		USAGE_EXTENSIONS.has(path.extname(file)) &&
 		!file.split('/').includes('_generated') &&
@@ -71,16 +69,4 @@ export function unusedFunctions(
 		.map(({ group, name }) => `${group}:${name}`)
 		.filter((identifier) => !used.has(identifier))
 		.sort();
-}
-
-export function projectSources(root: string): Source[] {
-	return execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], {
-		cwd: root,
-		encoding: 'utf8',
-		maxBuffer: 32 * 1024 * 1024
-	})
-		.split('\0')
-		.filter((file) => file !== '' && countsAsUsage(file))
-		.filter((file) => existsSync(path.join(root, file)))
-		.map((file) => ({ file, source: readFileSync(path.join(root, file), 'utf8') }));
 }

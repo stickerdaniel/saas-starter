@@ -40,7 +40,7 @@ function registeredNames(): Map<string, Set<string>> {
 	return registrations;
 }
 
-const functions = await specInventory();
+const functions = await specInventory(path.resolve(import.meta.dirname, '..'));
 const surface = await freshSurfaceOf('src/lib/convex');
 
 const trees: string[] = [];

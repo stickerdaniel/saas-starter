@@ -86,8 +86,10 @@ function specFunctionsOf(group: unknown, groupPath: string): SpecFunction[] {
 	];
 }
 
-export async function specInventory(root = process.cwd()) {
-	const module: unknown = await import(pathToFileURL(path.resolve(root, SPEC_MODULE)).href);
+export async function specInventory(backendDirectory: string) {
+	const module: unknown = await import(
+		pathToFileURL(path.resolve(backendDirectory, SPEC_MODULE)).href
+	);
 	const spec = field(module, 'default');
 	if (!Spec.isSpec(spec)) throw new Error(`convex-goldens: ${SPEC_MODULE} exports no spec`);
 	const functions = specFunctionsOf({ functions: {}, groups: Spec.groups(spec) }, '').sort((a, b) =>
