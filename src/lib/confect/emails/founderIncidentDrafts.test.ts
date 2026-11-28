@@ -8,10 +8,10 @@ import type {
 } from 'convex/server';
 import { convexTest } from 'convex-test';
 import { ConvexError } from 'convex/values';
-import resendSchema from '../../../../node_modules/@convex-dev/resend/dist/component/schema.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { internal } from '../../convex/_generated/api';
 import authSchema from '../../convex-components/betterAuth/schema';
+import { preloadComponent } from '../convexComponents.fixtures';
 import { convexModules, preloadModules } from '../convexTest.modules';
 import { SUPPORTED_LOCALES } from '../i18n/translations';
 import schema from '../../convex/schema';
@@ -35,14 +35,12 @@ const draftApi = internal.emails.founderIncidentDrafts;
 const authModules = await preloadModules(
 	import.meta.glob('../../convex-components/betterAuth/**/*.ts')
 );
-const resendModules = await preloadModules(
-	import.meta.glob('../../../../node_modules/@convex-dev/resend/dist/component/**/*.js')
-);
+const resendComponent = await preloadComponent.resend();
 
 function createHarness() {
 	const t = convexTest(schema, convexModules);
 	t.registerComponent('betterAuth', authSchema, authModules);
-	t.registerComponent('resend', resendSchema, resendModules);
+	resendComponent.register(t);
 	// Enqueue schedules Resend's batch mutation; delivery workers are not executed here.
 	return t;
 }
@@ -136,7 +134,7 @@ async function rows(t: Harness) {
 		drafts: await ctx.db.query('founderIncidentDrafts').take(20),
 		scheduled: await ctx.db.system.query('_scheduled_functions').take(20)
 	}));
-	const component = await inComponent(t, 'resend', resendSchema, async (ctx) => ({
+	const component = await inComponent(t, 'resend', resendComponent.schema, async (ctx) => ({
 		emails: await ctx.db.query('emails').take(20),
 		content: await ctx.db.query('content').take(20),
 		scheduled: await ctx.db.system.query('_scheduled_functions').take(20),

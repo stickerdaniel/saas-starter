@@ -3,15 +3,13 @@
 import type { LanguageModelV4StreamPart } from '@ai-sdk/provider';
 import { MockLanguageModelV4 } from 'ai/test';
 import { convexTest } from 'convex-test';
-import agentSchema from '../../../../../node_modules/@convex-dev/agent/dist/component/schema.js';
-import rateLimiterSchema from '../../../../../node_modules/@convex-dev/rate-limiter/dist/component/schema.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OptimisticLocalStore } from 'convex/browser';
-import { createOptimisticUpdate } from '../../../chat/core/optimistic';
-import { StreamCacheManager } from '../../../chat/core/stream-cache';
-import { redactLanguageModelProviderErrors } from '../../../chat/core/tool-error-redaction';
-import type { MessagesQueryResponse } from '../../../chat/core/types';
-import type { AwaitedTurn } from '../../../chat/core/chat-session-port.svelte.ts';
+import { createOptimisticUpdate } from '../core/optimistic';
+import { StreamCacheManager } from '../core/stream-cache';
+import { redactLanguageModelProviderErrors } from '../core/tool-error-redaction';
+import type { MessagesQueryResponse } from '../core/types';
+import type { AwaitedTurn } from '../core/chat-session-port.svelte.ts';
 import {
 	buildDisplayMessages,
 	decodeStreamingUIMessages,
@@ -21,20 +19,20 @@ import {
 	getNormalizedMessages,
 	getStreamDeltas,
 	hasAwaitedResponseStarted
-} from '../../../chat/ui/streaming-display';
-import { api, components, internal } from '../../../convex/_generated/api';
+} from '../ui/streaming-display';
+import { api, components, internal } from '../../convex/_generated/api';
 // Imported before `convexTest.modules`, which loads every module at once: a
 // module importing `autumn` while this mock still awaits `importOriginal`
 // would receive the original.
-import { checkAndCountUsage, refundUsage } from '../../autumn';
-import type * as Autumn from '../../autumn';
-import authSchema from '../../../convex-components/betterAuth/schema';
-import { convexModules, preloadModules } from '../../convexTest.modules';
-import { AI_CHAT_GENERATION_FAILED_NOTICE } from '../../constants';
-import schema from '../../../convex/schema';
-import { aiChatAgent } from '../agent';
+import { checkAndCountUsage, refundUsage } from '../../confect/autumn';
+import type * as Autumn from '../../confect/autumn';
+import { preloadComponent } from '../../confect/convexComponents.fixtures';
+import { convexModules } from '../../confect/convexTest.modules';
+import { AI_CHAT_GENERATION_FAILED_NOTICE } from '../../confect/constants';
+import schema from '../../convex/schema';
+import { aiChatAgent } from '../../confect/aiChat/agent';
 
-vi.mock('../../autumn', async (importOriginal) => ({
+vi.mock('../../confect/autumn', async (importOriginal) => ({
 	...(await importOriginal<typeof Autumn>()),
 	checkAndCountUsage: vi.fn(),
 	refundUsage: vi.fn()
@@ -65,15 +63,9 @@ aiChatAgent.options.languageModel = redactLanguageModelProviderErrors(
 	})
 );
 
-const agentModules = await preloadModules(
-	import.meta.glob('../../../../../node_modules/@convex-dev/agent/dist/component/**/*.js')
-);
-const rateLimiterModules = await preloadModules(
-	import.meta.glob('../../../../../node_modules/@convex-dev/rate-limiter/dist/component/**/*.js')
-);
-const betterAuthModules = await preloadModules(
-	import.meta.glob('../../../convex-components/betterAuth/**/*.ts')
-);
+const agentComponent = await preloadComponent.agent();
+const rateLimiterComponent = await preloadComponent.rateLimiter();
+const betterAuthComponent = await preloadComponent.betterAuth();
 
 const usage = {
 	inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
@@ -103,9 +95,9 @@ const GENERATION_FAILED = "This reply couldn't be generated.";
 
 async function setup() {
 	const t = convexTest(schema, convexModules);
-	t.registerComponent('agent', agentSchema, agentModules);
-	t.registerComponent('rateLimiter', rateLimiterSchema, rateLimiterModules);
-	t.registerComponent('betterAuth', authSchema, betterAuthModules);
+	agentComponent.register(t);
+	rateLimiterComponent.register(t);
+	betterAuthComponent.register(t);
 
 	const now = Date.now();
 	const user = (await t.mutation(components.betterAuth.adapter.create, {

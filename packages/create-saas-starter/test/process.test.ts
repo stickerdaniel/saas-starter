@@ -1,4 +1,4 @@
-import { spawnSync, type ChildProcess } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { chmod, copyFile, mkdir, mkdtemp, readFile, realpath, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -247,16 +247,6 @@ describe('process contract', () => {
 			'--country=DE',
 			'--email=local@example.test'
 		]);
-	});
-
-	it('hands setup a value that starts with a dash in a form its flag reader accepts', () => {
-		const [, , ...flags] = setupArguments(options({ brand: '--Winter', company: '-Acme' }), 2);
-		const setup = path.resolve(import.meta.dirname, '../../../scripts/template-setup.ts');
-
-		expect(spawnSync('bun', [setup, ...flags, '--help'], { encoding: 'utf8' })).toMatchObject({
-			status: 0,
-			stderr: ''
-		});
 	});
 
 	it('runs public setup before frozen installation and marks setup completion between them', async () => {

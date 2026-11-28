@@ -1,13 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushSync, mount, tick, unmount } from 'svelte';
-import type * as Svelte from 'svelte';
 import ReactiveTable from './test-fixtures/ReactiveTable.svelte';
 import DefaultTextTable, { type TextTableOptions } from './test-fixtures/DefaultTextTable.svelte';
 import NameCell from './test-fixtures/NameCell.svelte';
 import { renderComponent, renderTextCell } from './index.js';
 
-vi.mock('svelte', () =>
-	vi.importActual<typeof Svelte>('../../../../../node_modules/svelte/src/index-client.js')
+vi.mock('svelte', async () =>
+	(await import('../test-fixtures/svelte-client')).importSvelteClient()
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
 let table: ReturnType<typeof ReactiveTable> | undefined;

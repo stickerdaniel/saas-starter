@@ -1,32 +1,27 @@
 // @vitest-environment node
 /// <reference types="vite/client" />
 import { convexTest } from 'convex-test';
-import agentSchema from '../../../../node_modules/@convex-dev/agent/dist/component/schema.js';
-import rateLimiterSchema from '../../../../node_modules/@convex-dev/rate-limiter/dist/component/schema.js';
 import { ConvexError } from 'convex/values';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { api, components, internal } from '../../convex/_generated/api';
 import type { Doc } from '../../convex/_generated/dataModel';
 import schema from '../../convex/schema';
 import authSchema from '../../convex-components/betterAuth/schema';
+import { preloadComponent } from '../convexComponents.fixtures';
 import { convexModules, preloadModules } from '../convexTest.modules';
 import { SUPPORT_ERROR_CODES, createSupportError } from './errors';
 
 const betterAuthModules = await preloadModules(
 	import.meta.glob('../../convex-components/betterAuth/**/*.ts')
 );
-const agentModules = await preloadModules(
-	import.meta.glob('../../../../node_modules/@convex-dev/agent/dist/component/**/*.js')
-);
-const rateLimiterModules = await preloadModules(
-	import.meta.glob('../../../../node_modules/@convex-dev/rate-limiter/dist/component/**/*.js')
-);
+const agentComponent = await preloadComponent.agent();
+const rateLimiterComponent = await preloadComponent.rateLimiter();
 
 const harness = () => {
 	const t = convexTest(schema, convexModules);
 	t.registerComponent('betterAuth', authSchema, betterAuthModules);
-	t.registerComponent('agent', agentSchema, agentModules);
-	t.registerComponent('rateLimiter', rateLimiterSchema, rateLimiterModules);
+	agentComponent.register(t);
+	rateLimiterComponent.register(t);
 	return t;
 };
 type Harness = ReturnType<typeof harness>;

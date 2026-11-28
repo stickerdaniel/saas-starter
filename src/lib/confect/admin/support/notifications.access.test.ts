@@ -1,12 +1,12 @@
 // @vitest-environment node
 /// <reference types="vite/client" />
 import { convexTest } from 'convex-test';
-import agentSchema from '../../../../../node_modules/@convex-dev/agent/dist/component/schema.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { components, internal } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import schema from '../../../convex/schema';
-import { convexModules, preloadModules } from '../../convexTest.modules';
+import { preloadComponent } from '../../convexComponents.fixtures';
+import { convexModules } from '../../convexTest.modules';
 
 vi.mock('../../emails/resend', async (importOriginal) => ({
 	...(await importOriginal<Record<string, unknown>>()),
@@ -16,9 +16,7 @@ vi.mock('../../emails/resend', async (importOriginal) => ({
 	})
 }));
 
-const agentModules = await preloadModules(
-	import.meta.glob('../../../../../node_modules/@convex-dev/agent/dist/component/**/*.js')
-);
+const agentComponent = await preloadComponent.agent();
 
 const START = Date.UTC(2030, 0, 1);
 const MINUTE = 60 * 1000;
@@ -31,7 +29,7 @@ const CLEANUP = 'admin/support/notificationDelivery:cleanupReceipts';
 
 const harness = () => {
 	const t = convexTest(schema, convexModules);
-	t.registerComponent('agent', agentSchema, agentModules);
+	agentComponent.register(t);
 	return t;
 };
 type Harness = ReturnType<typeof harness>;

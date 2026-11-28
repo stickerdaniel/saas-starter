@@ -1,9 +1,12 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
+import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
+import toolingConfig from '../vitest.tooling.config.ts';
+import { toolingTestSettings } from './vitest-settings.ts';
 
-const REPOSITORY_ROOT = path.resolve(import.meta.dirname, '../../..');
+const REPOSITORY_ROOT = path.resolve(import.meta.dirname, '..');
 
 const SETUP_NODE = 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1';
 const DOWNLOAD_ARTIFACT = 'actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333';
@@ -108,7 +111,145 @@ function expectCredentialIsolatedRelease({ permissions, jobs }: ReleaseWorkflow)
 	}
 }
 
+const ROOT_TESTS_RUN = 'bun vitest --config vitest.tooling.config.ts --run ';
+const PACKAGE_TESTS_RUN = 'bun run --cwd packages/create-saas-starter vitest --run ';
+const SELECTOR_ASSIGNMENT = /^(?:runner|test)_pattern='/;
+const TEST_NAME_OPTION = / -t '[^']*'$/;
+const ROOT_TEST_FILE = /^scripts\/[\w.-]+\.test\.ts$/;
+
+const READ_FROM_THE_CHECKOUT = {
+	'scripts/create-saas-starter.integration.test.ts': [
+		'scripts/__fixtures__/template-setup/package.json',
+		'scripts/__fixtures__/template-setup/bun.lock',
+		'scripts/__fixtures__/template-setup/README.md',
+		'scripts/__fixtures__/template-setup/wrangler.toml',
+		'scripts/__fixtures__/template-setup/src/lib/config/legal.ts',
+		'scripts/__fixtures__/template-setup/src/lib/config/site.ts',
+		'scripts/__fixtures__/template-setup/src/lib/content/legal-content-dates.ts',
+		'scripts/template-setup.ts',
+		'scripts/export-profile.ts',
+		'scripts/path-sets.ts',
+		'src/lib/content/legal-metadata.ts',
+		'static/manifest.webmanifest',
+		'src/app.html'
+	],
+	'scripts/create-saas-starter-marker-format.test.ts': ['.prettierrc', '.prettierignore'],
+	'scripts/create-saas-starter-release-gate.test.ts': [
+		'packages/create-saas-starter/package.json',
+		'packages/create-saas-starter/src/options.ts',
+		'.github/workflows/create-saas-starter.yml'
+	],
+	'scripts/create-saas-starter-workflows.test.ts': [
+		'.github/workflows/create-saas-starter.yml',
+		'.github/workflows/static-checks.yml',
+		'.github/workflows/windows-process-lifecycle.yml'
+	]
+} as const satisfies Record<string, readonly string[]>;
+
+type RootCreatorTest = keyof typeof READ_FROM_THE_CHECKOUT;
+
+const CREATOR_WORKFLOW_TESTS = Object.keys(READ_FROM_THE_CHECKOUT) as RootCreatorTest[];
+const WINDOWS_JOB_TESTS: RootCreatorTest[] = ['scripts/create-saas-starter.integration.test.ts'];
+
+interface WorkflowSteps {
+	jobs: Record<string, { steps?: Array<{ run?: string }> }>;
+}
+
+function rootTests(workflow: WorkflowSteps): string[] {
+	return Object.values(workflow.jobs)
+		.flatMap((job) => job.steps ?? [])
+		.flatMap((step) => step.run?.split('\n') ?? [])
+		.map((command) => command.trim())
+		.filter(
+			(command) =>
+				command.includes('vitest') &&
+				!command.startsWith(PACKAGE_TESTS_RUN) &&
+				!SELECTOR_ASSIGNMENT.test(command)
+		)
+		.flatMap((command) => {
+			expect(command.startsWith(ROOT_TESTS_RUN), command).toBe(true);
+			const files = command.slice(ROOT_TESTS_RUN.length).replace(TEST_NAME_OPTION, '').split(' ');
+			for (const file of files) expect(file, command).toMatch(ROOT_TEST_FILE);
+			return files;
+		});
+}
+
+function isFile(relative: string): boolean {
+	return (
+		statSync(path.join(REPOSITORY_ROOT, relative), { throwIfNoEntry: false })?.isFile() ?? false
+	);
+}
+
+function sourcesImportedFrom(seeds: readonly string[]): string[] {
+	const sources = new Set<string>();
+	const pending = [...seeds];
+	for (let file = pending.pop(); file !== undefined; file = pending.pop()) {
+		if (sources.has(file)) continue;
+		sources.add(file);
+		if (!file.endsWith('.ts')) continue;
+		for (const { fileName } of ts.preProcessFile(read(file), true, true).importedFiles) {
+			if (!fileName.startsWith('.')) continue;
+			const target = path.posix.join(path.posix.dirname(file), fileName);
+			const source = [target, target.replace(/\.js$/, '.ts'), `${target}.ts`].find(isFile);
+			if (source === undefined) throw new Error(`${file} imports ${fileName}, which is no file`);
+			pending.push(source);
+		}
+	}
+	return [...sources];
+}
+
+function inputsOf(tests: readonly RootCreatorTest[]): string[] {
+	const { tsconfig } = toolingConfig;
+	if (tsconfig === undefined) throw new Error('vitest.tooling.config.ts names no tsconfig');
+	return [
+		path.posix.normalize(tsconfig),
+		...sourcesImportedFrom([
+			'vitest.tooling.config.ts',
+			...toolingTestSettings.setupFiles.map((file) =>
+				path.relative(REPOSITORY_ROOT, file).split(path.sep).join('/')
+			),
+			...tests
+		]),
+		...tests.flatMap((test) => READ_FROM_THE_CHECKOUT[test])
+	];
+}
+
+function selects(paths: readonly string[], input: string): boolean {
+	return paths.some((entry) =>
+		entry.endsWith('/**') ? input.startsWith(entry.slice(0, -2)) : entry === input
+	);
+}
+
 describe('creator workflows', () => {
+	it('starts the creator workflow and the Windows job on every input of the root creator tests', () => {
+		const creator = parseYaml(
+			read('.github/workflows/create-saas-starter.yml')
+		) as WorkflowSteps & {
+			on: { push: { paths: string[] }; pull_request: { paths: string[] } };
+		};
+		expect(rootTests(creator)).toEqual(CREATOR_WORKFLOW_TESTS);
+		for (const input of inputsOf(CREATOR_WORKFLOW_TESTS)) {
+			expect(isFile(input), `a file: ${input}`).toBe(true);
+			expect(selects(creator.on.push.paths, input), `push: ${input}`).toBe(true);
+			expect(selects(creator.on.pull_request.paths, input), `pull_request: ${input}`).toBe(true);
+		}
+
+		const windows = read('.github/workflows/windows-process-lifecycle.yml');
+		const selectsWindows = windows.match(/^ {10}runner_pattern='([^']+)'$/m)?.[1];
+		const runsTests = windows.match(/^ {10}test_pattern='([^']+)'$/m)?.[1];
+		expect(
+			rootTests(parseYaml(windows) as WorkflowSteps).filter(
+				(test) => test in READ_FROM_THE_CHECKOUT
+			)
+		).toEqual(WINDOWS_JOB_TESTS);
+		expect(selectsWindows).toBeDefined();
+		expect(runsTests).toBeDefined();
+		for (const input of inputsOf(WINDOWS_JOB_TESTS)) {
+			expect(new RegExp(selectsWindows!).test(input), `native runner: ${input}`).toBe(true);
+			expect(new RegExp(runsTests!).test(input), `tests: ${input}`).toBe(true);
+		}
+	});
+
 	it('requires the release gate test only on the entry with the release npm', () => {
 		type Step = {
 			uses?: string;
@@ -147,8 +288,11 @@ describe('creator workflows', () => {
 			expect.objectContaining({ node: releaseNode, artifact: true, release_gate_test: 'required' })
 		]);
 		expect(
-			verify.steps.find((step) => step.run === 'bun run --cwd packages/create-saas-starter test')
-				?.env
+			verify.steps.find(
+				(step) =>
+					step.run ===
+					'bun vitest --config vitest.tooling.config.ts --run scripts/create-saas-starter.integration.test.ts scripts/create-saas-starter-marker-format.test.ts scripts/create-saas-starter-release-gate.test.ts scripts/create-saas-starter-workflows.test.ts'
+			)?.env
 		).toEqual({ CREATE_SAAS_STARTER_RELEASE_GATE_TEST: '${{ matrix.release_gate_test }}' });
 	});
 

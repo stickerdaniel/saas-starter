@@ -46,7 +46,7 @@ describe('the tests set', () => {
 			'.github/workflows/reduced-export.yml': true,
 			'.github/workflows/windows-process-lifecycle.yml': true,
 			'.github/workflows/static-checks.yml': false,
-			'packages/create-saas-starter/test/release-gate.test.ts': true,
+			'packages/create-saas-starter/test/target.test.ts': true,
 			'scripts/check-reduced-export.ts': true,
 			'scripts/export-profile.ts': false,
 			'src/lib/confect/admin/auditLog/queries.test.ts': true,

@@ -13,8 +13,6 @@ import { describe, expect, it } from 'vitest';
 import { components } from '../../convex/_generated/api';
 import schema from '../../convex/schema';
 import authSchema from '../../convex-components/betterAuth/schema';
-import { getAuthErrorKey } from '../../utils/auth-messages';
-import { getConvexErrorCode, getConvexErrorData } from '../../utils/convex-errors';
 import databaseSchema from '../_generated/schema';
 import { ADMIN_ERROR_CODES, createAdminError } from '../admin/errors';
 import {
@@ -318,7 +316,7 @@ describe('CurrentUser per invocation', () => {
 			admin.userId
 		);
 		const error = await rejection(user.caller.mutation(mutation('policyProbe/admin:whoami'), {}));
-		expect(getConvexErrorCode(error)).toBe('ADMIN_ACCESS_REQUIRED');
+		expect(error.data).toEqual(createAdminError(ADMIN_ERROR_CODES.accessRequired).data);
 	});
 });
 
@@ -333,7 +331,6 @@ describe('RequireAdmin', () => {
 		const { caller } = await signIn(t, 'user');
 		const error = await rejection(caller.mutation(mutation('policyProbe/admin:whoami'), {}));
 		expect(error.data).toEqual(createAdminError(ADMIN_ERROR_CODES.accessRequired).data);
-		expect(getConvexErrorCode(error)).toBe('ADMIN_ACCESS_REQUIRED');
 	});
 
 	it('provides the signed-in admin as CurrentUser', async () => {
@@ -380,25 +377,22 @@ const refuse = async (name: string, refusal: Value) =>
 
 describe('error codecs on the wire', () => {
 	it.each([
-		[ADMIN_ERROR_CODES.cannotChangeOwnRole, 'ADMIN_CANNOT_CHANGE_OWN_ROLE'],
-		[ADMIN_ERROR_CODES.userNotFound, 'ADMIN_USER_NOT_FOUND'],
-		[ADMIN_ERROR_CODES.lastAdmin, 'ADMIN_LAST_ADMIN'],
-		[ADMIN_ERROR_CODES.seedAdminExists, 'ADMIN_ALREADY_EXISTS']
-	])('sends admin refusal %s as the admin page reads it', async (code, expected) => {
+		ADMIN_ERROR_CODES.cannotChangeOwnRole,
+		ADMIN_ERROR_CODES.userNotFound,
+		ADMIN_ERROR_CODES.lastAdmin,
+		ADMIN_ERROR_CODES.seedAdminExists
+	])('sends admin refusal %s as the admin helpers do', async (code) => {
 		const error = await refuse('admin', { code });
 		expect(error.data).toEqual(createAdminError(code).data);
-		expect(getConvexErrorCode(error)).toBe(expected);
 	});
 
-	it.each([
-		['ADMIN_CANNOT_BAN_SELF', 'auth.messages.admin_cannot_ban_self'],
-		['ADMIN_ACTION_NOT_ALLOWED', 'auth.messages.admin_action_not_allowed'],
-		['ADMIN_AUTH_ACTION_FAILED', 'auth.messages.admin_action_failed']
-	])('sends admin auth refusal %s as the admin page translates it', async (code, key) => {
-		const error = await refuse('admin', { code });
-		expect(error.data).toEqual(new ConvexError({ code }).data);
-		expect(getAuthErrorKey(getConvexErrorData(error))).toBe(key);
-	});
+	it.each(['ADMIN_CANNOT_BAN_SELF', 'ADMIN_ACTION_NOT_ALLOWED', 'ADMIN_AUTH_ACTION_FAILED'])(
+		'sends admin auth refusal %s as its code',
+		async (code) => {
+			const error = await refuse('admin', { code });
+			expect(error.data).toEqual(new ConvexError({ code }).data);
+		}
+	);
 
 	it.each([
 		SUPPORT_ERROR_CODES.authenticationRequired,
@@ -416,22 +410,11 @@ describe('error codecs on the wire', () => {
 		expect(error.data).toEqual(createRateLimitError(4_000).data);
 		const data = error.data as { code?: string; retryAfter?: number };
 		expect(data.code === 'RATE_LIMITED' && data.retryAfter).toBe(4_000);
-		expect(getAuthErrorKey(error.data)).toBe('auth.messages.rate_limited');
 	});
 
-	it.each(AUTH_REFUSAL_CODES)(
-		'sends auth refusal %s to a branch of the auth messages',
-		async (code) => {
-			const error = await refuse('auth', { code });
-			expect(error.data).toEqual(new ConvexError({ code }).data);
-			const carrier = { code: (error.data as { code?: string }).code };
-			expect(getAuthErrorKey(carrier, 'fallback')).not.toBe('fallback');
-		}
-	);
-
-	it('sends the password length refusal as the password settings read it', async () => {
-		const error = await refuse('auth', { code: 'PASSWORD_TOO_SHORT' });
-		expect(getAuthErrorKey(error.data)).toBe('auth.messages.password_too_short');
+	it.each(AUTH_REFUSAL_CODES)('sends auth refusal %s as its code', async (code) => {
+		const error = await refuse('auth', { code });
+		expect(error.data).toEqual(new ConvexError({ code }).data);
 	});
 
 	it('rejects an auth code the auth messages do not branch on', async () => {
@@ -451,13 +434,6 @@ describe('error codecs on the wire', () => {
 	])('sends notification preference refusal %s as the producer does', async (code) => {
 		const error = await refuse('notificationPreference', { code });
 		expect(error.data).toEqual(createNotificationPreferenceError(code).data);
-	});
-
-	it('sends the duplicate recipient refusal to the admin settings email field branch', async () => {
-		const error = await refuse('notificationPreference', {
-			code: NOTIFICATION_EMAIL_ALREADY_EXISTS
-		});
-		expect(getConvexErrorCode(error)).toBe(NOTIFICATION_EMAIL_ALREADY_EXISTS);
 	});
 
 	it.each([

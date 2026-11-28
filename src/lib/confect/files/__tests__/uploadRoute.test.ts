@@ -1,8 +1,6 @@
 // @vitest-environment node
 /// <reference types="vite/client" />
 import { convexTest } from 'convex-test';
-import agentSchema from '../../../../../node_modules/@convex-dev/agent/dist/component/schema.js';
-import rateLimiterSchema from '../../../../../node_modules/@convex-dev/rate-limiter/dist/component/schema.js';
 import filesControl from '@gilhrpenner/convex-files-control/test';
 import {
 	actionGeneric,
@@ -17,6 +15,7 @@ import { api, components } from '../../../convex/_generated/api';
 import schema from '../../../convex/schema';
 import authSchema from '../../../convex-components/betterAuth/schema';
 import { allowedMimeTypes, UPLOAD_PROFILES } from '../../../uploads/profiles';
+import { preloadComponent } from '../../convexComponents.fixtures';
 import { convexModules, preloadModules } from '../../convexTest.modules';
 import type { Id } from '../../../convex/_generated/dataModel';
 import { UPLOAD_BODY_DEADLINE_MS, type UploadPurpose } from '../uploadRoute';
@@ -78,12 +77,8 @@ filesControl.modules[cleanUpModulePath] = async () => ({
 const betterAuthModules = await preloadModules(
 	import.meta.glob('../../../convex-components/betterAuth/**/*.ts')
 );
-const rateLimiterModules = await preloadModules(
-	import.meta.glob('../../../../../node_modules/@convex-dev/rate-limiter/dist/component/**/*.js')
-);
-const agentModules = await preloadModules(
-	import.meta.glob('../../../../../node_modules/@convex-dev/agent/dist/component/**/*.js')
-);
+const rateLimiterComponent = await preloadComponent.rateLimiter();
+const agentComponent = await preloadComponent.agent();
 
 const DAY = 24 * 60 * 60 * 1000;
 const SITE_ORIGIN = 'https://example.test';
@@ -122,8 +117,8 @@ const failingRecordModules = {
 const harness = (modules = convexModules) => {
 	const t = convexTest(schema, modules);
 	t.registerComponent('betterAuth', authSchema, betterAuthModules);
-	t.registerComponent('rateLimiter', rateLimiterSchema, rateLimiterModules);
-	t.registerComponent('agent', agentSchema, agentModules);
+	rateLimiterComponent.register(t);
+	agentComponent.register(t);
 	filesControl.register(t);
 	return t;
 };

@@ -9,13 +9,17 @@ vi.mock('#lib/confect/env.js', () => ({
 	})
 }));
 
-import { nestEmailDarkRules, nestEmailDarkStyles, sanitizeEmailCss } from '../email-css';
+import {
+	nestEmailDarkRules,
+	nestEmailDarkStyles,
+	sanitizeEmailCss
+} from '#lib/emails/email-css.js';
 import { STATIC_TRANSLATIONS, SUPPORTED_LOCALES } from '#lib/i18n/static-translations.generated.js';
 import type {
 	NewUserSignupNotificationEmailData,
 	RenderedEmail,
 	SupportRateLimitAlertEmailData
-} from '../templates/types';
+} from '#lib/emails/templates/types.js';
 import { LEGAL_CONFIG } from '#lib/config/legal.js';
 import {
 	renderVerificationEmail,

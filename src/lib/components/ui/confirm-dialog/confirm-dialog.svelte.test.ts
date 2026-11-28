@@ -1,10 +1,9 @@
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { flushSync, mount, unmount } from 'svelte';
-import type * as Svelte from 'svelte';
-import en from '../../../../i18n/en.json';
+import { en } from '../test-fixtures/catalog';
 
-vi.mock('svelte', () =>
-	vi.importActual<typeof Svelte>('../../../../../node_modules/svelte/src/index-client.js')
+vi.mock('svelte', async () =>
+	(await import('../test-fixtures/svelte-client')).importSvelteClient()
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
 vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: () => {} } }));

@@ -1,11 +1,10 @@
 import { mount, tick, unmount } from 'svelte';
-import type * as Svelte from 'svelte';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import PasswordHarness from './test-fixtures/PasswordHarness.svelte';
 
 // Mount with the real client runtime; Vitest otherwise resolves Svelte's server entry.
-vi.mock('svelte', () =>
-	vi.importActual<typeof Svelte>('../../../../../node_modules/svelte/src/index-client.js')
+vi.mock('svelte', async () =>
+	(await import('../test-fixtures/svelte-client')).importSvelteClient()
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
 

@@ -11,15 +11,12 @@ import {
 } from 'convex/server';
 import { ConvexError } from 'convex/values';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import agentSchema from '../../../node_modules/@convex-dev/agent/dist/component/schema.js';
-import rateLimiterSchema from '../../../node_modules/@convex-dev/rate-limiter/dist/component/schema.js';
-import resendSchema from '../../../node_modules/@convex-dev/resend/dist/component/schema.js';
-import filesControlSchema from '../../../node_modules/@gilhrpenner/convex-files-control/dist/component/schema.js';
 import { goldenText } from './goldens';
 import { components } from '../convex/_generated/api';
 import authSchema from '../convex-components/betterAuth/schema';
 import schema from '../convex/schema';
 import { getCounters } from './admin/counters';
+import { preloadComponent } from './convexComponents.fixtures';
 import { convexModules, preloadModules } from './convexTest.modules';
 import { resend } from './emails/resend';
 
@@ -50,22 +47,14 @@ vi.mock('@convex-dev/better-auth', async (importOriginal) => {
 	};
 });
 
-const componentModules = {
-	betterAuth: await preloadModules(import.meta.glob('../convex-components/betterAuth/**/*.ts')),
-	rateLimiter: await preloadModules(
-		import.meta.glob('../../../node_modules/@convex-dev/rate-limiter/dist/component/**/*.js')
-	),
-	resend: await preloadModules(
-		import.meta.glob('../../../node_modules/@convex-dev/resend/dist/component/**/*.js')
-	),
-	agent: await preloadModules(
-		import.meta.glob('../../../node_modules/@convex-dev/agent/dist/component/**/*.js')
-	),
-	convexFilesControl: await preloadModules(
-		import.meta.glob(
-			'../../../node_modules/@gilhrpenner/convex-files-control/dist/component/**/*.js'
-		)
-	)
+const betterAuthModules = await preloadModules(
+	import.meta.glob('../convex-components/betterAuth/**/*.ts')
+);
+const installedComponents = {
+	rateLimiter: await preloadComponent.rateLimiter(),
+	resend: await preloadComponent.resend(),
+	agent: await preloadComponent.agent(),
+	convexFilesControl: await preloadComponent.convexFilesControl()
 };
 
 const NATIVE = '../convex/';
@@ -210,15 +199,8 @@ async function settle(call: () => Promise<unknown>): Promise<string> {
 
 function harness(extraModules: Record<string, () => Promise<unknown>> = {}) {
 	const t = convexTest(schema, { ...convexModules, ...extraModules });
-	t.registerComponent('betterAuth', authSchema, componentModules.betterAuth);
-	t.registerComponent('rateLimiter', rateLimiterSchema, componentModules.rateLimiter);
-	t.registerComponent('resend', resendSchema, componentModules.resend);
-	t.registerComponent('agent', agentSchema, componentModules.agent);
-	t.registerComponent(
-		'convexFilesControl',
-		filesControlSchema,
-		componentModules.convexFilesControl
-	);
+	t.registerComponent('betterAuth', authSchema, betterAuthModules);
+	for (const component of Object.values(installedComponents)) component.register(t);
 	return t;
 }
 

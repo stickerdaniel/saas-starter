@@ -16,14 +16,13 @@
  */
 
 import { mount, tick, unmount } from 'svelte';
-import type * as Svelte from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { startThemeReveal } from './theme-reveal';
 import ThemeRevealHarness from './test-fixtures/ThemeRevealHarness.svelte';
 
 // Vitest resolves Svelte's server entry by default; use its real client runtime for mounting.
-vi.mock('svelte', () =>
-	vi.importActual<typeof Svelte>('../../../../../node_modules/svelte/src/index-client.js')
+vi.mock('svelte', async () =>
+	(await import('../test-fixtures/svelte-client')).importSvelteClient()
 );
 vi.mock('esm-env', () => ({ BROWSER: true, DEV: true }));
 vi.mock('#lib/hooks/use-haptic.svelte.ts', () => ({ haptic: { trigger: vi.fn() } }));

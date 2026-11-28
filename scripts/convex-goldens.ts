@@ -384,18 +384,40 @@ export async function apiTypeFixture(root = process.cwd()): Promise<string> {
 	const checker = program.getTypeChecker();
 	const sourceFile = program.getSourceFile(fixture);
 	if (!sourceFile) throw new Error(`convex-goldens: could not compile ${API_TYPES_FIXTURE}`);
+	const flags =
+		ts.TypeFormatFlags.NoTruncation |
+		ts.TypeFormatFlags.InTypeAlias |
+		ts.TypeFormatFlags.UseSingleQuotesForStringLiteralType;
+	const installedAlias = (modulePath: string, name: string): string => {
+		const file = `${path.resolve(path.dirname(fixture), modulePath)}.d.ts`;
+		const declaration = program
+			.getSourceFile(ts.sys.realpath?.(file) ?? file)
+			?.statements.find(
+				(statement): statement is ts.TypeAliasDeclaration =>
+					ts.isTypeAliasDeclaration(statement) &&
+					statement.name.text === name &&
+					statement.typeParameters === undefined
+			);
+		if (!declaration) {
+			throw new Error(`convex-goldens: cannot print ${name} of ${modulePath} without its path`);
+		}
+		return checker.typeToString(checker.getTypeAtLocation(declaration.name), declaration, flags);
+	};
+	const withoutInstallPaths = (type: string): string => {
+		const structural = type.replace(
+			/import\("([^"]*\/node_modules\/[^"]*)"\)\.(\w+)/g,
+			(_, modulePath: string, name: string) => installedAlias(modulePath, name)
+		);
+		return structural === type ? type : withoutInstallPaths(structural);
+	};
 	const printed = new Map<string, string>();
 	for (const statement of sourceFile.statements) {
 		if (!ts.isTypeAliasDeclaration(statement) || !statement.name.text.startsWith('Golden'))
 			continue;
 		printed.set(
 			statement.name.text,
-			checker.typeToString(
-				checker.getTypeAtLocation(statement.name),
-				statement,
-				ts.TypeFormatFlags.NoTruncation |
-					ts.TypeFormatFlags.InTypeAlias |
-					ts.TypeFormatFlags.UseSingleQuotesForStringLiteralType
+			withoutInstallPaths(
+				checker.typeToString(checker.getTypeAtLocation(statement.name), statement, flags)
 			)
 		);
 	}
