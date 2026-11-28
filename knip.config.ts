@@ -27,6 +27,8 @@ export default {
 		'eslint/shadcn-policy.js',
 		'scripts/*.ts',
 		'scripts/english-policy/pr-metadata.ts',
+		// The move generator, which the move deletes with its inputs.
+		'scripts/layout/apply.ts',
 		...e2eFiles,
 		'src/lib/server/test-fixtures/*.ts',
 		// The unit harness that tests import: every project keeps it, with or without tests.

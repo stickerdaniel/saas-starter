@@ -532,7 +532,14 @@ export const BASE_RULES: ReadonlyArray<MoveRule<StarterWorkspace>> = [
 
 	...stay('eslint-plugin', ['packages/eslint-plugin/']),
 	...stay('create-saas-starter', ['packages/create-saas-starter/']),
-	{ from: 'packages/create-saas-starter/bun.lock', to: null, owner: 'create-saas-starter' }
+	{ from: 'packages/create-saas-starter/bun.lock', to: null, owner: 'create-saas-starter' },
+
+	{ from: 'scripts/layout/', to: null, owner: 'root' },
+	{
+		from: '.agents/skills/upstream-sync/scripts/workspace-boundary.test.ts',
+		to: null,
+		owner: 'root'
+	}
 ];
 
 export interface Placement<O extends Owner = Owner> {
