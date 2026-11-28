@@ -1,6 +1,5 @@
+env = false
+
 [install]
 linker = "isolated"
 minimumReleaseAge = 259200
-
-[run]
-env = false

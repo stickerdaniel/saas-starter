@@ -688,8 +688,7 @@ function worktreeRegistrationExists(directory: string): boolean {
  * removal changes nothing a later command can read; throwing here would discard an answer
  * the checker already computed and replace the diagnostic that preceded it. The child
  * ignores stdio, so a caller waiting for this process's output does not also wait for the
- * deletion, and runs in the temporary directory, so Bun loads no project `bunfig.toml` or
- * `.env` for it.
+ * deletion, and runs in the temporary directory, so Bun loads no project `bunfig.toml` for it.
  */
 function removeAfterExit(directory: string): void {
 	const removeNow = (): void => {

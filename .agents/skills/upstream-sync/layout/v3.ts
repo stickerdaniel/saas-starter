@@ -245,6 +245,7 @@ const BACKEND_SCRIPTS = [
 
 const ROOT_SCRIPTS = [
 	'AGENTS.md',
+	'bun-dotenv-loader.test.ts',
 	'check-english.ts',
 	'check-english.test.ts',
 	'check-pr-title.ts',
