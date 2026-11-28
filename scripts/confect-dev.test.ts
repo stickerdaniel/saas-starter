@@ -5,6 +5,7 @@ import {
 	mkdtempSync,
 	readFileSync,
 	rmSync,
+	symlinkSync,
 	watch,
 	writeFileSync
 } from 'node:fs';
@@ -285,6 +286,35 @@ describe('restart notice', () => {
 			'config/nested.config.js changed. Restart the dev server to apply it.'
 		]);
 		expect(requests).toBe(0);
+	});
+
+	it('names a restart file below the checkout when a symlink spells the root', async () => {
+		const root = checkout();
+		const alias = `${root}-alias`;
+		const launcherConfig = path.join(root, 'launcher.config.ts');
+		write(root, 'launcher.config.ts', 'export default {};\n');
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		const logs: string[] = [];
+		symlinkSync(root, alias, 'dir');
+		try {
+			const watcher = watchCheckoutForRuns({
+				root: alias,
+				restartFiles: [launcherConfig],
+				request: () => {},
+				log: (line) => logs.push(line)
+			});
+			try {
+				await new Promise((resolve) => setTimeout(resolve, 20));
+				writeFileSync(launcherConfig, 'export default { a: 1 };\n');
+				await until(() => logs.length >= 1);
+			} finally {
+				watcher.close();
+			}
+		} finally {
+			rmSync(alias);
+		}
+
+		expect(logs).toEqual(['launcher.config.ts changed. Restart the dev server to apply it.']);
 	});
 });
 
