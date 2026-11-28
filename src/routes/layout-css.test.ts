@@ -1,7 +1,21 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+	copyFileSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	realpathSync,
+	rmSync,
+	symlinkSync,
+	writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import {
+	missingPrimitiveCandidates,
+	primitivesDirectory,
+	scanStylesheet
+} from '#lib/components/ui/test-fixtures/tailwind-scan.js';
 import { emptyCssSources } from '../../scripts/css-sources.ts';
 
 const fixtures: string[] = [];
@@ -50,5 +64,43 @@ describe('Tailwind dependency source paths', () => {
 	it('keeps the app stylesheet dependency sources reachable', () => {
 		const file = join(import.meta.dirname, 'layout.css');
 		expect(emptyCssSources(file, readFileSync(file, 'utf8'))).toEqual([]);
+	});
+});
+
+describe('Tailwind sources of the app stylesheet', () => {
+	it('scans the app, Streamdown and the primitives, and no other part of the checkout', async () => {
+		const checkout = mkdtempSync(join(realpathSync(tmpdir()), 'layout-scan-'));
+		fixtures.push(checkout);
+		mkdirSync(join(checkout, '.git'));
+		const appModules = join(import.meta.dirname, '../../node_modules');
+		symlinkSync(appModules, join(checkout, 'node_modules'));
+		const routes = join(checkout, 'src/routes');
+		mkdirSync(routes, { recursive: true });
+		const entry = join(routes, 'layout.css');
+		copyFileSync(join(import.meta.dirname, 'layout.css'), entry);
+		const probe = (directory: string) => {
+			const file = join(checkout, directory, 'probe.svelte');
+			mkdirSync(dirname(file), { recursive: true });
+			writeFileSync(file, '<p class="p-[137px]">Probe</p>\n');
+			return file;
+		};
+		const scanned = [probe('src/routes'), probe('src/lib/scratch')];
+		const skipped = [
+			probe('src/lib/emails'),
+			probe('scratch'),
+			probe('.claude/worktrees/agent'),
+			probe('scripts')
+		];
+
+		const scan = await scanStylesheet(entry, async (id, base) =>
+			base === routes && id.startsWith('.') ? resolve(import.meta.dirname, id) : undefined
+		);
+
+		const streamdown = realpathSync(join(appModules, 'svelte-streamdown/dist'));
+		expect([...scan.files].some((file) => file.startsWith(`${streamdown}/`))).toBe(true);
+		expect(scan.files).toContain(join(primitivesDirectory, 'card/card.svelte'));
+		expect(missingPrimitiveCandidates(scan)).toEqual([]);
+		expect(scanned.filter((file) => !scan.files.has(file))).toEqual([]);
+		expect(skipped.filter((file) => scan.files.has(file))).toEqual([]);
 	});
 });

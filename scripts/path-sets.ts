@@ -150,6 +150,7 @@ export const pathSets = {
 		devDependencies: [
 			'@axe-core/playwright',
 			'@sentry/core',
+			'@tailwindcss/node',
 			'dom-accessibility-api',
 			'miniflare',
 			'strip-ansi',
