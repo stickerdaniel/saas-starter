@@ -267,6 +267,16 @@
 	}
 }
 
+/* Keeps a fixed element in place while a Bits UI overlay locks page scroll. The lock
+   hides the viewport scrollbar, which widens the box fixed elements are placed in, and
+   pads the body by the scrollbar width it publishes as --scrollbar-width. The margin
+   moves the element's right edge back by that width, so it needs a right inset: right-*
+   or inset-x-*, never w-full alone or a left-1/2 centering. scrollbar-gutter cannot do
+   this, because WebKit ignores it for the styled ::-webkit-scrollbar. */
+@utility scroll-lock-inset {
+	margin-right: var(--scrollbar-width, 0px);
+}
+
 /* Opts a subtree back into text selection under the body default in the base layer.
    twMergeConfig in utils.ts groups it with select-* so a caller's select-none wins. */
 @utility selectable {

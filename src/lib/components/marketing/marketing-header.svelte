@@ -97,7 +97,7 @@
 <svelte:window bind:scrollY />
 
 <header class="font-marketing-critical">
-	<nav class="fixed top-(--top-notices-height,0px) z-40 w-full pt-4">
+	<nav class="fixed inset-x-0 top-(--top-notices-height,0px) z-40 scroll-lock-inset pt-4">
 		<div class="mx-auto max-w-6xl px-6 lg:px-12">
 			<div
 				class="-mx-2 flex w-[calc(100%+1rem)] items-center justify-between rounded-2xl border marketing-shell-panel px-6 py-4 transition-[height,transform,background-color,border-color] duration-300 lg:-mx-8 lg:w-[calc(100%+4rem)] lg:px-8"
@@ -243,7 +243,7 @@
 	{#if menuState}
 		<div
 			id="marketing-mobile-menu"
-			class="fixed top-(--top-notices-height,0px) right-4 left-4 z-30 mt-24 rounded-2xl border border-white/[0.06] bg-background/95 p-6 backdrop-blur-xl lg:hidden"
+			class="fixed top-(--top-notices-height,0px) right-4 left-4 z-30 mt-24 scroll-lock-inset rounded-2xl border border-white/[0.06] bg-background/95 p-6 backdrop-blur-xl lg:hidden"
 		>
 			<ul class="space-y-1 text-base">
 				{#each menuItems as item (item.translationKey)}

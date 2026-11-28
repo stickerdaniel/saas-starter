@@ -55,7 +55,7 @@
 {#if toasts.length > 0}
 	<section
 		aria-live="polite"
-		class="fixed right-4 bottom-4 left-4 z-100 flex flex-col gap-2 sm:left-auto sm:w-80"
+		class="fixed right-4 bottom-4 left-4 z-100 scroll-lock-inset flex flex-col gap-2 sm:left-auto sm:w-80"
 	>
 		{#each toasts as item (item.id)}
 			<div
