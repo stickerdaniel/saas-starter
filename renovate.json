@@ -242,6 +242,24 @@
 			],
 			"groupName": "ai version pinning",
 			"groupSlug": "pin-ai"
+		},
+		{
+			"description": "Bun refuses a release younger than three days, and Renovate can raise a pin, a replacement, a bump or a rollback before that age. The body of such a pull request names the way to install the release. The rule is for manifests under the root bun.lock, because an install of another lockfile does not read the root bunfig.toml.",
+			"matchManagers": ["bun"],
+			"matchFileNames": ["bun.lock"],
+			"matchUpdateTypes": ["pin", "replacement", "bump", "rollback"],
+			"prBodyNotes": [
+				"Bun installs no release that is younger than three days (`minimumReleaseAge` in `bunfig.toml`). If this pull request shows an artifact error for such a release, list the package in `minimumReleaseAgeExcludes` in `bunfig.toml` on this branch, run `bun install`, and commit `bunfig.toml` together with `bun.lock`. Remove the entry once the release is three days old."
+			]
+		},
+		{
+			"description": "A vulnerability fix skips Renovate's release age, so Bun can refuse it. The note is in a package rule because prBodyNotes inside vulnerabilityAlerts would replace the advisory notes that Renovate writes. isVulnerabilityAlert is true for a GitHub alert and for an OSV alert. The rule is for manifests under the root bun.lock, as the rule above.",
+			"matchManagers": ["bun"],
+			"matchFileNames": ["bun.lock"],
+			"matchJsonata": ["isVulnerabilityAlert = true"],
+			"prBodyNotes": [
+				"Bun installs no release that is younger than three days (`minimumReleaseAge` in `bunfig.toml`). If this pull request shows an artifact error for such a release, list the package in `minimumReleaseAgeExcludes` in `bunfig.toml` on this branch, run `bun install`, and commit `bunfig.toml` together with `bun.lock`. Remove the entry once the release is three days old."
+			]
 		}
 	]
 }
