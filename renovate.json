@@ -7,8 +7,10 @@
 		"enabled": false
 	},
 	"osvVulnerabilityAlerts": true,
-	"dependencyDashboardOSVVulnerabilitySummary": "all",
-	"dependencyDashboardHeader": "This issue lists Renovate updates and detected dependencies. Read the [Dependency Dashboard](https://docs.renovatebot.com/key-concepts/dashboard/) docs to learn more.\n\nAn advisory listed without a pull request has no fixed release Renovate can reach, and this list carries no severity for it. Open its OSV record before ranking it against the others.",
+	"dependencyDashboard": {
+		"osvVulnerabilitySummary": "all",
+		"header": "This issue lists Renovate updates and detected dependencies. Read the [Dependency Dashboard](https://docs.renovatebot.com/key-concepts/dashboard/) docs to learn more.\n\nAn advisory listed without a pull request has no fixed release Renovate can reach, and this list carries no severity for it. Open its OSV record before ranking it against the others."
+	},
 	"vulnerabilityAlerts": {
 		"description": "GitHub advisories supplement OSV independently of the regular update schedule. Dependabot alerts must be enabled for the repository. This second feed does not guarantee coverage of OSV gaps: a package in the dependency graph and a matching advisory version range do not prove that GitHub actually creates an alert.",
 		"enabled": true,
