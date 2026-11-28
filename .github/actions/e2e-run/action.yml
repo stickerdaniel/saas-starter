@@ -12,7 +12,7 @@ inputs:
     description: Public shard count
   metadata-policy:
     default: generic
-    description: generic checks frontend revision and backends; cf-build also requires the accepted Workers build
+    description: generic checks frontend revision and backends; cf-build also requires the accepted Workers build and waits up to 10s for its revision before execution
   auth-secret:
     default: ''
     description: Test helper secret, exclusive lane only
@@ -42,7 +42,7 @@ runs:
         CF_ACCESS_CLIENT_SECRET: ${{ inputs.cf-access-client-secret }}
         PREVIEW_BYPASS_SECRET: ${{ inputs.vercel-bypass-secret }}
         E2E_METADATA_POLICY: ${{ inputs.metadata-policy }}
-      run: bun scripts/e2e-ci.ts check-policy
+      run: bun scripts/e2e-ci.ts check-policy --wait-for-revision
     - name: Collect complete suite inventory
       if: inputs.lane != 'public'
       shell: bash

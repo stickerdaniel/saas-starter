@@ -845,4 +845,52 @@ describe('workflow compatibility', () => {
 			expect(result.output).toContain('Preview build changed');
 		}
 	}, 30_000);
+
+	it('waits for the selected revision before execution and never after it', async () => {
+		const action = parseYaml(
+			readFileSync(join(root, '.github/actions/e2e-run/action.yml'), 'utf8')
+		) as { runs: { steps: Array<{ run?: string }> } };
+		const [before, after] = action.runs.steps.flatMap(({ run }) =>
+			run?.startsWith('bun scripts/e2e-ci.ts ') ? [run.trim().split(/\s+/).slice(2)] : []
+		);
+		const stale = 'f'.repeat(40);
+		const check = async (args: string[] | undefined, versions: string[], buildUuid = current) => {
+			let reads = 0;
+			const site = await serve((request, response) =>
+				json(
+					response,
+					request.url === '/_app/version.json'
+						? { version: versions[Math.min(reads++, versions.length - 1)] }
+						: { ...backends, sourceSha: sha, buildUuid }
+				)
+			);
+			const result = await runCli(required(args, 'identity check step'), {
+				PUBLIC_SITE_URL: site.origin,
+				PUBLIC_CONVEX_URL: backends.convexUrl,
+				PUBLIC_CONVEX_SITE_URL: backends.convexSiteUrl,
+				E2E_EXPECTED_SHA: sha,
+				E2E_BUILD_UUID: current,
+				E2E_METADATA_POLICY: 'cf-build'
+			});
+			return { ...result, reads };
+		};
+		const [lagging, moved, rebuilt, stuck] = await Promise.all([
+			check(before, [stale, sha]),
+			check(after, [stale, sha]),
+			check(before, [sha], old),
+			check(before, [stale])
+		]);
+		expect(lagging.code, lagging.output).toBe(0);
+		expect(lagging.reads).toBe(2);
+		expect(lagging.output).toContain(`served "${stale}", expected ${sha}`);
+		expect(moved.code).toBe(1);
+		expect(moved.reads).toBe(1);
+		expect(rebuilt.code).toBe(1);
+		expect(rebuilt.reads).toBe(1);
+		expect(rebuilt.output).toContain('Preview build changed');
+		expect(stuck.code).toBe(1);
+		expect(stuck.reads).toBeGreaterThan(1);
+		expect(stuck.reads).toBeLessThanOrEqual(20);
+		expect(stuck.output).toContain(`served "${stale}", expected ${sha}`);
+	}, 30_000);
 });

@@ -333,6 +333,23 @@ export async function discoverPreview(
 	);
 }
 
+class RevisionMismatch extends Error {}
+
+function servedRevision(version: unknown): string {
+	const value =
+		version && typeof version === 'object' && 'version' in version ? version.version : undefined;
+	if (typeof value === 'string') return JSON.stringify(value).slice(0, 80);
+	const shape =
+		version === null
+			? 'null'
+			: Array.isArray(version)
+				? 'an array'
+				: typeof version === 'object'
+					? `an object with keys ${JSON.stringify(Object.keys(version)).slice(0, 80)}`
+					: `a ${typeof version}`;
+	return `no version string in ${shape}`;
+}
+
 export function assertMetadata(
 	version: unknown,
 	config: unknown,
@@ -344,7 +361,9 @@ export function assertMetadata(
 		!('version' in version) ||
 		version.version !== expected.sha
 	)
-		throw new Error('Preview revision changed or does not match the tested commit');
+		throw new RevisionMismatch(
+			`Preview revision changed or does not match the tested commit: served ${servedRevision(version)}, expected ${expected.sha}`
+		);
 	if (
 		!config ||
 		typeof config !== 'object' ||
@@ -437,10 +456,11 @@ export function reconcile(
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+	const [command, option] = process.argv.slice(2);
 	const mode =
-		process.argv[2] === 'check-policy'
-			? metadataCheckMode(process.env.E2E_METADATA_POLICY)
-			: process.argv[2];
+		command === 'check-policy' ? metadataCheckMode(process.env.E2E_METADATA_POLICY) : command;
+	const revisionWaitMs =
+		command === 'check-policy' && option === '--wait-for-revision' ? 10_000 : 0;
 	const selectBuild = () =>
 		resolveBuild({
 			sha: process.env.E2E_EXPECTED_SHA!,
@@ -500,10 +520,19 @@ if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.m
 	} else if (mode === 'check') {
 		assertMetadata(...(await metadata()), expectedTarget());
 	} else if (mode === 'check-cf-build') {
-		assertBuildMetadata(...(await metadata()), {
-			...expectedTarget(),
-			buildUuid: process.env.E2E_BUILD_UUID ?? ''
-		});
+		const expected = { ...expectedTarget(), buildUuid: process.env.E2E_BUILD_UUID ?? '' };
+		const sampleMs = 500;
+		const deadline = Date.now() + revisionWaitMs;
+		for (;;) {
+			try {
+				assertBuildMetadata(...(await metadata()), expected);
+				break;
+			} catch (error) {
+				if (!(error instanceof RevisionMismatch) || deadline - Date.now() <= sampleMs) throw error;
+				console.log(`${error.message}; sampling again in ${sampleMs}ms`);
+				await new Promise((resolve) => setTimeout(resolve, sampleMs));
+			}
+		}
 		console.log(`Preview still serves build ${process.env.E2E_BUILD_UUID}`);
 	} else if (mode === 'reconcile') {
 		const directory = required(process.argv[3], 'evidence directory argument');
