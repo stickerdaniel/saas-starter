@@ -1,4 +1,4 @@
-import { PersistedState } from 'runed';
+import { persisted, type Persisted } from '../../storage/persisted.svelte.ts';
 import { DRAFT_STORAGE_PREFIX } from './chat-persisted-state.js';
 
 /**
@@ -32,7 +32,7 @@ const draftSerializer = {
  * Each chat surface gets its own manager, so their threads cannot collide.
  */
 export class ChatDraftManager {
-	readonly drafts: PersistedState<Record<string, string>>;
+	readonly drafts: Persisted<Record<string, string>>;
 
 	/**
 	 * @param surface which chat this belongs to, e.g. `ai-chat`. The namespace
@@ -40,7 +40,7 @@ export class ChatDraftManager {
 	 * `clearPersistedChatState` find every surface.
 	 */
 	constructor(surface: string) {
-		this.drafts = new PersistedState<Record<string, string>>(
+		this.drafts = persisted<Record<string, string>>(
 			`${DRAFT_STORAGE_PREFIX}${surface}`,
 			{},
 			{

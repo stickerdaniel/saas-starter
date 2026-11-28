@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushSync } from 'svelte';
 import type * as Svelte from 'svelte';
-import { PersistedState } from 'runed';
+import { persisted, type Persisted } from '#lib/storage/persisted.svelte.ts';
 import { createCountPrediction } from './count-prediction.svelte.ts';
 
 vi.mock('svelte', () =>
@@ -21,7 +21,7 @@ afterEach(() => {
 	localStorage.clear();
 });
 
-function predict(cache: PersistedState<number | null>) {
+function predict(cache: Persisted<number | null>) {
 	const table = $state({
 		totalCount: 0,
 		hasLoadedCount: false,
@@ -39,7 +39,7 @@ function predict(cache: PersistedState<number | null>) {
 
 function storedCache(value: number | null) {
 	if (value !== null) localStorage.setItem('test:count', JSON.stringify(value));
-	return new PersistedState<number | null>('test:count', null);
+	return persisted<number | null>('test:count', null);
 }
 
 describe('count prediction', () => {

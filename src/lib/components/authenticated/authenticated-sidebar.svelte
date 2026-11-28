@@ -9,7 +9,7 @@
 	import { T } from '@tolgee/svelte';
 	import type { NavItem, NavSubItem, SidebarConfig, User } from './types';
 	import { haptic } from '#lib/hooks/use-haptic.svelte.ts';
-	import { PersistedState } from 'runed';
+	import { persisted } from '#lib/storage/persisted.svelte.ts';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import SidebarThreadList from './sidebar-thread-list.svelte';
 	import * as Kbd from '#lib/components/ui/kbd/index.js';
@@ -37,7 +37,7 @@
 		...restProps
 	}: Props = $props();
 
-	const aiChatOpen = new PersistedState('ai-chat-threads-open', true);
+	const aiChatOpen = persisted('ai-chat-threads-open', true);
 </script>
 
 {#snippet navItemBody(item: NavItem)}

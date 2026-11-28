@@ -1,3 +1,5 @@
+import { readItem, writeItem } from '#lib/storage/web-storage.ts';
+
 /** Inputs to the connection fallback's stage-2 auto-reload decision. */
 export interface AutoReloadState {
 	/** Client-side auth believes a session exists (cookies survived). */
@@ -34,11 +36,7 @@ const RELOAD_GUARD_KEY = 'auth-fallback-reloaded';
  * without a persistable guard an automatic reload could loop forever.
  */
 export function hasReloadGuard(): boolean {
-	try {
-		return sessionStorage.getItem(RELOAD_GUARD_KEY) !== null;
-	} catch {
-		return true;
-	}
+	return readItem('session', RELOAD_GUARD_KEY) !== null;
 }
 
 /**
@@ -48,10 +46,5 @@ export function hasReloadGuard(): boolean {
  * loop guard.
  */
 export function armReloadGuard(): boolean {
-	try {
-		sessionStorage.setItem(RELOAD_GUARD_KEY, '1');
-		return true;
-	} catch {
-		return false;
-	}
+	return writeItem('session', RELOAD_GUARD_KEY, '1');
 }

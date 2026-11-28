@@ -7,6 +7,8 @@
  * every surface, including ones added after it was written.
  */
 
+import { listKeys, writeItem } from '../../storage/web-storage.ts';
+
 export const DRAFT_STORAGE_PREFIX = 'drafts:';
 export const ATTACHMENT_STORAGE_PREFIX = 'attachments:';
 
@@ -104,28 +106,22 @@ export function clearPersistedChatState(): void {
 	// it is still mounted on the page the user lands on afterwards, holding what
 	// the last person attached and about to save it again.
 	forgetEverything();
-	try {
-		if (typeof localStorage === 'undefined') return;
-		// Collected first, emptied after: writing during the walk is fine, but
-		// this keeps the two halves separate and the loop honest about its bounds.
-		const doomed: string[] = [];
-		for (let index = 0; index < localStorage.length; index++) {
-			const key = localStorage.key(index);
-			if (key && PREFIXES.some((prefix) => key.startsWith(prefix))) doomed.push(key);
-		}
+	const keys = listKeys('local');
+	if (keys === undefined) return;
+	const doomed = keys.filter((key) => PREFIXES.some((prefix) => key.startsWith(prefix)));
+	const written = [
 		// Emptied rather than removed. Runed's PersistedState answers a read from
 		// the value it started with once the key is absent, and ignores a storage
 		// event that reports a deletion, so a store still alive anywhere (the
 		// support widget outlives the route the user signed out from, and other
 		// tabs outlive the document) would write the previous session's content
 		// back on its next save. An empty object is a value it accepts and adopts.
-		for (const key of doomed) localStorage.setItem(key, '{}');
+		...doomed.map((key) => writeItem('local', key, '{}')),
 		// Word to the other tabs, whose composers this page cannot reach and
 		// which would otherwise save the ended session back over what was just
 		// emptied. A value that never repeats, because a storage event only
 		// fires when one actually changes.
-		localStorage.setItem(SESSION_END_KEY, `${Date.now()}-${Math.random()}`);
-	} catch {
-		console.error('[ChatPersistence.clearStorage] Failed');
-	}
+		writeItem('local', SESSION_END_KEY, `${Date.now()}-${Math.random()}`)
+	];
+	if (!written.every(Boolean)) console.error('[ChatPersistence.clearStorage] Failed');
 }
