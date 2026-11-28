@@ -5,9 +5,10 @@
 	import { LEGAL_CONFIG, formatPostalAddress } from '#lib/config/legal.js';
 
 	const currentYear = new Date().getFullYear();
+	const legalCompanyName: string = LEGAL_CONFIG.companyName;
 
 	let {
-		companyName = LEGAL_CONFIG.companyName,
+		companyName = legalCompanyName || LEGAL_CONFIG.operatorName,
 		address = formatPostalAddress(LEGAL_CONFIG.address),
 		class: className,
 		...restProps

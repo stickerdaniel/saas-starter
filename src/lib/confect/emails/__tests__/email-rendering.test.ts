@@ -31,6 +31,8 @@ import {
 } from '#lib/confect/emails/templates.js';
 
 const ASSET_URL = 'https://test.example.com';
+const legalCompanyName: string = LEGAL_CONFIG.companyName;
+const footerName = legalCompanyName || LEGAL_CONFIG.operatorName;
 
 type EmailStrings = (typeof STATIC_TRANSLATIONS)[(typeof SUPPORTED_LOCALES)[number]]['email'];
 
@@ -229,7 +231,7 @@ describe('Email Template Rendering', () => {
 			const companyLinks = [...document.querySelectorAll('p')]
 				.filter((paragraph) => collapse(paragraph.textContent ?? '').startsWith('Copyright ©'))
 				.flatMap((paragraph) => [...paragraph.querySelectorAll('a')])
-				.filter((link) => collapse(link.textContent ?? '') === collapse(LEGAL_CONFIG.companyName));
+				.filter((link) => collapse(link.textContent ?? '') === collapse(footerName));
 			expect(
 				companyLinks.map((link) => link.getAttribute('href')),
 				'Footer company link'

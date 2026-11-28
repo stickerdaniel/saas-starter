@@ -1086,6 +1086,38 @@ mock.module('fs', () => ({
 	});
 });
 
+describe.each(LAYOUTS)('template setup first run identity in the $name tree', (layout) => {
+	it('writes none of the template legal identity without identity flags', () => {
+		const dir = createFixture(layout);
+		cpSync(join(ROOT, 'src/lib/config/legal.ts'), at(dir, 'src/lib/config/legal.ts'));
+		const template = required(importLegalConfig(dir).value, 'template legal config');
+
+		const run = runSetup(dir, [...REQUIRED, '--brand', 'Northwind Labs']);
+		expect(run.code, run.stderr).toBe(0);
+
+		const project = required(importLegalConfig(dir).value, 'project legal config');
+		expect(project.identity.operatorName).not.toBe(template.identity.operatorName);
+		for (const key of ['streetAddress', 'postalCode', 'addressLocality'] as const) {
+			expect(project.identity.address[key], key).not.toBe(template.identity.address[key]);
+		}
+		expect(project.mailto).not.toBe(template.mailto);
+	});
+
+	it('keeps a configured identity when the README no longer shows the setup', () => {
+		const dir = createFixture(layout);
+		expect(runSetup(dir, [...REQUIRED, ...IDENTITY]).code).toBe(0);
+		const configured = required(importLegalConfig(dir).value, 'configured legal config');
+		const readme = at(dir, 'README.md');
+		writeFileSync(readme, readFileSync(readme, 'utf-8').replace(/^# .*$/m, '# Northwind'));
+
+		const rerun = runSetup(dir, ['--slug', 'northwind-cloud', '--brand', 'Northwind Labs']);
+		expect(rerun.code, rerun.stderr).toBe(0);
+		expect(required(importLegalConfig(dir).value, 'rerun legal config').identity).toEqual(
+			configured.identity
+		);
+	});
+});
+
 describe.each(LAYOUTS)(
 	'template setup records the creation fork point in the $name tree',
 	(layout) => {
