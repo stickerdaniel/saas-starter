@@ -42,4 +42,4 @@ Renovate groups non-major updates into a single PR and creates separate PRs for 
 
 ## Email Development
 
-HTML email templates are Svelte components compiled to inline HTML on `postinstall` and during builds. `bun run build:emails` renders each HTML template with mock data, and the snapshot test `src/lib/emails/__tests__/email-snapshots.test.ts` catches any unexpected markup change.
+HTML email templates are Svelte components compiled to inline HTML on `postinstall` and during builds. `bun run build:emails` renders each HTML template with mock data. When the project includes the test suite, the snapshot test `src/lib/emails/__tests__/email-snapshots.test.ts` catches any unexpected markup change.
