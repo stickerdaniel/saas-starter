@@ -1,14 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { createHash, randomUUID } from 'node:crypto';
-import {
-	lstatSync,
-	readFileSync,
-	realpathSync,
-	rmSync,
-	watch,
-	type BigIntStats,
-	type FSWatcher
-} from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { lstatSync, readFileSync, realpathSync, rmSync, watch, type FSWatcher } from 'node:fs';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
@@ -221,18 +213,11 @@ export function createChangeFilter(since = Date.now()): (file: string) => boolea
 }
 
 function versionOf(file: string): string | undefined {
-	let stat: BigIntStats;
 	try {
-		stat = lstatSync(file, { bigint: true });
+		const stat = lstatSync(file, { bigint: true });
+		return `${stat.dev}:${stat.ino}:${stat.ctimeNs}`;
 	} catch {
 		return undefined;
-	}
-	const identity = `${stat.dev}:${stat.ino}:${stat.ctimeNs}`;
-	if (!stat.isFile()) return identity;
-	try {
-		return `${identity}:${createHash('sha256').update(readFileSync(file)).digest('hex')}`;
-	} catch {
-		return identity;
 	}
 }
 
@@ -277,7 +262,6 @@ export function watchCheckout(
 			})
 		)
 	];
-	for (const file of named) compare(file);
 	return {
 		close: () => {
 			for (const watcher of watchers) watcher.close();
