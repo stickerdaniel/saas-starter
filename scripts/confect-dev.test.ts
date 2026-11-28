@@ -298,6 +298,37 @@ describe('restart notice', () => {
 		expect(requests).toBe(0);
 	});
 
+	it('names a restart file after one edit and stays silent for the bytes it had at the start', async () => {
+		const root = checkout();
+		const ready = path.join(root, 'ready.config.ts');
+		const rewritten = path.join(root, 'rewritten.config.ts');
+		const edited = path.join(root, 'edited.config.ts');
+		for (const file of [ready, rewritten, edited]) writeFileSync(file, 'export default {};\n');
+		const logs: string[] = [];
+		const watcher = watchCheckoutForRuns({
+			root,
+			restartFiles: [ready, rewritten, edited],
+			request: () => {},
+			log: (line) => logs.push(line)
+		});
+		try {
+			await until(() => {
+				edit(ready);
+				return logs.length >= 1;
+			});
+			writeFileSync(rewritten, 'export default {};\n');
+			edit(edited);
+			await until(() => logs.length >= 2);
+		} finally {
+			watcher.close();
+		}
+
+		expect(logs).toEqual([
+			'ready.config.ts changed. Restart the dev server to apply it.',
+			'edited.config.ts changed. Restart the dev server to apply it.'
+		]);
+	});
+
 	it('names a restart file below the checkout when a symlink spells the root', async () => {
 		const root = checkout();
 		const alias = `${root}-alias`;

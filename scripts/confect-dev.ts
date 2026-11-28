@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { lstatSync, readFileSync, realpathSync, rmSync, watch, type FSWatcher } from 'node:fs';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -212,10 +212,9 @@ export function createChangeFilter(since = Date.now()): (file: string) => boolea
 	};
 }
 
-function versionOf(file: string): string | undefined {
+function digestOf(file: string): string | undefined {
 	try {
-		const stat = lstatSync(file, { bigint: true });
-		return `${stat.dev}:${stat.ino}:${stat.ctimeNs}`;
+		return createHash('sha256').update(readFileSync(file)).digest('hex');
 	} catch {
 		return undefined;
 	}
@@ -236,12 +235,12 @@ export function watchCheckout(
 		...[...RESTART_FILES].map((file) => path.join(checkout, file)),
 		...restartFiles.map((file) => realpathSync.native(file))
 	]);
-	const versions = new Map([...named].map((file) => [file, versionOf(file)]));
+	const digests = new Map<string, string | undefined>();
 	const compare = (file: string) => {
 		if (!named.has(file)) return;
-		const version = versionOf(file);
-		if (version === versions.get(file)) return;
-		versions.set(file, version);
+		const digest = digestOf(file);
+		if (digest === digests.get(file)) return;
+		digests.set(file, digest);
 		if (file === schema) handlers.onSource();
 		else handlers.onRestart(slashed(path.relative(checkout, file)));
 	};
@@ -262,6 +261,7 @@ export function watchCheckout(
 			})
 		)
 	];
+	for (const file of named) digests.set(file, digestOf(file));
 	return {
 		close: () => {
 			for (const watcher of watchers) watcher.close();
