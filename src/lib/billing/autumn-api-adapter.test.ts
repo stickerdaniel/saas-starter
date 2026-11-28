@@ -37,4 +37,10 @@ describe('Autumn SDK endpoint adapter', () => {
 			`Autumn endpoint ${key} is not published by this application`
 		);
 	});
+	it('resolves and serializes without fabricating a reference', async () => {
+		const adapted = toAutumnClientApi(api.autumn);
+		await expect(Promise.resolve(adapted)).resolves.toBe(adapted);
+		expect(JSON.stringify(adapted)).toBe('{}');
+		expect(adapted.listCustomers).toBeUndefined();
+	});
 });

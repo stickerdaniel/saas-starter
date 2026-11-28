@@ -55,7 +55,7 @@ A hand-written provider payload, context double, or auth session is a claim abou
 - Scheduling from actions is not atomic, and actions execute at most once.
 - `@convex-dev/resend` handles durable retry and idempotency; permanent send errors may be caught and reported.
 - `@useautumn/convex` returns `{ data: null, error }` for non-2xx and transport failures. State-changing entitlement gates fail closed whenever `error` is present or `data` is missing or indeterminate.
-- Publish an Autumn action only when first-party client code calls it. Usage is written from server code only (`checkAndCountUsage`, `refundUsage`).
+- Publish an Autumn action only when a first-party caller uses it, from the browser or through the SvelteKit server's Convex client. Usage is written from server code only (`checkAndCountUsage`, `refundUsage`).
 - Convex components own isolated storage namespaces. Access component files through component APIs, not application `ctx.storage`.
 
 When an intentional bounded `.collect()`, sequential mutation, or other normally flagged pattern is correct, add a short inline reason at the call site.
