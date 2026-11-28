@@ -21,28 +21,44 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { describe, expect, it } from 'vitest';
 
+import type { StarterWorkspace } from '../.agents/skills/upstream-sync/layout/v3';
+import type { EnglishFinding } from './english-policy/content';
 import {
 	CHECKER_SPAWN_TIMEOUT,
 	checkoutEvaluator
 } from './__fixtures__/static-checks/checker-harness';
 import { usePrivateCheckout } from './__fixtures__/static-checks/private-checkout';
+import {
+	movedDifferences,
+	movedNewFiles,
+	movedTrackedPaths
+} from './__fixtures__/static-checks/moved-differences';
+import { WORKSPACE_CHECK_LAYOUT } from './__fixtures__/static-checks/workspace-layout';
 import { sanitizedGitEnv } from './git-context';
 import { required } from './required';
 import { testExecutable } from './test-executable';
 import {
 	argumentBatches,
 	authoredTextFiles,
+	englishProseFiles,
 	englishProseFindings,
+	FLAT_CHECK_LAYOUT,
 	isIgnoredPath,
 	literalControlCharacterViolations,
 	prettierArguments,
 	prettierFormattableFiles,
 	ROUTES,
 	middleDotOrEmDashLines,
+	locateOwner,
 	resolveInputs,
+	routesOf,
 	spellcheckFiles,
 	SVELTE_KIT_SYNC_WAIT_MESSAGE,
-	usesAssertOnlyChecks
+	usesAssertOnlyChecks,
+	type CheckLayout,
+	type ExceptRule,
+	type PathRule,
+	type RoutedCheck
 } from './static-checks';
 import { withSvelteKitSyncLock } from './svelte-kit-sync-lock';
 
@@ -184,7 +200,10 @@ describe('route predicates', () => {
 		expect(ROUTES['english-prose'](files[1]!)).toBe(true);
 		expect(ROUTES['english-prose'](files[2]!)).toBe(true);
 		expect(ROUTES['english-prose'](files[3]!)).toBe(false);
-		const findings = await englishProseFindings(files, async (file) => contents.get(file) ?? '');
+		const findings = await englishProseFindings(
+			englishProseFiles(files),
+			async (file) => contents.get(file) ?? ''
+		);
 		expect(findings).toHaveLength(1);
 		expect(findings).toMatchObject([{ label: 'docs/example.md', language: 'de' }]);
 	});
@@ -336,6 +355,25 @@ describe('route predicates', () => {
 		expect(ROUTES['svelte-check']('packages/create-saas-starter/src/index.ts')).toBe(false);
 		expect(ROUTES['cli-types']('packages/create-saas-starter/README.md')).toBe(false);
 		expect(ROUTES['cli-types']('scripts/static-checks.ts')).toBe(false);
+	});
+
+	it('keeps translated catalogs, generated Convex bindings and the policy bundle out of misspell', () => {
+		for (const file of [
+			'src/i18n/de.json',
+			'src/lib/convex/_generated/api.d.ts',
+			'src/lib/confect/helpers/convex/_generated/table.ts',
+			'scripts/english-policy/pr-metadata.bundle.mjs'
+		]) {
+			expect(ROUTES.misspell(file), file).toBe(false);
+		}
+		for (const file of [
+			'src/lib/i18n/languages.ts',
+			'src/lib/convex/users.ts',
+			'README.md',
+			'docs/src/i18n/notes.md'
+		]) {
+			expect(ROUTES.misspell(file), file).toBe(true);
+		}
 	});
 
 	it('routes the Convex functions, their helpers and the local components to check:convex', () => {
@@ -523,23 +561,35 @@ describe('English prose workers', { timeout: CHECKER_SPAWN_TIMEOUT }, () => {
 
 	interface Report {
 		labels?: string[];
+		findings?: EnglishFinding[];
 		error?: string;
 	}
 
-	/** What the two-worker pool and the inline check report for the same files. */
+	/**
+	 * What the two-worker pool and the inline check report for the same files, started in
+	 * `cwd` and read as `layout` reads them. Each file is named absolute, or relative to its
+	 * directory when `relative` is set or `names` gives the names.
+	 */
 	function compare(
 		entry: string,
-		contents: string[]
+		contents: string[],
+		{
+			cwd = ROOT,
+			relative = false,
+			names = undefined as string[] | undefined,
+			layout = 'flat' as 'flat' | 'workspace'
+		} = {}
 	): { workers: Report; inline: Report; files: string[] } {
 		const directory = mkdtempSync(path.join(tmpdir(), 'prose-workers-'));
 		try {
 			const files = contents.map((content, index) => {
-				const file = path.join(directory, `${index}.${content.startsWith('{') ? 'json' : 'md'}`);
-				writeFileSync(file, content);
-				return file;
+				const name = names?.[index] ?? `docs/${index}.${content.startsWith('{') ? 'json' : 'md'}`;
+				mkdirSync(path.dirname(path.join(directory, name)), { recursive: true });
+				writeFileSync(path.join(directory, name), content);
+				return relative || names ? name : path.join(directory, name);
 			});
-			const result = spawnSync(BUN, [DRIVER, entry, ...files], {
-				cwd: ROOT,
+			const result = spawnSync(BUN, [DRIVER, entry, directory, layout, ...files], {
+				cwd,
 				env: { ...sanitizedGitEnv(), PROSE_WORKER_GATE: path.join(directory, 'gate') },
 				encoding: 'utf8',
 				timeout: 20_000
@@ -580,6 +630,43 @@ describe('English prose workers', { timeout: CHECKER_SPAWN_TIMEOUT }, () => {
 		expect(inline).toMatchObject({ labels: files });
 	});
 
+	it('reads relative file names against the directory it is given, from any working directory', () => {
+		const elsewhere = mkdtempSync(path.join(tmpdir(), 'prose-cwd-'));
+		try {
+			const { workers, inline, files } = compare('default', [GERMAN, GERMAN], {
+				cwd: elsewhere,
+				relative: true
+			});
+
+			expect(files).toEqual(['docs/0.md', 'docs/1.md']);
+			expect(workers).toMatchObject({ labels: files });
+			expect(workers).toEqual(inline);
+		} finally {
+			rmSync(elsewhere, { recursive: true, force: true });
+		}
+	});
+
+	it('reads the English catalog and exempts a target catalog at their place in the layout', () => {
+		const catalog = (key: string) => JSON.stringify({ [key]: GERMAN.trim() }, null, '\t');
+		const read = (layout: 'flat' | 'workspace', name: string, key: string) => {
+			const { workers, inline } = compare('default', [catalog(key)], { names: [name], layout });
+			expect(workers).toEqual(inline);
+			return required(workers.findings, 'findings').map(
+				({ line, language, topScore, englishScore }) => ({ line, language, topScore, englishScore })
+			);
+		};
+
+		const english = read('flat', 'src/i18n/en.json', 'message');
+		expect(english.length).toBeGreaterThan(0);
+		expect(read('workspace', 'packages/product-config/src/i18n/en.json', 'message')).toEqual(
+			english
+		);
+		expect(read('flat', 'src/i18n/de.json', 'description')).toEqual([]);
+		expect(read('workspace', 'packages/product-config/src/i18n/de.json', 'description')).toEqual(
+			[]
+		);
+	});
+
 	it('falls back to the inline check when a worker closes without a result', () => {
 		const { workers, inline, files } = compare(path.join(FIXTURES, 'prose-worker-closes.ts'), [
 			GERMAN,
@@ -588,5 +675,149 @@ describe('English prose workers', { timeout: CHECKER_SPAWN_TIMEOUT }, () => {
 
 		expect(workers).toMatchObject({ labels: files });
 		expect(workers).toEqual(inline);
+	});
+});
+
+describe('CheckLayout', () => {
+	const tracked = spawnSync('git', ['ls-files', '-z'], {
+		cwd: ROOT,
+		env: sanitizedGitEnv(),
+		encoding: 'utf8'
+	})
+		.stdout.split('\0')
+		.filter(Boolean);
+	const moved = new Map(movedTrackedPaths(tracked));
+
+	/** Whether `rule` names `relative`, read the way the rule's own fields say. */
+	function ruleNames(rule: ExceptRule, relative: string): boolean {
+		if ('file' in rule) return relative === rule.file;
+		if ('containing' in rule) return relative.includes(rule.containing);
+		return (
+			relative.startsWith(rule.under) &&
+			(rule.name === undefined || rule.name.test(relative.slice(rule.under.length)))
+		);
+	}
+
+	/** Each rule, project config and task script of `layout` that names no path of its owner. */
+	function namesNoPath(layout: CheckLayout, paths: string[]): string[] {
+		const held = new Map<string, string[]>();
+		for (const file of paths) {
+			const [owner, , relative] = locateOwner(layout, file);
+			held.set(owner, [...(held.get(owner) ?? []), relative]);
+		}
+		const names = (owner: string, rule: ExceptRule) =>
+			(held.get(owner) ?? []).some((relative) => ruleNames(rule, relative));
+		const unnamed: string[] = [];
+		for (const [owner, checks] of Object.entries(layout.owners)) {
+			const rules = [
+				...Object.values(checks.routes).flatMap((route) => [
+					...route.paths,
+					...(route.except ?? [])
+				]),
+				...(checks.shippedText ?? [])
+			];
+			for (const rule of rules) {
+				if (!names(owner, rule)) unnamed.push(`${owner}: ${String(Object.values(rule))}`);
+			}
+			for (const source of checks.sources ?? []) {
+				if (!names(owner, { under: source })) unnamed.push(`${owner}: no source in ${source}`);
+			}
+			const catalogs = checks.localeCatalogs;
+			if (catalogs !== undefined && !names(owner, { under: catalogs, name: /^en\.json$/ })) {
+				unnamed.push(`${owner}: no English catalog in ${catalogs}`);
+			}
+		}
+		const sourceShippedText = Object.entries(layout.owners).some(([owner, checks]) =>
+			(checks.sources ?? []).some((source) =>
+				names(owner, { under: source, name: layout.sourceShippedText })
+			)
+		);
+		if (!sourceShippedText) unnamed.push(`every source: ${String(layout.sourceShippedText)}`);
+		const tree = new Set(paths);
+		const commands = [
+			...Object.values(layout.typeProjects).map((project) => ({
+				...project,
+				file: project.config
+			})),
+			...Object.values(layout.tasks).flatMap((task) =>
+				task.args[0]?.endsWith('.ts') ? [{ ...task, file: task.args[0] }] : []
+			)
+		];
+		for (const { runsIn, file } of commands) {
+			const located = layout.owners[runsIn].directory + file;
+			if (!tree.has(located)) unnamed.push(`${runsIn} runs ${located}`);
+		}
+		return unnamed;
+	}
+
+	/** `layout` with one more rule in the route of `check` of `owner`. */
+	function withRoute(
+		layout: CheckLayout,
+		owner: StarterWorkspace,
+		check: RoutedCheck,
+		rule: PathRule
+	): CheckLayout {
+		const checks = layout.owners[owner];
+		const route = checks.routes[check];
+		return {
+			...layout,
+			owners: {
+				...layout.owners,
+				[owner]: {
+					...checks,
+					routes: {
+						...checks.routes,
+						[check]: { ...route, paths: [...(route?.paths ?? []), rule] }
+					}
+				}
+			}
+		};
+	}
+
+	it('names only paths that the owner of each route holds', () => {
+		expect(namesNoPath(FLAT_CHECK_LAYOUT, tracked)).toEqual([]);
+		expect(namesNoPath(WORKSPACE_CHECK_LAYOUT, [...moved.values()])).toEqual([]);
+	});
+
+	it('reports a route whose name matches no path under a populated directory', () => {
+		const impossible = withRoute(WORKSPACE_CHECK_LAYOUT, 'web', 'eslint', {
+			under: 'src/',
+			name: /\.neverexists$/
+		});
+
+		expect(namesNoPath(impossible, [...moved.values()])).toEqual(['web: src/,/\\.neverexists$/']);
+	});
+
+	it('gives every tracked path on its moved path exactly the checks it has today', () => {
+		expect(movedDifferences(WORKSPACE_CHECK_LAYOUT, moved)).toEqual([]);
+		expect(moved.size).toBeGreaterThan(2000);
+	});
+
+	it('gives a new file on its moved path exactly the checks it gets on the flat tree', () => {
+		const files = movedNewFiles(tracked);
+
+		expect(movedDifferences(WORKSPACE_CHECK_LAYOUT, files)).toEqual([]);
+		expect(files.length).toBeGreaterThan(1000);
+	});
+
+	it('reports a check that a moved path gains', () => {
+		const gained = movedDifferences(
+			withRoute(WORKSPACE_CHECK_LAYOUT, 'root', 'convex', { under: 'docs/' }),
+			moved
+		);
+
+		expect(gained.length).toBeGreaterThan(0);
+		expect(gained.every((line) => /^gains convex: docs\/\S+ -> docs\//.test(line))).toBe(true);
+	});
+
+	it('routes a moved backend, app and translation file to the checks they get today', () => {
+		const { routes, isShippedText } = routesOf(WORKSPACE_CHECK_LAYOUT);
+		expect(routes.convex('packages/backend/convex/users.ts')).toBe(true);
+		expect(routes.convex('apps/web/src/lib/server/auth-proxy.ts')).toBe(false);
+		expect(routes['banned-patterns']('apps/web/src/routes/+page.svelte')).toBe(true);
+		expect(isShippedText('apps/web/src/routes/+page.svelte')).toBe(false);
+		expect(routes['banned-patterns']('packages/product-config/src/i18n/de.json')).toBe(true);
+		expect(isShippedText('packages/product-config/src/i18n/de.json')).toBe(true);
+		expect(routes.misspell('packages/product-config/src/i18n/de.json')).toBe(false);
 	});
 });

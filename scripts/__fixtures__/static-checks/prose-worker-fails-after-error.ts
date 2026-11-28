@@ -5,18 +5,21 @@
  * is out. Reading file 0 again would succeed. Both share PROSE_WORKER_GATE.
  */
 import { existsSync, writeFileSync } from 'node:fs';
-import { checkProseFile, type ProseMessage, type ProseShard } from '../../english-policy/workers';
+import { checkProseFile, type ProseJob, type ProseMessage } from '../../english-policy/workers';
 
 declare const self: DedicatedWorkerGlobalScope;
 
 const gate = process.env.PROSE_WORKER_GATE!;
 const post = (message: ProseMessage): void => self.postMessage(message);
 
-self.addEventListener('message', async (event: MessageEvent<ProseShard>) => {
-	if (event.data[0]?.[0] === 0) {
+self.addEventListener('message', async (event: MessageEvent<ProseJob>) => {
+	const { directory, shard } = event.data;
+	if (shard[0]?.[0] === 0) {
 		post({ index: 0, error: 'Transient read failure for the first prose file' });
 		writeFileSync(gate, '');
-		for (const [index, file] of event.data.slice(1)) post(await checkProseFile(index, file));
+		for (const [index, file, kind] of shard.slice(1)) {
+			post(await checkProseFile(index, file, kind, directory));
+		}
 		post({ done: true });
 		return;
 	}

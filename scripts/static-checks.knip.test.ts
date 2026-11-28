@@ -32,6 +32,7 @@ import {
 	knipSuite,
 	overlayIndexedSources,
 	readCommandLog,
+	readCommandRuns,
 	runChecker,
 	runFixtureGit,
 	shellSingleQuote,
@@ -81,6 +82,7 @@ const WINDOWS_LIFECYCLE_DEPENDENCIES = [
 	'wrangler.toml',
 	'packages/create-saas-starter/scripts/test-packed.ts',
 	'knowledge-policy.config.ts',
+	'.agents/skills/upstream-sync/layout/v3.ts',
 	'packages/eslint-plugin/src/control-character-policy.js',
 	'scripts/knowledge-policy/example.ts',
 	'scripts/english-policy/example.ts',
@@ -919,4 +921,108 @@ describe('Knip static-check CLI behavior', { concurrent: false }, () => {
 		},
 		45_000
 	);
+});
+
+describe('subprocess working directories', { concurrent: false }, () => {
+	function writeProbe(checkout: CheckerClone, relative: string, text: string): void {
+		const file = path.join(checkout.repository, relative);
+		mkdirSync(path.dirname(file), { recursive: true });
+		writeFileSync(file, text);
+	}
+
+	it('runs every subprocess at the root of the flat tree when started from a subdirectory', () => {
+		const checkout = createCheckerClone();
+		try {
+			const result = spawnSync(
+				BUN,
+				[
+					path.join(checkout.repository, 'scripts', 'static-checks.ts'),
+					path.join(checkout.repository, LINTED_SOURCE)
+				],
+				{ cwd: path.join(checkout.repository, 'docs'), env: checkout.env, encoding: 'utf8' }
+			);
+			const output = `${result.stdout}${result.stderr}`;
+			const runs = readCommandRuns(checkout.env.STATIC_CHECKS_COMMAND_LOG!, checkout.repository);
+
+			expect(result.status, output).toBe(0);
+			expect(runs.length).toBeGreaterThan(5);
+			expect(runs.filter((run) => run.cwd !== '')).toEqual([]);
+			expect(runs).toContainEqual({ ...CLI_KNIP, cwd: '' });
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}, 60_000);
+
+	it('routes moved files and runs each subprocess in the directory its layout names', () => {
+		const checkout = createCheckerClone();
+		const backend = 'packages/backend/convex/probe.ts';
+		const app = 'apps/web/src/probe.ts';
+		const catalog = 'packages/product-config/src/i18n/de.json';
+		writeProbe(checkout, backend, 'export const backendProbe = 1;\n');
+		writeProbe(checkout, app, 'export const appProbe = 1;\n');
+		writeProbe(checkout, catalog, '{}\n');
+		mkdirSync(path.join(checkout.repository, 'packages', 'emails'));
+		try {
+			const result = spawnSync(
+				BUN,
+				[
+					path.join(checkout.repository, 'scripts/__fixtures__/static-checks/layout-driver.ts'),
+					backend,
+					app,
+					catalog
+				],
+				{ cwd: checkout.repository, env: checkout.env, encoding: 'utf8' }
+			);
+			const output = `${result.stdout}${result.stderr}`;
+			const runs = readCommandRuns(checkout.env.STATIC_CHECKS_COMMAND_LOG!, checkout.repository);
+			const directoryOf = (args: string) =>
+				runs.filter((run) => run.args.join(' ') === args).map((run) => run.cwd);
+
+			expect(result.status, output).toBe(0);
+			expect(output).toMatch(/^ {2}convex {11}whole project$/m);
+			expect(output).toMatch(/^ {2}banned-patterns {2}3 file\(s\)$/m);
+			expect(output).toMatch(/^ {2}misspell {9}2 file\(s\)$/m);
+			expect(directoryOf('run check:convex')).toEqual(['packages/backend']);
+			expect(directoryOf('svelte-kit sync')).toEqual(['apps/web']);
+			expect(directoryOf('scripts/build-emails.ts')).toEqual(['packages/emails']);
+			expect(directoryOf('run knip --no-progress')).toEqual([
+				'apps/web',
+				'packages/backend',
+				'packages/product-config'
+			]);
+			expect(directoryOf(`eslint --fix ${app} ${backend}`)).toEqual(['']);
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}, 60_000);
+
+	it('starts the Knip project of the one workspace a named file belongs to', () => {
+		const checkout = createCheckerClone();
+		const probe = 'packages/tooling/src/probe.ts';
+		writeProbe(checkout, probe, 'export const toolingProbe = 1;\n');
+		mkdirSync(path.join(checkout.repository, 'apps', 'web'), { recursive: true });
+		try {
+			const result = spawnSync(
+				BUN,
+				[
+					path.join(checkout.repository, 'scripts/__fixtures__/static-checks/layout-driver.ts'),
+					'--scope',
+					'lint',
+					probe
+				],
+				{ cwd: checkout.repository, env: checkout.env, encoding: 'utf8' }
+			);
+			const output = `${result.stdout}${result.stderr}`;
+			const runs = readCommandRuns(checkout.env.STATIC_CHECKS_COMMAND_LOG!, checkout.repository);
+
+			expect(result.status, output).toBe(0);
+			expect(runs.filter((run) => run.args.includes('knip'))).toEqual([
+				{ command: 'bun', args: ['run', 'knip', '--no-progress'], cwd: 'packages/tooling' }
+			]);
+			expect(output).toMatch(/^ {2}tooling knip {5}whole project$/m);
+			expect(output).toMatch(/^ {2}web knip {9}skipped . no named file of its owners$/m);
+		} finally {
+			rmSync(checkout.directory, { recursive: true, force: true });
+		}
+	}, 60_000);
 });

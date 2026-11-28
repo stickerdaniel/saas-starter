@@ -9,6 +9,7 @@ import {
 	proseKindForFile,
 	type EnglishFinding
 } from './english-policy/content';
+import { checkoutLocaleCatalog } from './static-checks';
 import { sanitizeTerminalField } from './terminal-output';
 
 export const MAX_INPUT_BYTES = 5 * 1024 * 1024;
@@ -82,7 +83,7 @@ function main(): number {
 				...checkEnglishText(
 					diagnosticLabel,
 					readBoundedFile(file),
-					proseKindForFile(policyIdentity) ?? 'text'
+					proseKindForFile(policyIdentity, checkoutLocaleCatalog(policyIdentity)) ?? 'text'
 				)
 			);
 		}

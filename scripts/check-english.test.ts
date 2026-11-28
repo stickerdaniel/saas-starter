@@ -4,6 +4,9 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { normalizePolicyIdentity, proseKindForFile } from './english-policy/content';
 import { MAX_INPUT_BYTES, policyIdentityForFile, readBoundedStdin } from './check-english';
+import { checkoutLocaleCatalog } from './static-checks';
+
+const kindOf = (identity: string) => proseKindForFile(identity, checkoutLocaleCatalog(identity));
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const SCRIPT = path.join(ROOT, 'scripts/check-english.ts');
@@ -58,12 +61,12 @@ describe('explicit English artifact checker', () => {
 		const englishLocale = path.join(ROOT, 'src/i18n/en.json');
 		const identity = policyIdentityForFile(englishLocale, ROOT);
 		expect(identity).toBe('src/i18n/en.json');
-		expect(proseKindForFile(identity)).toBe('english-locale');
+		expect(kindOf(identity)).toBe('english-locale');
 	});
 
 	it('normalizes Windows separators without platform-dependent path resolution', () => {
 		expect(normalizePolicyIdentity('src\\i18n\\en.json')).toBe('src/i18n/en.json');
-		expect(proseKindForFile(normalizePolicyIdentity('src\\i18n\\en.json'))).toBe('english-locale');
+		expect(kindOf(normalizePolicyIdentity('src\\i18n\\en.json'))).toBe('english-locale');
 	});
 
 	it('stops reading standard input immediately after the byte limit', () => {

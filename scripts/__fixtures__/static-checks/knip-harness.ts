@@ -50,6 +50,7 @@ const RECORDER_SOURCE = path.join(
 // imports, while the worktree already uses a modified policy.
 const OVERLAY_PATHSPECS = [
 	'scripts',
+	'.agents/skills/upstream-sync/layout/v3.ts',
 	'packages/eslint-plugin/src/control-character-policy.js',
 	'knowledge-policy.config.ts',
 	'src/lib/content/legal-content-dates.ts',
@@ -60,6 +61,7 @@ const OVERLAY_PATHSPECS = [
 // Sources required to keep a clone run from passing without seeing the change under test.
 const REQUIRED_SOURCES = [
 	'scripts/static-checks.ts',
+	'.agents/skills/upstream-sync/layout/v3.ts',
 	'scripts/template-setup.ts',
 	'src/lib/content/legal-content-dates.ts',
 	'src/lib/content/legal-metadata.ts',
@@ -140,13 +142,35 @@ function sharedKitState(): SharedKitState {
 	};
 }
 
+/** A recorded invocation with the directory it ran in, relative to `repository` with `/`. */
+export interface CommandRun extends CommandInvocation {
+	cwd: string;
+}
+
+export function readCommandRuns(logPath: string, repository: string): CommandRun[] {
+	if (!existsSync(logPath)) return [];
+	const root = realpathSync.native(repository);
+	return readFileSync(logPath, 'utf8')
+		.trim()
+		.split('\n')
+		.filter(Boolean)
+		.map((line) => {
+			const { command, args, cwd } = JSON.parse(line) as CommandInvocation & { cwd: string };
+			const relative = path.relative(root, realpathSync.native(cwd));
+			return { command, args, cwd: relative.split(path.sep).join('/') };
+		});
+}
+
 export function readCommandLog(logPath: string): CommandInvocation[] {
 	if (!existsSync(logPath)) return [];
 	return readFileSync(logPath, 'utf8')
 		.trim()
 		.split('\n')
 		.filter(Boolean)
-		.map((line) => JSON.parse(line) as CommandInvocation);
+		.map((line) => {
+			const { command, args } = JSON.parse(line) as CommandInvocation;
+			return { command, args };
+		});
 }
 
 export function runFixtureGit(repository: string, args: string[]): void {

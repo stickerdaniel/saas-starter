@@ -43,4 +43,4 @@ if (response) {
 	if (response.stderr) process.stderr.write(response.stderr);
 	process.exitCode = response.status;
 }
-appendFileSync(logPath, `${JSON.stringify({ command, args })}\n`);
+appendFileSync(logPath, `${JSON.stringify({ command, args, cwd: process.cwd() })}\n`);

@@ -52,16 +52,25 @@ import { getFileInfo } from 'prettier';
 import type { Diagnostic } from 'typescript';
 import { fileURLToPath } from 'url';
 import { parseArgs } from 'util';
+import {
+	BASE_TABLE,
+	WORKSPACES,
+	type Owner,
+	type StarterWorkspace
+} from '../.agents/skills/upstream-sync/layout/v3';
 import knowledgePolicy from '../knowledge-policy.config';
 import { findLiteralControlCharacters } from '../packages/eslint-plugin/src/control-character-policy.js';
 import {
 	checkEnglishText,
 	formatEnglishFinding,
-	isEnglishPolicyFile,
 	isJavaScriptSourceFile,
-	type EnglishFinding
+	localeCatalogOf,
+	proseKindForFile,
+	type EnglishFinding,
+	type LocaleCatalog,
+	type ProseKind
 } from './english-policy/content';
-import { startProseWorkers } from './english-policy/workers';
+import { startProseWorkers, type ProseFile } from './english-policy/workers';
 import {
 	activeGitIndexFingerprint,
 	getStagedChanges,
@@ -73,6 +82,7 @@ import {
 } from './git-context';
 import { formatPolicyFinding, matchesKnowledgeCandidate } from './knowledge-policy/policy';
 import { runKnowledgePolicy } from './knowledge-policy/repository';
+import type { WorkspaceRoot } from './path-sets';
 import { MAINTAINER_CLI_SCRIPTS, referencesMaintainerCli } from './template-setup';
 import {
 	runSanitizedCommand,
@@ -91,14 +101,7 @@ export const SVELTE_KIT_SYNC_WAIT_MESSAGE =
 const CONFIG = {
 	ignorePaths: ['references/', 'scratch/'],
 	misspell: {
-		ignore: [
-			'src/i18n/',
-			'convex/_generated/',
-			'node_modules/',
-			'.git/',
-			'.svelte-kit/',
-			'references/'
-		]
+		ignore: ['node_modules/', '.git/', '.svelte-kit/', 'references/']
 	},
 	bannedPatterns: {
 		/** shadcn v1 and Tailwind v3 tokens and legacy class names */
@@ -116,8 +119,8 @@ const CONFIG = {
 		/**
 		 * Shell-string spawning. Build argument arrays and use spawn-style helpers
 		 * instead (see runCommand in scripts/process/command-runner.ts). Scope: this
-		 * scanner covers .svelte and .ts files under src/ (full runs glob that set;
-		 * --staged and file-argument runs filter the given files down to it).
+		 * scanner covers the source each owner's banned-pattern route names (full runs
+		 * glob that set; --staged and file-argument runs filter the given files down to it).
 		 */
 		execSync: /\bexecSync\s*\(/,
 		/**
@@ -134,24 +137,6 @@ const CONFIG = {
 };
 
 /**
- * Shipped text that ESLint does not parse: the locale values every surface renders,
- * the legal pages and llms.txt that routes import raw, the support agent's seed
- * prompt, the HTML shell, the SVGs components import, and the text files served
- * as-is from static/. Only the middle-dot and em-dash scan reads these; the code
- * patterns above have no meaning in JSON, SVG or prose.
- */
-function isShippedTextFile(file: string): boolean {
-	return (
-		/^src\/i18n\/[^/]+\.json$/.test(file) ||
-		/^src\/lib\/content\/.+\.(?:md|txt)$/.test(file) ||
-		file === 'src/lib/confect/support/instructions.txt' ||
-		file === 'src/app.html' ||
-		/^src\/.+\.svg$/.test(file) ||
-		/^static\/.+\.(?:txt|md|json|svg|webmanifest)$/.test(file)
-	);
-}
-
-/**
  * A middle dot or em dash, written as the character or in a form JSON.parse or the
  * browser decodes into it: a JSON escape preceded by an even run of backslashes, an
  * HTML5 named reference with its exact spelling (only the legacy `&middot` may drop
@@ -166,8 +151,8 @@ const UNRENDERED_MARKUP = /<!--[\s\S]*?-->|<(script|style)\b[\s\S]*?<\/\1\s*>/gi
 /**
  * The 1-based lines of a shipped text file that render a middle dot or em dash. The
  * template bans both from everything the app ships; ESLint's
- * local/no-middle-dot-or-em-dash covers code, and this covers the files
- * isShippedTextFile names. In HTML and SVG, comments, scripts and styles are blanked
+ * local/no-middle-dot-or-em-dash covers code, and this covers the shipped text
+ * each owner of the CheckLayout names. In HTML and SVG, comments, scripts and styles are blanked
  * first, line breaks kept, the way ESLint leaves comments and `<style>` alone.
  * Markdown keeps them, since a code span that shows `<script>` renders its text.
  */
@@ -610,19 +595,426 @@ export function isIgnoredPath(file: string): boolean {
 }
 
 /**
+ * The paths below `under` whose remainder `name` matches, or every path below it without a
+ * `name`, or the single path `file`. Both are relative to the owner's directory.
+ */
+export type PathRule =
+	{ readonly under: WorkspaceRoot; readonly name?: RegExp } | { readonly file: string };
+
+/** A PathRule, or every path of the owner that contains `containing` at any depth. */
+export type ExceptRule = PathRule | { readonly containing: string };
+
+/** The paths of one owner that a check reads: those `paths` names and `except` does not. */
+export interface Route {
+	readonly paths: readonly PathRule[];
+	readonly except?: readonly ExceptRule[];
+}
+
+/** The checks whose files the CheckLayout names per owner. */
+export type RoutedCheck =
+	'misspell' | 'eslint' | 'svelte-check' | 'cli-types' | 'skill-types' | 'script-types' | 'convex';
+
+export type TypeCheck = 'svelte-check' | 'cli-types' | 'skill-types' | 'script-types' | 'convex';
+
+export interface OwnerChecks {
+	/** The directory the owner's paths are relative to: its workspace root, or `''` for the repository root. */
+	readonly directory: WorkspaceRoot;
+	readonly routes: { readonly [C in RoutedCheck]?: Route };
+	/**
+	 * The directories of the owner's source code, relative to `directory`. The banned-pattern
+	 * scan reads the `.svelte` and `.ts` files below them for code patterns, and the files that
+	 * `sourceShippedText` of the layout names below them as shipped text.
+	 */
+	readonly sources?: readonly WorkspaceRoot[];
+	/**
+	 * Shipped text that ESLint does not parse: the locale values every surface renders, the
+	 * legal pages and llms.txt that routes import raw, the support agent's seed prompt, the
+	 * HTML shell, and the text files served as-is from static/.
+	 * The banned-pattern scan reads these for a middle dot or em dash only; its code patterns
+	 * have no meaning in JSON, SVG or prose.
+	 */
+	readonly shippedText?: readonly PathRule[];
+	/** The directory whose `<language code>.json` files are the product's locale catalogs. */
+	readonly localeCatalogs?: WorkspaceRoot;
+}
+
+/** Bun arguments, run in the directory of the owner `runsIn`. */
+export interface LayoutCommand<O extends Owner> {
+	readonly runsIn: StarterWorkspace | O;
+	readonly args: readonly string[];
+}
+
+/**
+ * A whole-project linter, named in the ledger by its key. A run over named files starts it
+ * when a named file belongs to an owner in `startedBy`; a full run starts every project.
+ */
+export interface LintProject<O extends Owner> extends LayoutCommand<O> {
+	readonly title: string;
+	readonly startedBy: ReadonlyArray<StarterWorkspace | O>;
+	/** Skipped when setup has removed the creator package. */
+	readonly needsCreatorPackage?: true;
+}
+
+export type LayoutTask = 'svelte-kit sync' | 'build-emails' | 'Autumn config' | 'convex compat';
+
+/**
+ * Where each check of this checker finds its files and runs, for one layout of the tree. A
+ * product adds its own roots as owners `O` and keeps every starter owner.
+ */
+export interface CheckLayout<O extends Owner = StarterWorkspace> {
+	/** The owner of a repository path. */
+	readonly ownerOf: (path: string) => StarterWorkspace | O;
+	readonly owners: { readonly [K in StarterWorkspace | O]: OwnerChecks };
+	/**
+	 * Shipped text below every source directory of every owner, by its path below that
+	 * directory: the SVGs components import.
+	 */
+	readonly sourceShippedText: RegExp;
+	/** The project each type check reads, relative to the directory of `runsIn`, and its command. */
+	readonly typeProjects: {
+		readonly [T in TypeCheck]: LayoutCommand<O> & { readonly config: string };
+	};
+	readonly lintProjects: { readonly [name: string]: LintProject<O> };
+	/** `convex compat` runs its arguments with the running Bun executable. */
+	readonly tasks: { readonly [T in LayoutTask]: LayoutCommand<O> };
+}
+
+const EVERY_PATH: Route = { paths: [{ under: '' }] };
+const FLAT_SOURCES: readonly WorkspaceRoot[] = ['src/'];
+const BANNED_PATTERN_SOURCE = /\.(?:svelte|ts)$/;
+const SCRIPT_SOURCE: PathRule = { under: 'scripts/', name: /\.ts$/ };
+const ENGLISH_POLICY_BUNDLE: PathRule = { file: 'scripts/english-policy/pr-metadata.bundle.mjs' };
+const FLAT_CREATOR_DIRECTORY = 'packages/create-saas-starter/';
+const FLAT_LOCALE_CATALOGS = 'src/i18n/';
+const GENERATED_CONVEX: ExceptRule = { containing: 'convex/_generated/' };
+const EVERY_STARTER_OWNER = Object.keys(WORKSPACES) as StarterWorkspace[];
+
+/** The tree as it is today: every path keeps the location the move table maps from. */
+export const FLAT_CHECK_LAYOUT: CheckLayout = {
+	ownerOf: (path) => BASE_TABLE.place(path)?.owner ?? 'root',
+	sourceShippedText: /^.+\.svg$/,
+	owners: {
+		web: {
+			directory: '',
+			sources: FLAT_SOURCES,
+			routes: {
+				misspell: EVERY_PATH,
+				eslint: EVERY_PATH,
+				'svelte-check': EVERY_PATH,
+				'script-types': { paths: [{ file: 'scripts/tsconfig.json' }, SCRIPT_SOURCE] }
+			},
+			shippedText: [
+				{ under: 'src/lib/content/', name: /^.+\.(?:md|txt)$/ },
+				{ file: 'src/app.html' },
+				{ under: 'static/', name: /^.+\.(?:txt|md|json|svg|webmanifest)$/ }
+			]
+		},
+		backend: {
+			directory: '',
+			sources: FLAT_SOURCES,
+			routes: {
+				misspell: { ...EVERY_PATH, except: [GENERATED_CONVEX] },
+				eslint: EVERY_PATH,
+				'svelte-check': EVERY_PATH,
+				'script-types': { paths: [SCRIPT_SOURCE] },
+				convex: {
+					paths: [
+						{ under: 'src/lib/convex/' },
+						{ under: 'src/lib/confect/' },
+						{ under: 'src/lib/convex-components/' }
+					]
+				}
+			},
+			shippedText: [{ file: 'src/lib/confect/support/instructions.txt' }]
+		},
+		ui: {
+			directory: '',
+			sources: FLAT_SOURCES,
+			routes: {
+				misspell: EVERY_PATH,
+				eslint: EVERY_PATH,
+				'svelte-check': EVERY_PATH
+			}
+		},
+		emails: {
+			directory: '',
+			sources: FLAT_SOURCES,
+			routes: {
+				misspell: EVERY_PATH,
+				eslint: EVERY_PATH,
+				'svelte-check': EVERY_PATH,
+				'script-types': { paths: [SCRIPT_SOURCE] }
+			}
+		},
+		'product-config': {
+			directory: '',
+			sources: FLAT_SOURCES,
+			routes: {
+				misspell: { ...EVERY_PATH, except: [{ under: FLAT_LOCALE_CATALOGS }] },
+				eslint: EVERY_PATH,
+				'svelte-check': EVERY_PATH
+			},
+			shippedText: [{ under: FLAT_LOCALE_CATALOGS, name: /^[^/]+\.json$/ }],
+			localeCatalogs: FLAT_LOCALE_CATALOGS
+		},
+		tooling: {
+			directory: '',
+			routes: {
+				misspell: EVERY_PATH,
+				eslint: EVERY_PATH,
+				'svelte-check': EVERY_PATH,
+				'cli-types': { paths: [{ file: 'scripts/windows-job.ts' }] },
+				'script-types': { paths: [SCRIPT_SOURCE] }
+			}
+		},
+		'eslint-plugin': {
+			directory: 'packages/eslint-plugin/',
+			routes: { misspell: EVERY_PATH, eslint: EVERY_PATH, 'svelte-check': EVERY_PATH }
+		},
+		'create-saas-starter': {
+			directory: FLAT_CREATOR_DIRECTORY,
+			routes: {
+				misspell: EVERY_PATH,
+				eslint: EVERY_PATH,
+				'cli-types': {
+					paths: [{ under: '', name: /(?:^|\/)(?:package\.json|bun\.lock|tsconfig\.json)$|\.ts$/ }]
+				}
+			}
+		},
+		root: {
+			directory: '',
+			routes: {
+				misspell: { ...EVERY_PATH, except: [ENGLISH_POLICY_BUNDLE] },
+				eslint: { ...EVERY_PATH, except: [ENGLISH_POLICY_BUNDLE] },
+				'svelte-check': EVERY_PATH,
+				'skill-types': {
+					paths: [
+						{ file: '.agents/skills/tsconfig.json' },
+						{ under: '.agents/skills/', name: /^[^/]+\/scripts\/.+\.ts$/ }
+					]
+				},
+				'script-types': { paths: [SCRIPT_SOURCE] }
+			}
+		}
+	},
+	typeProjects: {
+		'svelte-check': {
+			runsIn: 'web',
+			config: 'tsconfig.json',
+			args: ['svelte-check', '--tsconfig', './tsconfig.json', '--tsgo-experimental-api']
+		},
+		'cli-types': {
+			runsIn: 'root',
+			config: `${FLAT_CREATOR_DIRECTORY}tsconfig.json`,
+			args: ['run', 'check:cli']
+		},
+		'skill-types': {
+			runsIn: 'root',
+			config: '.agents/skills/tsconfig.json',
+			args: ['run', 'check:skills']
+		},
+		'script-types': {
+			runsIn: 'root',
+			config: 'scripts/tsconfig.json',
+			args: ['run', 'check:scripts']
+		},
+		convex: {
+			runsIn: 'backend',
+			config: 'src/lib/convex/tsconfig.json',
+			args: ['run', 'check:convex']
+		}
+	},
+	lintProjects: {
+		knip: {
+			title: 'knip',
+			runsIn: 'web',
+			startedBy: EVERY_STARTER_OWNER,
+			args: ['knip', '--no-progress']
+		},
+		'cli knip': {
+			title: 'create-saas-starter knip',
+			runsIn: 'root',
+			startedBy: EVERY_STARTER_OWNER,
+			needsCreatorPackage: true,
+			args: ['run', '--cwd', FLAT_CREATOR_DIRECTORY.slice(0, -1), 'knip', '--no-progress']
+		}
+	},
+	tasks: {
+		'svelte-kit sync': { runsIn: 'web', args: ['svelte-kit', 'sync'] },
+		'build-emails': { runsIn: 'emails', args: ['scripts/build-emails.ts'] },
+		'Autumn config': { runsIn: 'web', args: ['scripts/check-autumn-config.ts'] },
+		'convex compat': { runsIn: 'backend', args: ['scripts/convex-consumer-compat.ts'] }
+	}
+};
+
+/** The layout of this checkout: the value the checker runs on. */
+const CHECKOUT_LAYOUT: CheckLayout = FLAT_CHECK_LAYOUT;
+
+/** The locale catalog `file` is in the layout of this checkout, for `check-english.ts`. */
+export function checkoutLocaleCatalog(file: string): LocaleCatalog | undefined {
+	return localeCatalogFor(CHECKOUT_LAYOUT, file);
+}
+
+function matchesRule(rules: readonly ExceptRule[], relative: string): boolean {
+	return rules.some((rule) =>
+		'file' in rule
+			? relative === rule.file
+			: 'containing' in rule
+				? relative.includes(rule.containing)
+				: relative.startsWith(rule.under) &&
+					(rule.name === undefined || rule.name.test(relative.slice(rule.under.length)))
+	);
+}
+
+/** The owner's checks and the path relative to its directory, the form every route reads. */
+export function locateOwner<O extends Owner>(
+	layout: CheckLayout<O>,
+	file: string
+): [owner: StarterWorkspace | O, checks: OwnerChecks, relative: string] {
+	const owner = layout.ownerOf(file);
+	const checks = layout.owners[owner];
+	if (!file.startsWith(checks.directory)) {
+		throw new Error(
+			`${file} belongs to ${owner}, whose directory ${checks.directory} does not hold it`
+		);
+	}
+	return [owner, checks, file.slice(checks.directory.length)];
+}
+
+/** A command of a layout with the absolute directory it runs in. */
+export interface ResolvedCommand {
+	readonly cwd: string;
+	readonly args: readonly string[];
+}
+
+export function resolveCommand<O extends Owner>(
+	layout: CheckLayout<O>,
+	command: LayoutCommand<O>
+): ResolvedCommand {
+	return { cwd: path.join(REPO_ROOT, layout.owners[command.runsIn].directory), args: command.args };
+}
+
+/** The type project configs, repository-relative, in the order the type checks run. */
+export function typeProjectConfigs<O extends Owner>(layout: CheckLayout<O>): string[] {
+	return TYPE_CHECKS.map((check) => {
+		const project = layout.typeProjects[check];
+		return layout.owners[project.runsIn].directory + project.config;
+	});
+}
+
+/** The locale catalog `file` is in `layout`, or `undefined` when it is none. */
+function localeCatalogFor<O extends Owner>(
+	layout: CheckLayout<O>,
+	file: string
+): LocaleCatalog | undefined {
+	const [, checks, relative] = locateOwner(layout, file);
+	if (checks.localeCatalogs === undefined || !relative.startsWith(checks.localeCatalogs)) {
+		return undefined;
+	}
+	const code = /^([^/]+)\.json$/.exec(relative.slice(checks.localeCatalogs.length))?.[1];
+	return code === undefined ? undefined : localeCatalogOf(code);
+}
+
+/**
+ * The candidates of a full banned-pattern scan, repository-relative: the files below every
+ * source directory and every shipped-text directory of an owner, and each file a shipped-text
+ * rule names.
+ */
+function bannedPatternScanSet<O extends Owner>(layout: CheckLayout<O>): string[] {
+	const directories = new Set<string>();
+	const files = new Set<string>();
+	for (const checks of Object.values<OwnerChecks>(layout.owners)) {
+		for (const source of checks.sources ?? []) directories.add(checks.directory + source);
+		for (const rule of checks.shippedText ?? []) {
+			if ('file' in rule) files.add(checks.directory + rule.file);
+			else directories.add(checks.directory + rule.under);
+		}
+	}
+	const outermost = [...directories]
+		.filter(
+			(directory) =>
+				![...directories].some((other) => other !== directory && directory.startsWith(other))
+		)
+		.sort();
+	const scanned = outermost.flatMap((directory) => {
+		const cwd = path.join(REPO_ROOT, directory);
+		if (!existsSync(cwd)) return [];
+		return [
+			...new Bun.Glob('**/*.{svelte,ts,json,md,txt,svg,webmanifest,html}').scanSync({ cwd })
+		].map((file) => directory + toPosix(file));
+	});
+	const named = [...files].filter(
+		(file) =>
+			!outermost.some((directory) => file.startsWith(directory)) &&
+			existsSync(path.join(REPO_ROOT, file))
+	);
+	return [...scanned, ...named];
+}
+
+/**
  * Which checks are responsible for a repo-relative path. The only place a file set is
  * derived from the path itself, so a check cannot disagree with the ledger about its own
- * scope, and a new check has to declare a route to be accounted for.
+ * scope, and a new check has to declare a route to be accounted for. A check the layout
+ * routes reads a path when the route of the path's owner names it; the rest are the same
+ * for every owner.
  *
  * Prettier is the one route that is not a path predicate, because the mapping from
  * filename to parser belongs to Prettier and moves when Prettier moves. It is resolved
  * by prettierFormattableFiles() below and reaches the ledger through filesFor().
  */
-const CLI_PACKAGE_DIRECTORY = 'packages/create-saas-starter';
-const CLI_PACKAGE_PREFIX = `${CLI_PACKAGE_DIRECTORY}/`;
+export function routesOf<O extends Owner>(layout: CheckLayout<O>) {
+	const routed = (check: RoutedCheck) => (file: string) => {
+		const [, checks, relative] = locateOwner(layout, file);
+		const route = checks.routes[check];
+		return (
+			route !== undefined &&
+			matchesRule(route.paths, relative) &&
+			!matchesRule(route.except ?? [], relative)
+		);
+	};
+	const inSources = (file: string, name: RegExp) => {
+		const [, checks, relative] = locateOwner(layout, file);
+		return (checks.sources ?? []).some(
+			(source) => relative.startsWith(source) && name.test(relative.slice(source.length))
+		);
+	};
+	const shippedText = (file: string) => {
+		const [, checks, relative] = locateOwner(layout, file);
+		return (
+			matchesRule(checks.shippedText ?? [], relative) || inSources(file, layout.sourceShippedText)
+		);
+	};
+	const proseKind = (file: string): ProseKind | null =>
+		proseKindForFile(file, localeCatalogFor(layout, file));
+	return {
+		isShippedText: shippedText,
+		proseKind,
+		routes: {
+			misspell: (f: string) =>
+				!CONFIG.misspell.ignore.some((i) => f.includes(i)) && routed('misspell')(f),
+			'banned-patterns': (f: string) => inSources(f, BANNED_PATTERN_SOURCE) || shippedText(f),
+			'literal-control-char': (f: string) => /\.(md|txt)$/.test(f) && !f.startsWith('scratch/'),
+			'english-prose': (f: string) => proseKind(f) !== null,
+			'knowledge-placement': (f: string) => matchesKnowledgeCandidate(knowledgePolicy, f),
+			eslint: (f: string) => isJavaScriptSourceFile(f) && routed('eslint')(f),
+			// svelteFiles is a subset of jsTsSvelteFiles, so this one predicate covers both
+			'svelte-check': (f: string) => /\.(js|ts|svelte)$/.test(f) && routed('svelte-check')(f),
+			'cli-types': routed('cli-types'),
+			'skill-types': routed('skill-types'),
+			'script-types': routed('script-types'),
+			convex: routed('convex')
+		}
+	} as const;
+}
 
-function creatorPackageState(): 'present' | 'absent' {
-	const child = path.join(REPO_ROOT, CLI_PACKAGE_DIRECTORY);
+type Routed = ReturnType<typeof routesOf>;
+type Routes = Routed['routes'];
+
+const FLAT_ROUTED: Routed = routesOf(FLAT_CHECK_LAYOUT);
+export const ROUTES: Routes = FLAT_ROUTED.routes;
+
+function creatorPackageState<O extends Owner>(layout: CheckLayout<O>): 'present' | 'absent' {
+	const child = path.join(REPO_ROOT, layout.owners['create-saas-starter'].directory);
 	const workflow = path.join(REPO_ROOT, '.github/workflows/create-saas-starter.yml');
 	const root = JSON.parse(readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8')) as unknown;
 	if (!root || typeof root !== 'object' || Array.isArray(root)) {
@@ -713,34 +1105,6 @@ function assertVarlockMatchesLockfile(): void {
 	);
 }
 
-export const ROUTES = {
-	misspell: (f: string) =>
-		f !== 'scripts/english-policy/pr-metadata.bundle.mjs' &&
-		!CONFIG.misspell.ignore.some((i) => f.includes(i)),
-	'banned-patterns': (f: string) =>
-		(/\.(svelte|ts)$/.test(f) && f.startsWith('src/')) || isShippedTextFile(f),
-	'literal-control-char': (f: string) => /\.(md|txt)$/.test(f) && !f.startsWith('scratch/'),
-	'english-prose': isEnglishPolicyFile,
-	'knowledge-placement': (f: string) => matchesKnowledgeCandidate(knowledgePolicy, f),
-	eslint: (f: string) =>
-		f !== 'scripts/english-policy/pr-metadata.bundle.mjs' && isJavaScriptSourceFile(f),
-	// svelteFiles is a subset of jsTsSvelteFiles, so this one predicate covers both
-	'svelte-check': (f: string) => /\.(js|ts|svelte)$/.test(f) && !f.startsWith(CLI_PACKAGE_PREFIX),
-	'cli-types': (f: string) =>
-		(f.startsWith(CLI_PACKAGE_PREFIX) &&
-			/(?:^|\/)(?:package\.json|bun\.lock|tsconfig\.json)$/.test(f)) ||
-		(f.startsWith(CLI_PACKAGE_PREFIX) && f.endsWith('.ts')) ||
-		f === 'scripts/windows-job.ts',
-	'skill-types': (f: string) =>
-		f === '.agents/skills/tsconfig.json' || /^\.agents\/skills\/[^/]+\/scripts\/.+\.ts$/.test(f),
-	'script-types': (f: string) =>
-		f === 'scripts/tsconfig.json' || (f.startsWith('scripts/') && f.endsWith('.ts')),
-	convex: (f: string) =>
-		f.startsWith('src/lib/convex/') ||
-		f.startsWith('src/lib/confect/') ||
-		f.startsWith('src/lib/convex-components/')
-} as const;
-
 /** The ignore files Prettier's CLI consults unless --ignore-path overrides them. */
 const PRETTIER_IGNORE_FILES = ['.gitignore', '.prettierignore'];
 
@@ -791,31 +1155,39 @@ export async function prettierFormattableFiles(
 	});
 }
 
-export function authoredTextFiles(files: string[]): string[] {
-	return files.filter((file) => ROUTES['literal-control-char'](file) && !isIgnoredPath(file));
+export function authoredTextFiles(files: string[], routes: Routes = ROUTES): string[] {
+	return files.filter((file) => routes['literal-control-char'](file) && !isIgnoredPath(file));
 }
 
-export function spellcheckFiles(files: string[]): string[] {
-	return files.filter((file) => ROUTES.misspell(file) && !isIgnoredPath(file));
+export function spellcheckFiles(files: string[], routes: Routes = ROUTES): string[] {
+	return files.filter((file) => routes.misspell(file) && !isIgnoredPath(file));
 }
 
-export function englishProseFiles(files: string[]): string[] {
-	return files.filter((file) => ROUTES['english-prose'](file) && !isIgnoredPath(file));
+/** The files of `files` the English prose check reads, each with its kind of prose. */
+export function englishProseFiles(
+	files: string[],
+	proseKind: Routed['proseKind'] = FLAT_ROUTED.proseKind
+): ProseFile[] {
+	return files.flatMap((file) => {
+		const kind = proseKind(file);
+		return kind === null || isIgnoredPath(file) ? [] : [[file, kind] as const];
+	});
 }
 
 export async function englishProseFindings(
-	files: string[],
-	readText: (file: string) => Promise<string> = (file) => Bun.file(file).text()
+	files: readonly ProseFile[],
+	readText: (file: string) => Promise<string> = (file) =>
+		Bun.file(path.resolve(REPO_ROOT, file)).text()
 ): Promise<EnglishFinding[]> {
 	const findings: EnglishFinding[] = [];
-	for (const file of englishProseFiles(files)) {
-		findings.push(...checkEnglishText(file, await readText(file)));
+	for (const [file, kind] of files) {
+		findings.push(...checkEnglishText(file, await readText(file), kind));
 	}
 	return findings;
 }
 
-type CheckId = keyof typeof ROUTES | 'prettier';
-const CHECK_IDS: CheckId[] = [...(Object.keys(ROUTES) as Array<keyof typeof ROUTES>), 'prettier'];
+type CheckId = keyof Routes | 'prettier';
+const CHECK_IDS: CheckId[] = [...(Object.keys(ROUTES) as Array<keyof Routes>), 'prettier'];
 const LINT_CHECKS: CheckId[] = [
 	'misspell',
 	'banned-patterns',
@@ -825,25 +1197,12 @@ const LINT_CHECKS: CheckId[] = [
 	'prettier',
 	'eslint'
 ];
-const TYPE_CHECKS: CheckId[] = [
+const TYPE_CHECKS: TypeCheck[] = [
 	'svelte-check',
 	'cli-types',
 	'skill-types',
 	'script-types',
 	'convex'
-];
-
-/**
- * The TypeScript project config each type check reads: `svelte-check --tsconfig`, the
- * creator's `tsc --noEmit`, `check:skills`, `check:scripts` and `check:convex`. A missing
- * config is skipped here, because the check that owns it already fails or is skipped on its own.
- */
-const TYPE_PROJECT_CONFIGS = [
-	'tsconfig.json',
-	`${CLI_PACKAGE_DIRECTORY}/tsconfig.json`,
-	'.agents/skills/tsconfig.json',
-	'scripts/tsconfig.json',
-	'src/lib/convex/tsconfig.json'
 ];
 
 /** Source extensions a TypeScript program can read, plus Svelte components. */
@@ -872,18 +1231,21 @@ const TYPE_SOURCE = /\.(?:[cm]?[jt]sx?|svelte)$/;
  * Both sides are compared as canonical paths. resolveInputs() names a symbolic link by its
  * target, while TypeScript lists a link under its own name, so an included link would
  * otherwise reject the very file it points to.
+ *
+ * `configs` are the TypeScript project configs the type checks read. A missing config is
+ * skipped, because the check that owns it already fails or is skipped on its own.
  */
 export async function filesOutsideTypeProjects(
 	files: string[],
-	configs = TYPE_PROJECT_CONFIGS,
+	configs = typeProjectConfigs(FLAT_CHECK_LAYOUT),
 	cwd = REPO_ROOT
 ): Promise<string[]> {
 	if (files.length === 0) return [];
 	const { default: ts } = await import('typescript');
 	const relative = (file: string): string => {
-		let canonical = file;
+		let canonical = path.resolve(cwd, file);
 		try {
-			canonical = realpathSync(file);
+			canonical = realpathSync(canonical);
 		} catch (error) {
 			if (!isMissingPathError(error)) throw error;
 		}
@@ -992,6 +1354,7 @@ class Ledger {
 
 	constructor(
 		readonly mode: Mode,
+		private readonly routes: Routes,
 		inputs: string[],
 		/** The inputs Prettier reported a parser for. See prettierFormattableFiles(). */
 		formattable: string[] = [],
@@ -1013,7 +1376,8 @@ class Ledger {
 	 */
 	filesFor(id: CheckId): string[] {
 		if (id === 'prettier') return this.files.filter((file) => this.formattable.has(file));
-		return (TYPE_CHECKS.includes(id) ? this.touched : this.files).filter(ROUTES[id]);
+		const typeCheck = (TYPE_CHECKS as readonly CheckId[]).includes(id);
+		return (typeCheck ? this.touched : this.files).filter(this.routes[id]);
 	}
 
 	/**
@@ -1194,7 +1558,7 @@ function parseCli() {
 	return { ciMode, scope, mode, rawPositionals, filesFrom };
 }
 
-type CommandLine = [command: string, args: string[]];
+type CommandLine = [command: string, args: string[], options: { readonly cwd: string }];
 
 /**
  * The one failure policy for a finished command: `null` means it could not start (or its
@@ -1256,7 +1620,7 @@ function killStartedGroups(): void {
 export function startCommand(
 	command: string,
 	args: string[],
-	options: Pick<SanitizedCommandOptions, 'stdout' | 'stderr' | 'githubActions'> = {}
+	options: Pick<SanitizedCommandOptions, 'cwd' | 'stdout' | 'stderr' | 'githubActions'> = {}
 ): { finish(): Promise<void> } {
 	if (!process.listeners('exit').includes(killStartedGroups)) {
 		process.on('exit', killStartedGroups);
@@ -1401,7 +1765,11 @@ function assertRegularFormatterPaths(files: string[]): void {
 	}
 }
 
-async function runFormatter(formatFlag: '--check' | '--write', files?: string[]): Promise<void> {
+async function runFormatter(
+	formatFlag: '--check' | '--write',
+	cwd: string,
+	files?: string[]
+): Promise<void> {
 	if (files === undefined) {
 		// CI points this at the Bun build it lints with. Its `bun fmt` prints the same bytes as
 		// the Prettier versions renovate.json holds for every file here, in a fraction of the
@@ -1409,9 +1777,9 @@ async function runFormatter(formatFlag: '--check' | '--write', files?: string[])
 		const bun = process.env.BUN_LINT_BINARY;
 		if (bun) {
 			const ignorePaths = PRETTIER_IGNORE_FILES.flatMap((file) => ['--ignore-path', file]);
-			await runCommand(bun, ['fmt', '--no-script', ...ignorePaths, formatFlag, '.']);
+			await runCommand(bun, ['fmt', '--no-script', ...ignorePaths, formatFlag, '.'], { cwd });
 		} else {
-			await runCommand('bun', prettierArguments(formatFlag));
+			await runCommand('bun', prettierArguments(formatFlag), { cwd });
 		}
 		return;
 	}
@@ -1424,7 +1792,7 @@ async function runFormatter(formatFlag: '--check' | '--write', files?: string[])
 		// Revalidate immediately before each launch, after parser and ignore classification.
 		assertRegularFormatterPaths(files.slice(offset, offset + batch.length));
 		offset += batch.length;
-		await runCommand('bun', [...baseArguments, ...batch]);
+		await runCommand('bun', [...baseArguments, ...batch], { cwd });
 	}
 }
 
@@ -1439,13 +1807,19 @@ async function runFormatter(formatFlag: '--check' | '--write', files?: string[])
  * reads remain isolated and can fail closed when they need external transport
  * configuration; see #863 and `isolatedGitEnv()` in `convex-consumer-compat.ts`.
  */
-export function compatibilityInvocation(ciMode = false) {
+export function compatibilityInvocation(
+	ciMode = false,
+	task: ResolvedCommand = resolveCommand(
+		FLAT_CHECK_LAYOUT,
+		FLAT_CHECK_LAYOUT.tasks['convex compat']
+	)
+) {
 	const env = sanitizedGitEnv();
 	if (ciMode) env.CI = 'true';
 	return {
 		command: process.execPath,
-		args: ['scripts/convex-consumer-compat.ts'],
-		options: { env } satisfies SanitizedCommandOptions
+		args: [...task.args],
+		options: { env, cwd: task.cwd } satisfies SanitizedCommandOptions
 	};
 }
 
@@ -1476,8 +1850,15 @@ export function literalControlCharacterViolations(file: string, text: string): s
 	);
 }
 
-async function main(): Promise<void> {
+/** Runs the checks over the tree `layout` describes. */
+export async function runStaticChecks<O extends Owner>(layout: CheckLayout<O>): Promise<void> {
 	const { ciMode, scope, mode, rawPositionals, filesFrom } = parseCli();
+	const { routes, isShippedText, proseKind } = routesOf(layout);
+	const command = (line: LayoutCommand<O>): CommandLine => {
+		const { cwd, args } = resolveCommand(layout, line);
+		return ['bun', [...args], { cwd }];
+	};
+	const atRoot = { cwd: path.join(REPO_ROOT, layout.owners.root.directory) };
 
 	const shouldRunLint = !scope || scope === 'lint';
 	const shouldRunTypes = !scope || scope === 'types';
@@ -1485,7 +1866,7 @@ async function main(): Promise<void> {
 	const assertMode = usesAssertOnlyChecks(ciMode, mode);
 	const scopeLabel = scope ?? 'lint + types';
 
-	// Caller-typed paths resolve against the invocation cwd, before the chdir below.
+	// Caller-typed paths resolve against the invocation cwd; every later path is repository-relative.
 	let inputs: string[] = [];
 	// Staged mode keeps the exact Git paths and the complete starting index state.
 	let stagedIndexPaths: string[] = [];
@@ -1515,11 +1896,8 @@ async function main(): Promise<void> {
 		);
 	}
 
-	// Every glob and every subprocess below assumes the repo root (`bun prettier .`,
-	// `Bun.Glob('src/**/*')`, the `src/` prefix gates). The chdir makes that a fact, after
-	// caller paths are resolved, so a relative argument still means what the caller meant.
-	process.chdir(REPO_ROOT);
-	const creatorState = scope === 'format' || scope === 'compat' ? undefined : creatorPackageState();
+	const creatorState =
+		scope === 'format' || scope === 'compat' ? undefined : creatorPackageState(layout);
 
 	if (mode === 'staged') {
 		stagedEnv = stagedGitEnv(REPO_ROOT);
@@ -1549,7 +1927,10 @@ async function main(): Promise<void> {
 					'  then stage the intended bytes and retry so checks see the committed content.'
 			);
 		}
-		inputs = stagedIndexPaths.length > 0 ? resolveInputs(stagedIndexPaths, 'the git index') : [];
+		inputs =
+			stagedIndexPaths.length > 0
+				? resolveInputs(stagedIndexPaths, 'the git index', REPO_ROOT)
+				: [];
 		if (
 			stagedRemovedPaths.some(removedPathOnDisk) ||
 			!stagedFilesMatchWorktree(stagedIndexPaths, REPO_ROOT, stagedEnv)
@@ -1576,7 +1957,7 @@ async function main(): Promise<void> {
 	const prettierInputs = prettierProjectPaths(ledgerInputs, REPO_ROOT, scopedMode);
 	const formattable = await prettierFormattableFiles(prettierInputs);
 	assertSafePaths(formattable);
-	const ledger = new Ledger(mode, ledgerInputs, formattable, stagedRemovedPaths);
+	const ledger = new Ledger(mode, routes, ledgerInputs, formattable, stagedRemovedPaths);
 	if (stagedDeletionOnly) {
 		ledger.noWork('staged changes only delete paths absent from the final index');
 	}
@@ -1592,7 +1973,10 @@ async function main(): Promise<void> {
 	let step = 1;
 	if (scope === 'compat') {
 		printHeader(step, 'Convex consumer compatibility');
-		const invocation = compatibilityInvocation(ciMode);
+		const invocation = compatibilityInvocation(
+			ciMode,
+			resolveCommand(layout, layout.tasks['convex compat'])
+		);
 		await runCommand(invocation.command, invocation.args, invocation.options);
 		ledger.ran('convex compat');
 		console.log('\n');
@@ -1607,10 +1991,10 @@ async function main(): Promise<void> {
 			if (files.length === 0) {
 				fail('Full-project format scope found no supported, nonignored files.');
 			}
-			await runFormatter('--check');
+			await runFormatter('--check', atRoot.cwd);
 			ledger.ran('prettier', files.length);
 		} else if (files.length > 0) {
-			await runFormatter('--check', files);
+			await runFormatter('--check', atRoot.cwd, files);
 			ledger.ran('prettier', files.length);
 		} else {
 			// Prettier is the only check in this scope, so it answers for the whole run: it would
@@ -1645,14 +2029,24 @@ async function main(): Promise<void> {
 	const bunLint = process.env.BUN_LINT_BINARY;
 	const eslintFixArgs = assertMode ? [] : ['--fix'];
 	const projectEslint: CommandLine = bunLint
-		? [bunLint, ['lint', '--no-script', '--flavor=eslint', ...eslintFixArgs, '.']]
-		: ['bun', ['eslint', '.', '--concurrency', '2', ...eslintFixArgs]];
-	const oxlint: CommandLine = ['bun', ['oxlint']];
-	const knip: CommandLine = ['bun', ['knip', '--no-progress']];
-	const cliKnip: CommandLine = [
-		'bun',
-		['run', '--cwd', CLI_PACKAGE_DIRECTORY, 'knip', '--no-progress']
-	];
+		? [bunLint, ['lint', '--no-script', '--flavor=eslint', ...eslintFixArgs, '.'], atRoot]
+		: ['bun', ['eslint', '.', '--concurrency', '2', ...eslintFixArgs], atRoot];
+	const oxlint: CommandLine = ['bun', ['oxlint'], atRoot];
+	const namedOwners = new Set(ledgerInputs.map((file) => layout.ownerOf(file)));
+	const lintProjects = Object.entries(layout.lintProjects).map(
+		([name, project]) =>
+			({
+				name,
+				project,
+				line: command(project),
+				state:
+					mode !== 'full' && !project.startedBy.some((owner) => namedOwners.has(owner))
+						? 'no named file'
+						: project.needsCreatorPackage && creatorState === 'absent'
+							? 'no creator package'
+							: 'starts'
+			}) as const
+	);
 
 	// SvelteKit sync always runs, because lint and types both need it. Another run's sync of
 	// this checkout can delete files this one is listing, so they take turns.
@@ -1660,7 +2054,7 @@ async function main(): Promise<void> {
 	printHeader(step++, 'SvelteKit sync');
 	await withSvelteKitSyncLock(
 		REPO_ROOT,
-		() => runCommand('bun', ['svelte-kit', 'sync']),
+		() => runCommand(...command(layout.tasks['svelte-kit sync'])),
 		() => console.log(SVELTE_KIT_SYNC_WAIT_MESSAGE)
 	);
 	ledger.ran('svelte-kit sync');
@@ -1672,27 +2066,33 @@ async function main(): Promise<void> {
 	// stay sequential: a fix run rewrites files that knip and oxlint read. An early exit kills
 	// the started process groups, which Windows lacks, and a cancelled run leaves them to the
 	// disposable GitHub Actions job, so a local `--ci` run stays sequential too.
-	const early =
+	const startsEarly =
 		shouldRunLint &&
 		ciMode &&
 		mode === 'full' &&
 		process.platform !== 'win32' &&
-		process.env.GITHUB_ACTIONS === 'true'
-			? {
-					eslint: startCommand(...projectEslint),
-					oxlint: startCommand(...oxlint),
-					knip: startCommand(...knip),
-					cliKnip: creatorState === 'absent' ? undefined : startCommand(...cliKnip),
-					prose: startProseWorkers(englishProseFiles(fullExistingPaths), 2)
-				}
-			: undefined;
+		process.env.GITHUB_ACTIONS === 'true';
+	const early = startsEarly
+		? {
+				eslint: startCommand(...projectEslint),
+				oxlint: startCommand(...oxlint),
+				lintProjects: new Map(
+					lintProjects.flatMap(({ name, line, state }) =>
+						state === 'starts' ? [[name, startCommand(...line)] as const] : []
+					)
+				),
+				prose: startProseWorkers(englishProseFiles(fullExistingPaths, proseKind), 2, atRoot.cwd)
+			}
+		: undefined;
 
 	// Lint group: misspell, banned patterns, prettier, eslint, oxlint, knip
 
 	if (shouldRunLint) {
 		printHeader(step++, 'Spell checking');
 		if (hasMisspell()) {
-			const files = scopedMode ? ledger.filesFor('misspell') : spellcheckFiles(fullExistingPaths);
+			const files = scopedMode
+				? ledger.filesFor('misspell')
+				: spellcheckFiles(fullExistingPaths, routes);
 
 			if (files.length === 0) {
 				console.log('No files to spell check');
@@ -1700,7 +2100,7 @@ async function main(): Promise<void> {
 				// Batches stay below command line length limits
 				const chunkSize = 100;
 				for (let i = 0; i < files.length; i += chunkSize) {
-					await runCommand('misspell', ['-error', ...files.slice(i, i + chunkSize)]);
+					await runCommand('misspell', ['-error', ...files.slice(i, i + chunkSize)], atRoot);
 				}
 			}
 			ledger.ran('misspell', files.length);
@@ -1723,22 +2123,14 @@ async function main(): Promise<void> {
 		{
 			const filesToScan = scopedMode
 				? ledger.filesFor('banned-patterns')
-				: [
-						...new Bun.Glob(
-							'{src,static}/**/*.{svelte,ts,json,md,txt,svg,webmanifest,html}'
-						).scanSync({
-							absolute: false
-						})
-					]
-						.map(toPosix)
-						.filter(ROUTES['banned-patterns']);
+				: bannedPatternScanSet(layout).filter(routes['banned-patterns']);
 
 			const violations: string[] = [];
 			for (const file of filesToScan) {
-				const content = Bun.file(file);
+				const content = Bun.file(path.resolve(REPO_ROOT, file));
 				const text = await content.text();
 				const lines = text.split('\n');
-				if (isShippedTextFile(file)) {
+				if (isShippedText(file)) {
 					for (const line of middleDotOrEmDashLines(file, text)) {
 						violations.push(
 							`${file}:${line}: middle dot or em dash in shipped text (use a comma, colon, line break or spacing): ${lines[line - 1]!.trim()}`
@@ -1792,10 +2184,11 @@ async function main(): Promise<void> {
 		{
 			const files = scopedMode
 				? ledger.filesFor('literal-control-char')
-				: authoredTextFiles(fullExistingPaths);
+				: authoredTextFiles(fullExistingPaths, routes);
 			const violations: string[] = [];
 			for (const file of files) {
-				violations.push(...literalControlCharacterViolations(file, await Bun.file(file).text()));
+				const text = await Bun.file(path.resolve(REPO_ROOT, file)).text();
+				violations.push(...literalControlCharacterViolations(file, text));
 			}
 			if (violations.length > 0) {
 				for (const violation of violations)
@@ -1816,7 +2209,8 @@ async function main(): Promise<void> {
 		printHeader(step++, 'English prose');
 		{
 			const files = englishProseFiles(
-				scopedMode ? ledger.filesFor('english-prose') : fullExistingPaths
+				scopedMode ? ledger.filesFor('english-prose') : fullExistingPaths,
+				proseKind
 			);
 			const findings = await (early?.prose.findings() ?? englishProseFindings(files));
 			for (const finding of findings) {
@@ -1837,10 +2231,10 @@ async function main(): Promise<void> {
 			const formatFlag = assertMode ? '--check' : '--write';
 			const files = ledger.filesFor('prettier');
 			if (!scopedMode) {
-				await runFormatter(formatFlag);
+				await runFormatter(formatFlag, atRoot.cwd);
 				ledger.ran('prettier', formattable.length);
 			} else if (files.length > 0) {
-				await runFormatter(formatFlag, files);
+				await runFormatter(formatFlag, atRoot.cwd, files);
 				ledger.ran('prettier', files.length);
 			} else {
 				console.log('No files to format');
@@ -1856,7 +2250,7 @@ async function main(): Promise<void> {
 				await (early?.eslint.finish() ?? runCommand(...projectEslint));
 				ledger.ran('eslint');
 			} else if (files.length > 0) {
-				await runCommand('bun', ['eslint', ...eslintFixArgs, ...files]);
+				await runCommand('bun', ['eslint', ...eslintFixArgs, ...files], atRoot);
 				ledger.ran('eslint', files.length);
 			} else {
 				console.log('No JS/TS/Svelte files to lint');
@@ -1877,20 +2271,20 @@ async function main(): Promise<void> {
 		// scratch file would block an unrelated commit, and the hook stays a fast staged
 		// lint. The pre-push file run and CI's lint scope still fail on new dead code.
 		if (mode !== 'staged') {
-			printHeader(step++, 'knip');
-			await (early?.knip.finish() ?? runCommand(...knip));
-			ledger.ran('knip');
-			console.log('\n');
-
-			printHeader(step++, 'create-saas-starter knip');
-			if (creatorState === 'absent') {
-				console.log('Generated project has no creator package');
-				ledger.skipped('cli knip', 'creator package removed by setup');
-			} else {
-				await (early?.cliKnip?.finish() ?? runCommand(...cliKnip));
-				ledger.ran('cli knip');
+			for (const { name, project, line, state } of lintProjects) {
+				printHeader(step++, project.title);
+				if (state === 'no named file') {
+					console.log(`No named file of ${project.startedBy.join(', ')}`);
+					ledger.skipped(name, 'no named file of its owners');
+				} else if (state === 'no creator package') {
+					console.log('Generated project has no creator package');
+					ledger.skipped(name, 'creator package removed by setup');
+				} else {
+					await (early?.lintProjects.get(name)?.finish() ?? runCommand(...line));
+					ledger.ran(name);
+				}
+				console.log('\n');
 			}
-			console.log('\n');
 		}
 	}
 
@@ -1905,14 +2299,15 @@ async function main(): Promise<void> {
 		if (scopedMode && scope === 'types') {
 			printHeader(step++, 'Type project coverage');
 			const sources = ledger.typeSources();
-			const untyped = await filesOutsideTypeProjects(sources);
+			const configs = typeProjectConfigs(layout);
+			const untyped = await filesOutsideTypeProjects(sources, configs);
 			if (untyped.length > 0) {
 				fail(
 					`${untyped.length} named source file(s) are read by no type-checked TypeScript project: ` +
 						untyped.map(formatPathForDiagnostic).join(', '),
 					'  Type checks read only what their tsconfig includes and what those files import, so\n' +
 						'  a green types run would not cover these. Include or import each file in one of\n' +
-						`  ${TYPE_PROJECT_CONFIGS.join(', ')},\n` +
+						`  ${configs.join(', ')},\n` +
 						'  or leave it out of --scope types; a run that includes lint still checks it.\n' +
 						'  A module that only a Svelte component imports is checked by svelte-check but not\n' +
 						'  recognized here; verify it with the whole-project `bun scripts/static-checks.ts --scope types`.'
@@ -1924,7 +2319,7 @@ async function main(): Promise<void> {
 
 		// Type checking needs the built emails
 		printHeader(step++, 'Build emails');
-		await runCommand('bun', ['scripts/build-emails.ts']);
+		await runCommand(...command(layout.tasks['build-emails']));
 		ledger.ran('build-emails');
 		console.log('\n');
 
@@ -1938,13 +2333,11 @@ async function main(): Promise<void> {
 				// TypeScript 7 (`@typescript/native`) checks the svelte2tsx output about twice as
 				// fast. `typescript` stays 6 for tools that need its JS API (#726). Plain `--tsgo`
 				// reports a missing shadow file for `files` entries in tsconfig.json, so it stays off.
-				await runCommand(
-					'bun',
-					['svelte-check', '--tsconfig', './tsconfig.json', '--tsgo-experimental-api'],
-					{
-						env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=8192' }
-					}
-				);
+				const [bun, args, { cwd }] = command(layout.typeProjects['svelte-check']);
+				await runCommand(bun, args, {
+					cwd,
+					env: { ...process.env, NODE_OPTIONS: '--max-old-space-size=8192' }
+				});
 				// svelte-check is tsconfig-driven: the routed files decide whether it runs, then it
 				// type-checks the whole project.
 				ledger.ran('svelte-check', 'project');
@@ -1961,7 +2354,7 @@ async function main(): Promise<void> {
 				console.log('Generated project has no creator package');
 				ledger.skipped('cli-types', 'creator package removed by setup');
 			} else if (!scopedMode || files.length > 0) {
-				await runCommand('bun', ['run', 'check:cli']);
+				await runCommand(...command(layout.typeProjects['cli-types']));
 				ledger.ran('cli-types', 'project');
 			} else {
 				console.log('No create-saas-starter TypeScript inputs to check');
@@ -1974,7 +2367,7 @@ async function main(): Promise<void> {
 		{
 			const files = ledger.filesFor('skill-types');
 			if (!scopedMode || files.length > 0) {
-				await runCommand('bun', ['run', 'check:skills']);
+				await runCommand(...command(layout.typeProjects['skill-types']));
 				ledger.ran('skill-types', 'project');
 			} else {
 				console.log('No agent skill TypeScript files to check');
@@ -1987,7 +2380,7 @@ async function main(): Promise<void> {
 		{
 			const files = ledger.filesFor('script-types');
 			if (!scopedMode || files.length > 0) {
-				await runCommand('bun', ['run', 'check:scripts']);
+				await runCommand(...command(layout.typeProjects['script-types']));
 				ledger.ran('script-types', 'project');
 			} else {
 				console.log('No script TypeScript files to check');
@@ -2000,7 +2393,7 @@ async function main(): Promise<void> {
 		{
 			const files = ledger.filesFor('convex');
 			if (!scopedMode || files.length > 0) {
-				await runCommand('bun', ['run', 'check:convex']);
+				await runCommand(...command(layout.typeProjects.convex));
 				ledger.ran('convex', 'project');
 			} else {
 				console.log('No Convex files to check');
@@ -2011,7 +2404,7 @@ async function main(): Promise<void> {
 
 		// Validate through the public constructor without credentials or remote operations.
 		printHeader(step, 'Autumn config');
-		await runCommand('bun', ['scripts/check-autumn-config.ts']);
+		await runCommand(...command(layout.tasks['Autumn config']));
 		ledger.ran('Autumn config');
 		console.log('\n');
 	}
@@ -2073,7 +2466,7 @@ async function main(): Promise<void> {
 if (import.meta.main) {
 	// Default-deny: finish() is the only path that writes a zero exit code.
 	process.exitCode = 2;
-	main().catch((error: Error) => {
+	runStaticChecks(CHECKOUT_LAYOUT).catch((error: Error) => {
 		console.error(
 			`${colors.red}Fatal error: ${sanitizeTerminalField(error.message)}${colors.reset}`
 		);
