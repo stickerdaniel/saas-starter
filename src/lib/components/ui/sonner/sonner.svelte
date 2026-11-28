@@ -14,7 +14,7 @@
 
 <Sonner
 	theme={mode.current}
-	class="toaster group scroll-lock-inset! selectable"
+	class="toaster group selectable"
 	style="--normal-bg: var(--color-popover); --normal-text: var(--color-popover-foreground); --normal-border: var(--color-border);"
 	{...restProps}
 	pauseWhenPageIsHidden
@@ -35,3 +35,17 @@
 		<TriangleAlertIcon class="size-4" />
 	{/snippet}
 </Sonner>
+
+<style>
+	/* Keeps the toaster in place under a Bits UI scroll lock, like scroll-lock-inset.
+	   Sonner sets margin: 0 and, at its 600 px breakpoint, width: 100% from unlayered
+	   CSS, so the class selector raises specificity above it. */
+	:global([data-sonner-toaster].toaster) {
+		margin-right: var(--scrollbar-width, 0px);
+	}
+	@media (max-width: 600px) {
+		:global([data-sonner-toaster].toaster) {
+			width: calc(100% - var(--scrollbar-width, 0px));
+		}
+	}
+</style>

@@ -60,7 +60,7 @@
 	<!-- Mirrors the support launcher (right-5 bottom-5): bottom left from sm up, and on
 		narrow screens above it with the support panel's gap. -->
 	<div
-		class="fixed inset-x-5 bottom-20 z-50 origin-bottom-left rounded-xl shadow-lg sm:inset-x-auto sm:bottom-5 sm:left-5 sm:w-sm"
+		class="fixed inset-x-5 bottom-20 z-50 scroll-lock-inset origin-bottom-left rounded-xl shadow-lg sm:inset-x-auto sm:bottom-5 sm:left-5 sm:w-sm"
 		in:rise={{ duration: 350, y: 16, scale: 0.97, blur: 2 }}
 		out:rise={{ duration: 200, y: 8, scale: 0.98, blur: 2 }}
 	>
