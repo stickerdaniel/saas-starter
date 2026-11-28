@@ -1,13 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import {
-	mkdirSync,
-	mkdtempSync,
-	readFileSync,
-	realpathSync,
-	rmSync,
-	symlinkSync,
-	writeFileSync
-} from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -18,6 +10,7 @@ import type { ObjectFieldType, ValidatorJSON } from 'convex/values';
 import * as Exit from 'effect/Exit';
 import * as Schema from 'effect/Schema';
 import { CONFECT_GENERATED_DIR, CONVEX_DIR } from './confect-codegen';
+import { LOCAL_CONVEX_BINARY_VERSION } from './local-convex-binary';
 
 type Value =
 	null | boolean | number | string | readonly Value[] | { readonly [key: string]: Value };
@@ -208,13 +201,6 @@ async function freePort(): Promise<number> {
 	return address.port;
 }
 
-function pinnedBinaryVersion(root: string): string {
-	const config = readFileSync(path.join(root, 'vite.config.ts'), 'utf8');
-	const version = /binaryVersion:\s*'([^']+)'/.exec(config)?.[1];
-	if (!version) throw new Error('vite.config.ts pins no local backend binaryVersion.');
-	return version;
-}
-
 function deployDirectory(root: string): string {
 	const directory = realpathSync.native(mkdtempSync(path.join(tmpdir(), 'confect-row-parity-')));
 	const convex = path.join(directory, 'convex');
@@ -287,7 +273,7 @@ export async function checkStoredRows(root: string): Promise<RowReport> {
 			projectDir: directory,
 			port: await freePort(),
 			siteProxyPort: await freePort(),
-			binaryVersion: pinnedBinaryVersion(root),
+			binaryVersion: LOCAL_CONVEX_BINARY_VERSION,
 			stdio: 'ignore'
 		},
 		'silent'

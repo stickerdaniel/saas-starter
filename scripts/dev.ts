@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { runLocalConfectDev } from './confect-dev';
 import { portlessOwnsPort, preflightOrExit, resolveDevPort } from './dev-ports';
 import { localConvexMode } from './local-convex-env';
@@ -21,6 +22,7 @@ if (confectDevMode) {
 		await runLocalConfectDev({
 			mode: confectDevMode,
 			command: ['vite', 'dev', ...portArgs],
+			restartFiles: [fileURLToPath(new URL('../vite.config.ts', import.meta.url))],
 			env: { ...process.env }
 		})
 	);

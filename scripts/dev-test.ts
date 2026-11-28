@@ -1,4 +1,5 @@
 import 'varlock/auto-load';
+import { fileURLToPath } from 'node:url';
 import { runLocalConfectDev } from './confect-dev';
 import { watchAuthoredContent } from './generate-authored-content';
 import { portlessOwnsPort, preflightOrExit, resolveTestPort } from './dev-ports';
@@ -64,7 +65,13 @@ async function main(): Promise<void> {
 				testPort,
 				portless,
 				preflight: () => preflightOrExit(testPort, 'dev:test'),
-				spawn: (command) => runLocalConfectDev({ mode: 'dev:test', command, env: testEnv })
+				spawn: (command) =>
+					runLocalConfectDev({
+						mode: 'dev:test',
+						command,
+						restartFiles: [fileURLToPath(new URL('../vite.config.ts', import.meta.url))],
+						env: testEnv
+					})
 			})
 		);
 	}

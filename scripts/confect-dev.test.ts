@@ -21,7 +21,8 @@ import {
 	createChangeFilter,
 	createRun,
 	createRunQueue,
-	readAdminKey
+	readAdminKey,
+	watchCheckoutForRuns
 } from './confect-dev';
 import {
 	CONFECT_GENERATED_DIR,
@@ -245,9 +246,46 @@ describe('watch set', () => {
 		['convex.json', 'restart'],
 		['package.json', 'restart'],
 		['bun.lock', 'restart'],
-		['vite.config.ts', 'restart']
+		['vite.config.ts', 'ignored']
 	])('classifies %s as %s', (file, kind) => {
 		expect(classifyChange(file)).toBe(kind);
+	});
+});
+
+describe('restart notice', () => {
+	it('names each restart file of the caller once when a developer changes it', async () => {
+		const root = checkout();
+		const launcherConfig = path.join(root, 'launcher.config.ts');
+		const nestedConfig = path.join(root, 'config/nested.config.js');
+		write(root, 'launcher.config.ts', 'export default {};\n');
+		write(root, 'config/nested.config.js', 'export default {};\n');
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		const logs: string[] = [];
+		let requests = 0;
+		const watcher = watchCheckoutForRuns({
+			root,
+			restartFiles: [launcherConfig, nestedConfig],
+			request: () => {
+				requests += 1;
+			},
+			log: (line) => logs.push(line)
+		});
+		try {
+			await new Promise((resolve) => setTimeout(resolve, 20));
+			writeFileSync(launcherConfig, 'export default { a: 1 };\n');
+			await until(() => logs.length >= 1);
+			writeFileSync(launcherConfig, 'export default { a: 2 };\n');
+			writeFileSync(nestedConfig, 'export default { a: 1 };\n');
+			await until(() => logs.length >= 2);
+		} finally {
+			watcher.close();
+		}
+
+		expect(logs).toEqual([
+			'launcher.config.ts changed. Restart the dev server to apply it.',
+			'config/nested.config.js changed. Restart the dev server to apply it.'
+		]);
+		expect(requests).toBe(0);
 	});
 });
 

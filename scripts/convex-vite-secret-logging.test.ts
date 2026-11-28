@@ -153,7 +153,7 @@ function loggedSecrets(file: string, banned: string[]): string[] {
 
 describe('local Convex backend telemetry isolation', () => {
 	it('never turns the E2E helper secret into provider readiness', () => {
-		const source = fs.readFileSync(path.resolve('vite.config.ts'), 'utf8');
+		const source = fs.readFileSync(new URL('../vite.config.ts', import.meta.url), 'utf8');
 		const helperSecret = source.indexOf('// AUTH_E2E_TEST_SECRET authorizes test helpers only');
 		const profile = source.indexOf('// Launcher ownership is last', helperSecret);
 		const e2eEnvironment = source.slice(helperSecret, profile);
