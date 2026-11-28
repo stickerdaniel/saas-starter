@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	breaches,
 	canChangeLanding,
+	lighthouseArgs,
 	median,
 	summarize,
 	type FormFactorBudget,
@@ -82,5 +83,17 @@ describe('canChangeLanding', () => {
 			'.github/workflows/e2e-preview-cf.yml'
 		])
 			expect(canChangeLanding(['docs/x.md', file])).toBe(true);
+	});
+});
+
+describe('lighthouseArgs', () => {
+	it('starts every audit on the origin of the audited page', () => {
+		const url = 'https://5aeae56b-saas-starter.workers.dev/en';
+		for (const formFactor of ['desktop', 'mobile'] as const) {
+			const startPage = lighthouseArgs(url, formFactor, 'reports/run')
+				.find((arg) => arg.startsWith('--blank-page='))
+				?.slice('--blank-page='.length);
+			expect(new URL(startPage ?? 'about:blank').origin).toBe(new URL(url).origin);
+		}
 	});
 });

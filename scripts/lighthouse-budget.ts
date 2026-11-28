@@ -9,6 +9,7 @@ const PAGE = '/en';
 const ATTEMPTS = 3;
 const ATTEMPT_MS = 180_000;
 const MIN_ATTEMPT_MS = 60_000;
+const CHROME_FLAGS = ['--headless=new', ...(process.platform === 'linux' ? ['--no-sandbox'] : [])];
 
 const METRICS = {
 	'first-contentful-paint': { label: 'FCP', unit: ' ms' },
@@ -102,6 +103,22 @@ function readSample(file: string, url: string): Sample | string {
 	};
 }
 
+const versionUrl = (base: string) => new URL('/_app/version.json', base);
+
+export const lighthouseArgs = (url: string, formFactor: FormFactor, outputPath: string) => [
+	'x',
+	LIGHTHOUSE,
+	url,
+	...FORM_FACTORS[formFactor],
+	`--blank-page=${versionUrl(url).href}`,
+	'--only-categories=performance',
+	'--output=json',
+	'--output=html',
+	`--output-path=${outputPath}`,
+	`--chrome-flags=${CHROME_FLAGS.join(' ')}`,
+	'--quiet'
+];
+
 function audit(
 	url: string,
 	formFactor: FormFactor,
@@ -109,7 +126,6 @@ function audit(
 	outDir: string,
 	deadline: number
 ): Sample {
-	const chromeFlags = ['--headless=new', ...(process.platform === 'linux' ? ['--no-sandbox'] : [])];
 	for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
 		const remaining = deadline - Date.now();
 		if (remaining < MIN_ATTEMPT_MS)
@@ -117,22 +133,10 @@ function audit(
 		const base = path.join(outDir, `${formFactor}-${run}-${attempt}`);
 		const report = `${base}.report.json`;
 		for (const output of [report, `${base}.report.html`]) fs.rmSync(output, { force: true });
-		const result = spawnSync(
-			process.execPath,
-			[
-				'x',
-				LIGHTHOUSE,
-				url,
-				...FORM_FACTORS[formFactor],
-				'--only-categories=performance',
-				'--output=json',
-				'--output=html',
-				`--output-path=${base}`,
-				`--chrome-flags=${chromeFlags.join(' ')}`,
-				'--quiet'
-			],
-			{ stdio: ['ignore', 'inherit', 'inherit'], timeout: Math.min(ATTEMPT_MS, remaining) }
-		);
+		const result = spawnSync(process.execPath, lighthouseArgs(url, formFactor, base), {
+			stdio: ['ignore', 'inherit', 'inherit'],
+			timeout: Math.min(ATTEMPT_MS, remaining)
+		});
 		const sample = fs.existsSync(report) ? readSample(report, url) : 'no report';
 		const outcome =
 			result.status === 0
@@ -174,12 +178,13 @@ function readChangedFiles(file: string): string[] {
 }
 
 async function servedVersion(origin: string): Promise<unknown> {
-	const response = await fetch(new URL('/_app/version.json', origin), {
+	const url = versionUrl(origin);
+	const response = await fetch(url, {
 		redirect: 'error',
 		headers: { 'cache-control': 'no-cache' },
 		signal: AbortSignal.timeout(20_000)
 	});
-	if (!response.ok) throw new Error(`${origin}/_app/version.json returned HTTP ${response.status}`);
+	if (!response.ok) throw new Error(`${url.href} returned HTTP ${response.status}`);
 	const body: unknown = await response.json();
 	return typeof body === 'object' && body !== null && 'version' in body ? body.version : undefined;
 }
