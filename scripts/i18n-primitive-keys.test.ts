@@ -129,12 +129,16 @@ interface Synthesis {
 	readonly pieces: readonly Piece[];
 	readonly components: ReadonlyMap<number, AST.Component>;
 	readonly instance: number;
+	readonly exportedInstanceDeclarations: ReadonlySet<number>;
+	readonly unsupportedInstanceExports: readonly Span[];
 }
 
 function synthesize(source: string, root: AST.Root): Synthesis {
 	let text = '';
 	const pieces: Piece[] = [];
 	const components = new Map<number, AST.Component>();
+	const exportedInstanceDeclarations = new Set<number>();
+	const unsupportedInstanceExports: Span[] = [];
 	const glue = (more: string): void => {
 		text += more;
 	};
@@ -278,23 +282,54 @@ function synthesize(source: string, root: AST.Root): Synthesis {
 				element(node);
 		}
 	};
-	const statements = (script: AST.Script | null | undefined, imports: boolean): void => {
-		for (const node of script?.content.body ?? []) {
-			if ((node.type === 'ImportDeclaration') !== imports) continue;
-			copy(spanOf(node));
-			glue(';\n');
-		}
+	const scriptStatement = (node: unknown): void => {
+		copy(spanOf(node));
+		glue(';\n');
 	};
-	statements(root.module, true);
-	statements(root.instance, true);
-	statements(root.module, false);
+	const moduleBody = root.module?.content.body ?? [];
+	const instanceBody = root.instance?.content.body ?? [];
+	const isHoisted = (node: AST.Script['content']['body'][number]): boolean =>
+		node.type === 'ImportDeclaration' ||
+		node.type === 'ExportAllDeclaration' ||
+		(node.type === 'ExportNamedDeclaration' && node.source != null);
+	moduleBody.filter((node) => node.type === 'ImportDeclaration').forEach(scriptStatement);
+	instanceBody.filter(isHoisted).forEach(scriptStatement);
+	moduleBody.filter((node) => node.type !== 'ImportDeclaration').forEach(scriptStatement);
 	glue('(');
 	const instance = text.length;
 	glue('function () {\n');
-	statements(root.instance, false);
+	for (const node of instanceBody) {
+		if (isHoisted(node)) continue;
+		if (node.type === 'ExportNamedDeclaration') {
+			if (node.declaration != null) {
+				exportedInstanceDeclarations.add(text.length);
+				scriptStatement(node.declaration);
+			} else if (!('exportKind' in node && node.exportKind === 'type')) {
+				for (const specifier of node.specifiers) {
+					if ('exportKind' in specifier && specifier.exportKind === 'type') continue;
+					statement(specifier.local);
+				}
+			}
+		} else if (
+			['ExportDefaultDeclaration', 'TSExportAssignment', 'TSNamespaceExportDeclaration'].includes(
+				node.type
+			)
+		) {
+			unsupportedInstanceExports.push(spanOf(node));
+		} else {
+			scriptStatement(node);
+		}
+	}
 	fragment(root.fragment);
 	glue('});\n');
-	return { text, pieces, components, instance };
+	return {
+		text,
+		pieces,
+		components,
+		instance,
+		exportedInstanceDeclarations,
+		unsupportedInstanceExports
+	};
 }
 
 interface Unit {
@@ -304,6 +339,7 @@ interface Unit {
 	readonly original: (offset: number) => number;
 	readonly components: ReadonlyMap<number, AST.Component>;
 	readonly instance: number | undefined;
+	readonly exportedInstanceDeclarations?: ReadonlySet<number>;
 }
 
 type Role = 'entry' | 'component' | 'translate' | 'other';
@@ -354,9 +390,20 @@ function entryElements(
 	return elements.every((element) => element !== undefined) ? elements : undefined;
 }
 
+function isTypeOnlyExport({ isTypeOnly, exportClause }: ts.ExportDeclaration): boolean {
+	return (
+		isTypeOnly ||
+		(exportClause !== undefined &&
+			ts.isNamedExports(exportClause) &&
+			exportClause.elements.length > 0 &&
+			exportClause.elements.every((element) => element.isTypeOnly))
+	);
+}
+
 function typePosition(node: ts.Node): boolean {
 	const { parent } = node;
 	if (parent === undefined) return false;
+	if (ts.isExportSpecifier(parent)) return parent.isTypeOnly || parent.parent.parent.isTypeOnly;
 	if (ts.isExpressionWithTypeArguments(parent) && parent.expression === node) {
 		const clause = parent.parent;
 		return (
@@ -454,7 +501,11 @@ function analyze(unit: Unit): Findings {
 				}
 			}
 		}
-		if (ts.isExportDeclaration(node) && !node.isTypeOnly && fromTolgee(node.moduleSpecifier)) {
+		if (
+			ts.isExportDeclaration(node) &&
+			!isTypeOnlyExport(node) &&
+			fromTolgee(node.moduleSpecifier)
+		) {
 			reportAt(
 				node,
 				node.moduleSpecifier.getText(sourceFile),
@@ -476,6 +527,7 @@ function analyze(unit: Unit): Findings {
 		if (!ts.isCallExpression(node.initializer)) continue;
 		const callee = node.initializer.expression;
 		if (!ts.isIdentifier(callee) || bindingOf(callee)?.role !== 'entry') continue;
+		if (unit.exportedInstanceDeclarations?.has(node.parent.parent.getStart(sourceFile))) continue;
 		const elements = entryElements(node);
 		if (elements === undefined) continue;
 		entries.add(callee);
@@ -554,7 +606,14 @@ function analyze(unit: Unit): Findings {
 
 function svelteFindings(file: string, source: string): Findings {
 	const root = parse(source, { modern: true });
-	const { text, pieces, components, instance } = synthesize(source, root);
+	const {
+		text,
+		pieces,
+		components,
+		instance,
+		exportedInstanceDeclarations,
+		unsupportedInstanceExports
+	} = synthesize(source, root);
 	const original = (offset: number): number => {
 		const piece = pieces.find(
 			(entry) => entry.synthetic <= offset && offset < entry.synthetic + entry.length
@@ -576,8 +635,22 @@ function svelteFindings(file: string, source: string): Findings {
 			expression: source.slice(node.start, node.end),
 			message: 'the template expression is outside the analysis'
 		}));
-	const found = analyze({ file, source, text, original, components, instance });
-	return { problems: [...unread, ...found.problems], keys: found.keys };
+	const unsupported = unsupportedInstanceExports.map(({ start, end }) => ({
+		file,
+		line: lineOf(source, start),
+		expression: source.slice(start, end),
+		message: 'the instance export is outside the Tolgee key analysis'
+	}));
+	const found = analyze({
+		file,
+		source,
+		text,
+		original,
+		components,
+		instance,
+		exportedInstanceDeclarations
+	});
+	return { problems: [...unread, ...unsupported, ...found.problems], keys: found.keys };
 }
 
 function findings(file: string, source: string): Findings {
@@ -626,7 +699,24 @@ function scan(
 
 const IMPORT_TRANSLATE = "\timport { getTranslate } from '@tolgee/svelte';";
 const DECLARE_TRANSLATE = '\tconst { t } = getTranslate();';
+const IMPORT_LABEL = "import { T as Label } from '@tolgee/svelte';";
 const MODULE_SCRIPT = '<script module lang="ts">';
+const INSTANCE_SCRIPT = '<script lang="ts">';
+const INSTANCE_LOCAL_TYPE_EXPORT = [
+	INSTANCE_SCRIPT,
+	`\t${IMPORT_LABEL}`,
+	'\texport type { Label };'
+];
+const INSTANCE_NAMED_TYPE_EXPORT = [
+	INSTANCE_SCRIPT,
+	`\t${IMPORT_LABEL}`,
+	"\texport { type T as Label } from '@tolgee/svelte';"
+];
+const DYNAMIC_LABEL = [
+	'\tlet { dynamicKey }: { dynamicKey: string } = $props();',
+	'</script>',
+	'<Label keyName={dynamicKey} />'
+];
 const TYPE_QUERY = [
 	'<script lang="ts">',
 	"\timport { T as TranslationLabel } from '@tolgee/svelte';",
@@ -788,6 +878,165 @@ const FIXTURES = [
 			`reexport.ts:2 getTranslate: ${OUTSIDE_LOOKUP}`,
 			`reexport.ts:3 getTranslate: ${OUTSIDE_LOOKUP}`,
 			"reexport.ts:4 '@tolgee/svelte': the module re-exports the Tolgee API"
+		]
+	},
+	{
+		name: 'a type-only export of an imported Tolgee binding',
+		file: 'local-type-export.ts',
+		source: [IMPORT_LABEL, 'export type { Label };'],
+		problems: []
+	},
+	{
+		name: 'a Tolgee re-export with a type-only specifier',
+		file: 'named-type-export.ts',
+		source: ["export { type T as Label } from '@tolgee/svelte';"],
+		problems: []
+	},
+	{
+		name: 'a Tolgee re-export with a type-only declaration',
+		file: 'declaration-type-export.ts',
+		source: ["export type { T as Label } from '@tolgee/svelte';"],
+		problems: []
+	},
+	{
+		name: 'a Tolgee value re-export',
+		file: 'direct-value-export.ts',
+		source: ["export { T } from '@tolgee/svelte';"],
+		problems: ["direct-value-export.ts:1 '@tolgee/svelte': the module re-exports the Tolgee API"]
+	},
+	{
+		name: 'a Tolgee re-export with a value and a type-only specifier',
+		file: 'mixed-value-export.ts',
+		source: ["export { T as Label, type TranslateProps } from '@tolgee/svelte';"],
+		problems: ["mixed-value-export.ts:1 '@tolgee/svelte': the module re-exports the Tolgee API"]
+	},
+	{
+		name: 'a Tolgee wildcard re-export',
+		file: 'star-value-export.ts',
+		source: ["export * from '@tolgee/svelte';"],
+		problems: ["star-value-export.ts:1 '@tolgee/svelte': the module re-exports the Tolgee API"]
+	},
+	{
+		name: 'a value export of an imported Tolgee binding',
+		file: 'local-value-export.ts',
+		source: [IMPORT_LABEL, 'export { Label };'],
+		problems: [`local-value-export.ts:2 Label: ${OUTSIDE_LOOKUP}`]
+	},
+	{
+		name: 'a runtime typeof of an imported Tolgee binding',
+		file: 'runtime-typeof.ts',
+		source: [IMPORT_LABEL, 'export const labelKind = typeof Label;'],
+		problems: [`runtime-typeof.ts:2 Label: ${OUTSIDE_LOOKUP}`]
+	},
+	{
+		name: 'a type query of an imported Tolgee binding',
+		file: 'type-query.ts',
+		source: [IMPORT_LABEL, 'export type X = typeof Label;'],
+		problems: []
+	},
+	{
+		name: 'a local type-only export in an instance script',
+		file: 'instance-local-type-export.svelte',
+		source: [...INSTANCE_LOCAL_TYPE_EXPORT, '</script>'],
+		problems: []
+	},
+	{
+		name: 'a named type-only re-export in an instance script',
+		file: 'instance-named-type-export.svelte',
+		source: [INSTANCE_SCRIPT, "\texport { type T as Label } from '@tolgee/svelte';", '</script>'],
+		problems: []
+	},
+	{
+		name: 'a declaration-form type-only re-export in an instance script',
+		file: 'instance-declaration-type-export.svelte',
+		source: [INSTANCE_SCRIPT, "\texport type { T as Label } from '@tolgee/svelte';", '</script>'],
+		problems: []
+	},
+	{
+		name: 'a local type query exported from an instance script',
+		file: 'instance-exported-type-query.svelte',
+		source: [
+			INSTANCE_SCRIPT,
+			`\t${IMPORT_LABEL}`,
+			'\ttype X = typeof Label;',
+			'\texport type { X };',
+			'</script>'
+		],
+		problems: []
+	},
+	{
+		name: 'a local instance type-only export beside a dynamic key',
+		file: 'instance-local-dynamic-key.svelte',
+		source: [...INSTANCE_LOCAL_TYPE_EXPORT, ...DYNAMIC_LABEL],
+		problems: ['instance-local-dynamic-key.svelte:6 dynamicKey: the key is not a literal']
+	},
+	{
+		name: 'a local instance type-only export beside a missing key',
+		file: 'instance-local-missing-key.svelte',
+		source: [
+			...INSTANCE_LOCAL_TYPE_EXPORT,
+			'</script>',
+			'<Label keyName="missing.instance_local" />'
+		],
+		problems: [
+			'instance-local-missing-key.svelte:5 missing.instance_local: missing.instance_local is not in en.json'
+		]
+	},
+	{
+		name: 'a named instance type-only re-export beside a dynamic key',
+		file: 'instance-named-dynamic-key.svelte',
+		source: [...INSTANCE_NAMED_TYPE_EXPORT, ...DYNAMIC_LABEL],
+		problems: ['instance-named-dynamic-key.svelte:6 dynamicKey: the key is not a literal']
+	},
+	{
+		name: 'a named instance type-only re-export beside a missing key',
+		file: 'instance-named-missing-key.svelte',
+		source: [
+			...INSTANCE_NAMED_TYPE_EXPORT,
+			'</script>',
+			'<Label keyName="missing.instance_named" />'
+		],
+		problems: [
+			'instance-named-missing-key.svelte:5 missing.instance_named: missing.instance_named is not in en.json'
+		]
+	},
+	{
+		name: 'a local instance value export of the translation store',
+		file: 'instance-local-value-export.svelte',
+		source: [INSTANCE_SCRIPT, IMPORT_TRANSLATE, DECLARE_TRANSLATE, '\texport { t };', '</script>'],
+		problems: [`instance-local-value-export.svelte:4 t: ${OUTSIDE_LOOKUP}`]
+	},
+	{
+		name: 'an exported instance declaration of the translation store',
+		file: 'instance-value-declaration.svelte',
+		source: [
+			INSTANCE_SCRIPT,
+			IMPORT_TRANSLATE,
+			'\texport const { t } = getTranslate();',
+			'</script>'
+		],
+		problems: [`instance-value-declaration.svelte:3 getTranslate: ${OUTSIDE_LOOKUP}`]
+	},
+	{
+		name: 'an instance namespace value re-export beside a dynamic key',
+		file: 'instance-namespace-value-export.svelte',
+		source: [
+			INSTANCE_SCRIPT,
+			`\t${IMPORT_LABEL}`,
+			"\texport * as Tolgee from '@tolgee/svelte';",
+			...DYNAMIC_LABEL
+		],
+		problems: [
+			"instance-namespace-value-export.svelte:3 '@tolgee/svelte': the module re-exports the Tolgee API",
+			'instance-namespace-value-export.svelte:6 dynamicKey: the key is not a literal'
+		]
+	},
+	{
+		name: 'an instance export assignment',
+		file: 'instance-export-assignment.svelte',
+		source: [INSTANCE_SCRIPT, `\t${IMPORT_LABEL}`, '\texport = Label;', '</script>'],
+		problems: [
+			'instance-export-assignment.svelte:3 export = Label;: the instance export is outside the Tolgee key analysis'
 		]
 	},
 	{
