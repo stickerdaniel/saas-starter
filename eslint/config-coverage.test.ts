@@ -580,15 +580,18 @@ globalThis.sessionStorage.getItem('d');
 import { Menu } from '@lucide/svelte';
 export const state = [PersistedState, Menu];
 `;
-		expect(await storageReports(imports, 'src/lib/example.ts')).toEqual([
-			['@typescript-eslint/no-restricted-imports', 1],
-			['@typescript-eslint/no-restricted-imports', 2]
-		]);
+		for (const filePath of ['src/lib/example.ts', 'src/lib/theme.svelte.ts']) {
+			expect(await storageReports(imports, filePath)).toEqual([
+				['@typescript-eslint/no-restricted-imports', 1],
+				['@typescript-eslint/no-restricted-imports', 2]
+			]);
+		}
 	}, 60_000);
 
 	it.each([
 		['the storage boundary', 'src/lib/storage/web-storage.ts'],
 		['the analytics durability probe', 'src/lib/analytics/storage.ts'],
+		['the theme store, which guards its own access', 'src/lib/theme.svelte.ts'],
 		['a test that seeds storage', 'src/lib/theme.svelte.test.ts']
 	])(
 		'leaves %s alone',

@@ -363,7 +363,13 @@ export default defineConfig(
 					})),
 					checkGlobalObject: true
 				}
-			],
+			]
+		}
+	},
+	{
+		files: ['src/**/*.{ts,js,svelte}'],
+		ignores: ['src/lib/storage/**', '**/*.test.ts', 'src/**/testing/**', 'src/**/test-fixtures/**'],
+		rules: {
 			'@typescript-eslint/no-restricted-imports': [
 				'error',
 				{
