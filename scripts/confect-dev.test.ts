@@ -5,6 +5,7 @@ import {
 	mkdtempSync,
 	readFileSync,
 	rmSync,
+	symlinkSync,
 	watch,
 	writeFileSync
 } from 'node:fs';
@@ -21,7 +22,8 @@ import {
 	createChangeFilter,
 	createRun,
 	createRunQueue,
-	readAdminKey
+	readAdminKey,
+	watchCheckoutForRuns
 } from './confect-dev';
 import {
 	CONFECT_GENERATED_DIR,
@@ -244,10 +246,75 @@ describe('watch set', () => {
 		['README.md', 'ignored'],
 		['convex.json', 'restart'],
 		['package.json', 'restart'],
-		['bun.lock', 'restart'],
-		['vite.config.ts', 'restart']
+		['bun.lock', 'restart']
 	])('classifies %s as %s', (file, kind) => {
 		expect(classifyChange(file)).toBe(kind);
+	});
+});
+
+describe('restart notice', () => {
+	it('names each restart file of the caller once when a developer changes it', async () => {
+		const root = checkout();
+		const launcherConfig = path.join(root, 'launcher.config.ts');
+		const nestedConfig = path.join(root, 'config/nested.config.js');
+		write(root, 'launcher.config.ts', 'export default {};\n');
+		write(root, 'config/nested.config.js', 'export default {};\n');
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		const logs: string[] = [];
+		let requests = 0;
+		const watcher = watchCheckoutForRuns({
+			root,
+			restartFiles: [launcherConfig, nestedConfig],
+			request: () => {
+				requests += 1;
+			},
+			log: (line) => logs.push(line)
+		});
+		try {
+			await new Promise((resolve) => setTimeout(resolve, 20));
+			writeFileSync(launcherConfig, 'export default { a: 1 };\n');
+			await until(() => logs.length >= 1);
+			writeFileSync(launcherConfig, 'export default { a: 2 };\n');
+			writeFileSync(nestedConfig, 'export default { a: 1 };\n');
+			await until(() => logs.length >= 2);
+		} finally {
+			watcher.close();
+		}
+
+		expect(logs).toEqual([
+			'launcher.config.ts changed. Restart the dev server to apply it.',
+			'config/nested.config.js changed. Restart the dev server to apply it.'
+		]);
+		expect(requests).toBe(0);
+	});
+
+	it('names a restart file below the checkout when a symlink spells the root', async () => {
+		const root = checkout();
+		const alias = `${root}-alias`;
+		const launcherConfig = path.join(root, 'launcher.config.ts');
+		write(root, 'launcher.config.ts', 'export default {};\n');
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		const logs: string[] = [];
+		symlinkSync(root, alias, 'dir');
+		try {
+			const watcher = watchCheckoutForRuns({
+				root: alias,
+				restartFiles: [launcherConfig],
+				request: () => {},
+				log: (line) => logs.push(line)
+			});
+			try {
+				await new Promise((resolve) => setTimeout(resolve, 20));
+				writeFileSync(launcherConfig, 'export default { a: 1 };\n');
+				await until(() => logs.length >= 1);
+			} finally {
+				watcher.close();
+			}
+		} finally {
+			rmSync(alias);
+		}
+
+		expect(logs).toEqual(['launcher.config.ts changed. Restart the dev server to apply it.']);
 	});
 });
 

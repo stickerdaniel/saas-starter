@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
 	authorization,
@@ -7,7 +6,6 @@ import {
 	identityTypesFor,
 	parseLogPage,
 	percentile,
-	pinnedBackendRevision,
 	summarizeAttempt,
 	type CallSample
 } from './backend-latency';
@@ -227,11 +225,5 @@ describe('attempt summary', () => {
 		const attempt = summarizeAttempt([executed(10, 2), executed(20, 4)], quiet, 1);
 		expect(attempt.counted).toBe(false);
 		expect(attempt.lateCompletions).toBe(1);
-	});
-});
-
-describe('backend revision', () => {
-	it('reads the pinned binaryVersion from the Vite config', () => {
-		expect(pinnedBackendRevision(readFileSync('vite.config.ts', 'utf8'))).toMatch(/^precompiled-/);
 	});
 });

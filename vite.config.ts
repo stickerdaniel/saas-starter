@@ -14,6 +14,7 @@ import { buildContentSecurityPolicy } from './src/lib/security/csp.js';
 import { appVersion } from './scripts/app-version';
 import { buildAdapter, isCloudflareBuild } from './scripts/build-target';
 import { findAvailablePort, portlessOwnsPort } from './scripts/dev-ports';
+import { LOCAL_CONVEX_BINARY_VERSION } from './scripts/local-convex-binary';
 import {
 	computeLocalConvexStateId,
 	getManagedProviderUpdates,
@@ -257,7 +258,7 @@ export default defineConfig(async ({ command, mode }) => {
 				convexDir: 'src/lib/convex',
 				// One backend release for every checkout, so local runs and their measurements
 				// compare like with like. The patched plugin starts a cached copy offline.
-				binaryVersion: 'precompiled-2026-11-14-d63233b',
+				binaryVersion: LOCAL_CONVEX_BINARY_VERSION,
 				port: backendPort,
 				siteProxyPort,
 				stateIdSuffix,

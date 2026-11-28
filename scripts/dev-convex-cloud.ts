@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { runCloudConfectDev } from './confect-dev';
 
 export function cloudDevProfileCommands(): Array<[string, string[]]> {
@@ -16,7 +17,13 @@ function preflightCloudDevProfile(): void {
 
 async function main(): Promise<void> {
 	preflightCloudDevProfile();
-	process.exit(await runCloudConfectDev({ args: process.argv.slice(2), env: { ...process.env } }));
+	process.exit(
+		await runCloudConfectDev({
+			args: process.argv.slice(2),
+			restartFiles: [fileURLToPath(new URL('../vite.config.ts', import.meta.url))],
+			env: { ...process.env }
+		})
+	);
 }
 
 if (import.meta.main) {

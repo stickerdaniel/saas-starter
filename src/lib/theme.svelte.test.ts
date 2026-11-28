@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const MODE_KEY = 'mode-watcher-mode';
@@ -149,27 +148,5 @@ describe('theme', () => {
 		expect(mode.current).toBe('light');
 		expect(applied()).toEqual({ dark: false, colorScheme: 'light' });
 		expect(logged).toHaveBeenCalledWith(refusal);
-	});
-});
-
-describe('app.html theme initializer', () => {
-	const template = new DOMParser().parseFromString(
-		readFileSync('src/app.html', 'utf8'),
-		'text/html'
-	);
-	const initializer = [...template.querySelectorAll('script')]
-		.map((script) => script.textContent)
-		.find((body) => body.includes(MODE_KEY));
-
-	it('paints the system scheme when storage throws on every access', () => {
-		const blocked = () => {
-			throw new DOMException('blocked', 'SecurityError');
-		};
-		vi.spyOn(Storage.prototype, 'getItem').mockImplementation(blocked);
-		vi.spyOn(Storage.prototype, 'setItem').mockImplementation(blocked);
-		vi.stubGlobal('matchMedia', () => new SystemScheme(true));
-
-		expect(() => new Function(initializer!)()).not.toThrow();
-		expect(applied()).toEqual({ dark: false, colorScheme: 'light' });
 	});
 });

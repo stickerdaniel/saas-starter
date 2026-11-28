@@ -234,11 +234,11 @@ const BACKEND_SCRIPTS = [
 	'convex-vite-backend-exit.test.ts',
 	'convex-vite-binary-download.test.ts',
 	'convex-vite-env-order.test.ts',
-	'convex-vite-secret-logging.test.ts',
 	'convex-vite-startup-status.test.ts',
 	'generate-authored-content.ts',
 	'generate-authored-content.test.ts',
 	'generate-convex.ts',
+	'local-convex-binary.ts',
 	'local-convex-env.ts',
 	'test-backend-exit.ts'
 ];
@@ -321,6 +321,7 @@ const WEB_SCRIPTS = [
 	'check-docs-fixture.ts',
 	'check-streamdown-overlay.ts',
 	'check-table-scroll.ts',
+	'convex-vite-secret-logging.test.ts',
 	'css-sources.ts',
 	'dependency-patches.test.ts',
 	'deploy.ts',

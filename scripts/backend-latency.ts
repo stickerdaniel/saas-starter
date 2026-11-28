@@ -4,6 +4,7 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 import * as v from 'valibot';
 import { readAdminKey } from './confect-dev';
+import { LOCAL_CONVEX_BINARY_VERSION } from './local-convex-binary';
 import { required } from './required';
 
 export const MAX_LOAD_AVERAGE = 8;
@@ -290,10 +291,6 @@ async function measure(backend: Backend, options: RunOptions): Promise<Attempt> 
 	return summarizeAttempt(samples, { start, end }, late);
 }
 
-export function pinnedBackendRevision(viteConfig: string): string | undefined {
-	return /binaryVersion:\s*'([^']+)'/.exec(viteConfig)?.[1];
-}
-
 async function run(root: string, options: RunOptions) {
 	const backend = {
 		url: readFileSync(path.join(root, '.convex', '.test-backend-url'), 'utf8').trim(),
@@ -313,9 +310,7 @@ async function run(root: string, options: RunOptions) {
 		runs: RUNS,
 		warmup: WARMUP,
 		backendUrl: backend.url,
-		configuredBackendRevision: pinnedBackendRevision(
-			readFileSync(path.join(root, 'vite.config.ts'), 'utf8')
-		),
+		configuredBackendRevision: LOCAL_CONVEX_BINARY_VERSION,
 		maxLoadAverage: MAX_LOAD_AVERAGE,
 		cpus: os.cpus().length,
 		status: counted ? 'counted' : 'unproven',

@@ -1,8 +1,9 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { lstatSync, readFileSync, rmSync, watch, type FSWatcher } from 'node:fs';
+import { lstatSync, readFileSync, realpathSync, rmSync, watch, type FSWatcher } from 'node:fs';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
 import { withCheckoutLock } from './checkout-lock';
 import {
@@ -19,12 +20,8 @@ const STARTUP_DEADLINE_MS = 300_000;
 const STARTUP_POLL_MS = 100;
 const PUSH_LIMITS: PushLimits = { timeoutMs: 120_000, graceMs: 5_000 };
 const ENV_SCHEMA = '.env-convex.schema';
-const RESTART_FILES: ReadonlySet<string> = new Set([
-	'convex.json',
-	'package.json',
-	'bun.lock',
-	'vite.config.ts'
-]);
+const RESTART_FILES: ReadonlySet<string> = new Set(['convex.json', 'package.json', 'bun.lock']);
+const OWN_RESTART_FILES = [fileURLToPath(new URL('./local-convex-binary.ts', import.meta.url))];
 const AUTHORED_CONVEX_FILES: ReadonlySet<string> = new Set([
 	`${CONVEX_DIR}/convex.config.ts`,
 	`${CONVEX_DIR}/tsconfig.json`
@@ -215,35 +212,60 @@ export function createChangeFilter(since = Date.now()): (file: string) => boolea
 	};
 }
 
+const slashed = (file: string) => file.split(path.sep).join('/');
+
 export function watchCheckout(
 	root: string,
+	restartFiles: readonly string[],
 	handlers: { onSource: () => void; onRestart: (file: string) => void }
 ): Pick<FSWatcher, 'close'> {
 	const changed = createChangeFilter();
+	const checkout = realpathSync.native(root);
+	const restart = new Set(restartFiles.map((file) => realpathSync.native(file)));
 	const dispatch = (file: string) => {
 		const kind = classifyChange(file);
-		if (kind === 'ignored' || !changed(path.join(root, file))) return;
+		if (kind === 'ignored' || !changed(path.join(checkout, file))) return;
 		if (kind === 'source') handlers.onSource();
 		else if (kind === 'restart') handlers.onRestart(file);
 	};
-	const source = watch(path.join(root, 'src'), { recursive: true }, (_event, filename) => {
+	const source = watch(path.join(checkout, 'src'), { recursive: true }, (_event, filename) => {
 		if (filename === null) handlers.onSource();
-		else dispatch(`src/${filename.toString().split(path.sep).join('/')}`);
+		else dispatch(`src/${slashed(filename.toString())}`);
 	});
-	const top = watch(root, (_event, filename) => {
+	const top = watch(checkout, (_event, filename) => {
 		if (filename !== null) dispatch(filename.toString());
 	});
+	const named = [...new Set([...restart].map((file) => path.dirname(file)))].map((directory) =>
+		watch(directory, (_event, filename) => {
+			if (filename === null) return;
+			const file = path.join(directory, filename.toString());
+			if (restart.has(file) && changed(file)) {
+				handlers.onRestart(slashed(path.relative(checkout, file)));
+			}
+		})
+	);
 	return {
 		close: () => {
 			source.close();
 			top.close();
+			for (const watcher of named) watcher.close();
 		}
 	};
 }
 
-function watchCheckoutForRuns(root: string, request: () => void): Pick<FSWatcher, 'close'> {
+export function watchCheckoutForRuns({
+	root,
+	restartFiles,
+	request,
+	log
+}: {
+	root: string;
+	restartFiles: readonly string[];
+	request: () => void;
+	log: (line: string) => void;
+}): Pick<FSWatcher, 'close'> {
 	const announced = new Set<string>();
-	return watchCheckout(root, {
+	return watchCheckout(root, restartFiles, {
 		onSource: request,
 		onRestart: (file) => {
 			if (announced.has(file)) return;
@@ -402,17 +424,24 @@ function onShutdown(stop: (signal: NodeJS.Signals) => void): void {
 export async function runLocalConfectDev({
 	mode,
 	command,
+	restartFiles,
 	env,
 	root = process.cwd()
 }: {
 	mode: LocalConvexMode;
 	command: readonly string[];
+	restartFiles: readonly string[];
 	env: NodeJS.ProcessEnv;
 	root?: string;
 }): Promise<number> {
 	const controller = new AbortController();
 	const queue = createRunQueue();
-	const watcher = watchCheckoutForRuns(root, queue.request);
+	const watcher = watchCheckoutForRuns({
+		root,
+		restartFiles: [...restartFiles, ...OWN_RESTART_FILES],
+		request: queue.request,
+		log
+	});
 	const files = LOCAL_FILES[mode];
 	const statusFile = path.join(root, '.convex', files.status);
 	const urlFile = path.join(root, '.convex', files.backendUrl);
@@ -484,16 +513,23 @@ export async function runLocalConfectDev({
 
 export async function runCloudConfectDev({
 	args,
+	restartFiles,
 	env,
 	root = process.cwd()
 }: {
 	args: readonly string[];
+	restartFiles: readonly string[];
 	env: NodeJS.ProcessEnv;
 	root?: string;
 }): Promise<number> {
 	const controller = new AbortController();
 	const queue = createRunQueue();
-	const watcher = watchCheckoutForRuns(root, queue.request);
+	const watcher = watchCheckoutForRuns({
+		root,
+		restartFiles: [...restartFiles, ...OWN_RESTART_FILES],
+		request: queue.request,
+		log
+	});
 	const stopped = new Promise<void>((resolve) => {
 		onShutdown(() => {
 			controller.abort();
