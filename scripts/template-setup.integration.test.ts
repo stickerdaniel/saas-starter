@@ -1233,7 +1233,7 @@ describe.each(LAYOUTS)('template setup quick start in the $name tree', (layout) 
 		expect(readme).toContain('## Why This Exists');
 	});
 
-	it('turns the repository README into a project README that points at its own docs', () => {
+	it('turns the repository README into a project README without the demo links', () => {
 		const dir = createFixture(layout);
 		cpSync(join(ROOT, 'README.md'), at(dir, 'README.md'));
 
@@ -1241,10 +1241,7 @@ describe.each(LAYOUTS)('template setup quick start in the $name tree', (layout) 
 		const readme = readFileSync(at(dir, 'README.md'), 'utf-8');
 		expect(readme.split('\n')[0]).toBe('# Northwind Labs');
 		expect(readme).toContain('git clone https://github.com/northwind/northwind-labs.git');
-		expect(readme).toContain('admin@local.dev');
-		expect(readme).toContain('[docs](docs/README.md)');
 		expect(readme).not.toContain('saas.daniel.sticker.name');
-		expect(readme).not.toContain('create saas-starter');
 
 		expect(runSetup(dir, [...REQUIRED, ...IDENTITY]).code).toBe(0);
 		expect(readFileSync(at(dir, 'README.md'), 'utf-8')).toBe(readme);

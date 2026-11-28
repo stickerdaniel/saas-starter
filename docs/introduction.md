@@ -22,7 +22,7 @@ Each step is wired in. The conversations stay yours.
 | Learn what they do   | You get an email when a customer first pays, with what they did before paying. People who never paid and customers who cancel are asked what was missing. |
 | Fix it and tell them | After a production fix, an agent can find who the evidence shows was hit and draft one email for you to approve.                                          |
 
-Each step turns on once its service is connected, such as Resend for email or the Autumn webhook for payments. The [feature pages](features/README.md) list what each one needs.
+Each step needs its service, such as Resend for email or the Autumn webhook for payments, and some steps also need a setting in the admin area. The [feature pages](features/README.md) list what each one needs.
 
 Under that: auth with passkeys and OAuth, plan limits with an upgrade path, admin with impersonation and an audit log, markdown pages and `/llms.txt` for AI agents, four languages, and automated WCAG 2.1 AA checks in the test suite. [All features](features/README.md).
 
