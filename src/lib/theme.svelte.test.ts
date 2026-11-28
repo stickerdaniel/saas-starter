@@ -136,14 +136,17 @@ describe('theme', () => {
 		expect(applied()).toEqual({ dark: false, colorScheme: 'light' });
 	});
 
-	it('keeps the stored mode when storage refuses the write', async () => {
+	it('keeps the stored mode and logs when storage refuses the write', async () => {
 		const { mode, toggleMode } = await loadTheme({ stored: 'light', systemLight: false });
+		const refusal = new DOMException('quota', 'QuotaExceededError');
 		vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-			throw new DOMException('quota', 'QuotaExceededError');
+			throw refusal;
 		});
+		const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
 
 		expect(() => toggleMode()).not.toThrow();
 		expect(mode.current).toBe('light');
 		expect(applied()).toEqual({ dark: false, colorScheme: 'light' });
+		expect(logged).toHaveBeenCalledWith(refusal);
 	});
 });

@@ -157,8 +157,13 @@ const SOURCE_RESTRICTED_IMPORT_PATHS = [
 ];
 // Web Storage throws a SecurityError from its getter when a browser blocks site
 // data, and runed's PersistedState reads it in its constructor. These files own
-// the guarded access; everything else goes through them.
-const WEB_STORAGE_OWNERS = ['src/lib/storage/**', 'src/lib/analytics/storage.ts'];
+// the guarded access; everything else goes through them. The theme store moves
+// to the ui package, which cannot import src/lib/storage, so it guards its own.
+const WEB_STORAGE_OWNERS = [
+	'src/lib/storage/**',
+	'src/lib/analytics/storage.ts',
+	'src/lib/theme.svelte.ts'
+];
 const WEB_STORAGE_MESSAGE =
 	'Use readItem, writeItem or usable from #lib/storage/web-storage.ts: the getter throws when the browser blocks site data.';
 const SCHEMA_LIBRARY_MESSAGE =
