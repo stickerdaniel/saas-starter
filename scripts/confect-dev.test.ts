@@ -91,6 +91,13 @@ function written(file: string): Promise<string> {
 	});
 }
 
+let revision = 0;
+
+function edit(file: string): void {
+	revision += 1;
+	writeFileSync(file, `export default { revision: ${revision} };\n`);
+}
+
 async function until(condition: () => boolean): Promise<void> {
 	const deadline = Date.now() + 10_000;
 	while (!condition()) {
@@ -259,7 +266,6 @@ describe('restart notice', () => {
 		const nestedConfig = path.join(root, 'config/nested.config.js');
 		write(root, 'launcher.config.ts', 'export default {};\n');
 		write(root, 'config/nested.config.js', 'export default {};\n');
-		await new Promise((resolve) => setTimeout(resolve, 20));
 		const logs: string[] = [];
 		let requests = 0;
 		const watcher = watchCheckoutForRuns({
@@ -271,12 +277,16 @@ describe('restart notice', () => {
 			log: (line) => logs.push(line)
 		});
 		try {
-			await new Promise((resolve) => setTimeout(resolve, 20));
-			writeFileSync(launcherConfig, 'export default { a: 1 };\n');
-			await until(() => logs.length >= 1);
-			writeFileSync(launcherConfig, 'export default { a: 2 };\n');
-			writeFileSync(nestedConfig, 'export default { a: 1 };\n');
-			await until(() => logs.length >= 2);
+			await until(() => {
+				edit(launcherConfig);
+				return logs.length >= 1;
+			});
+			expect(logs).toEqual(['launcher.config.ts changed. Restart the dev server to apply it.']);
+			await until(() => {
+				edit(launcherConfig);
+				edit(nestedConfig);
+				return logs.length >= 2;
+			});
 		} finally {
 			watcher.close();
 		}
@@ -288,12 +298,42 @@ describe('restart notice', () => {
 		expect(requests).toBe(0);
 	});
 
+	it('names a restart file after one edit and stays silent for the bytes it had at the start', async () => {
+		const root = checkout();
+		const ready = path.join(root, 'ready.config.ts');
+		const rewritten = path.join(root, 'rewritten.config.ts');
+		const edited = path.join(root, 'edited.config.ts');
+		for (const file of [ready, rewritten, edited]) writeFileSync(file, 'export default {};\n');
+		const logs: string[] = [];
+		const watcher = watchCheckoutForRuns({
+			root,
+			restartFiles: [ready, rewritten, edited],
+			request: () => {},
+			log: (line) => logs.push(line)
+		});
+		try {
+			await until(() => {
+				edit(ready);
+				return logs.length >= 1;
+			});
+			writeFileSync(rewritten, 'export default {};\n');
+			edit(edited);
+			await until(() => logs.length >= 2);
+		} finally {
+			watcher.close();
+		}
+
+		expect(logs).toEqual([
+			'ready.config.ts changed. Restart the dev server to apply it.',
+			'edited.config.ts changed. Restart the dev server to apply it.'
+		]);
+	});
+
 	it('names a restart file below the checkout when a symlink spells the root', async () => {
 		const root = checkout();
 		const alias = `${root}-alias`;
 		const launcherConfig = path.join(root, 'launcher.config.ts');
 		write(root, 'launcher.config.ts', 'export default {};\n');
-		await new Promise((resolve) => setTimeout(resolve, 20));
 		const logs: string[] = [];
 		symlinkSync(root, alias, 'dir');
 		try {
@@ -304,9 +344,10 @@ describe('restart notice', () => {
 				log: (line) => logs.push(line)
 			});
 			try {
-				await new Promise((resolve) => setTimeout(resolve, 20));
-				writeFileSync(launcherConfig, 'export default { a: 1 };\n');
-				await until(() => logs.length >= 1);
+				await until(() => {
+					edit(launcherConfig);
+					return logs.length >= 1;
+				});
 			} finally {
 				watcher.close();
 			}
