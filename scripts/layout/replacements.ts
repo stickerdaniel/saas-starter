@@ -4,9 +4,10 @@
  * that file, the generator stops and names it, so the entry is rewritten against the new text.
  */
 import { createHash } from 'node:crypto';
+import { editedText } from './mapper-steps.ts';
 import { readText, StaleInput, writeText, type Run } from './run.ts';
 
-type Edit = readonly [before: string, after: string];
+export type Edit = readonly [before: string, after: string];
 
 export interface Replacement {
 	/** The flat path whose content the entry was written against. */
@@ -80,6 +81,16 @@ const CREATOR_TSCONFIG = `{
 
 export const REPLACEMENTS: readonly Replacement[] = [
 	{
+		from: 'src/routes/layout.css',
+		sha256: 'b16a4464161fa0911cdc0f5ab2a5b29e6074e1dc4dcd86237aa7fac4148ab58f',
+		content: [
+			[
+				"@import '../lib/components/ui/tokens.css';",
+				"@import '@repo/ui/src/components/ui/tokens.css';"
+			]
+		]
+	},
+	{
 		from: 'tsconfig.json',
 		sha256: 'b9e84d2dfc23495c0dc9a5cd64e15803e209696cd27ccb621c233e53d5a6413a',
 		content: APP_TSCONFIG
@@ -149,12 +160,41 @@ export function sha256(text: string): string {
 	return createHash('sha256').update(text).digest('hex');
 }
 
-function edited(path: string, text: string, edits: readonly Edit[]): string {
-	return edits.reduce((current, [before, after]) => {
-		const count = current.split(before).length - 1;
-		if (count !== 1) throw new StaleInput(`${path} holds ${before} ${count} times, not once`);
-		return current.replace(before, after);
+function editProblem(path: string, text: string, before: string): string | undefined {
+	const first = text.indexOf(before);
+	if (first !== -1 && text.indexOf(before, first + 1) === -1) return undefined;
+	return `${path} holds ${before} ${first === -1 ? 'nowhere' : 'more than once'}, not once`;
+}
+
+export function applyEdits(
+	path: string,
+	text: string,
+	edits: readonly Edit[]
+): { text: string; problems: string[] } {
+	const problems: string[] = [];
+	const result = edits.reduce((current, [before, after]) => {
+		const problem = editProblem(path, current, before);
+		if (problem) {
+			problems.push(problem);
+			return current;
+		}
+		return current.replace(before, () => after);
 	}, text);
+	return { text: result, problems };
+}
+
+type Projection = Pick<Run, 'flatFile' | 'table' | 'rewrites'>;
+
+function projectedText(run: Projection, from: string, to: string): string {
+	const rewrites = run.rewrites
+		.filter(({ file }) => file === to)
+		.map(({ literalOffset, specifier, next }) => ({
+			file: to,
+			literalOffset,
+			from: specifier,
+			to: next
+		}));
+	return editedText(to, run.flatFile(from), rewrites).text;
 }
 
 /** The flat files that changed since the replacement for each was written. */
@@ -170,23 +210,36 @@ export function staleReplacements(
 		);
 }
 
+export function replacementProblems(
+	run: Projection,
+	replacements: readonly Replacement[] = REPLACEMENTS
+): string[] {
+	const stale = staleReplacements(run.flatFile, replacements);
+	if (stale.length) return stale;
+	return replacements.flatMap(({ from, content }) => {
+		const to = run.table.place(from)?.to;
+		if (!to) return [`The move table deletes ${from}, which a replacement names`];
+		if (typeof content === 'string') return [];
+		return applyEdits(to, projectedText(run, from, to), content).problems;
+	});
+}
+
 export function verifyReplacements(run: Run): void {
-	const stale = staleReplacements(run.flatFile);
-	if (stale.length) throw new StaleInput(stale.join('\n'));
+	const problems = replacementProblems(run, run.inputs.replacements);
+	if (problems.length) throw new StaleInput(problems.join('\n'));
 }
 
 /** Writes each replacement at the moved place of its flat file. */
-export function writeReplacements(
-	run: Run,
-	replacements: readonly Replacement[] = REPLACEMENTS
-): void {
-	for (const { from, content } of replacements) {
+export function writeReplacements(run: Run): void {
+	for (const { from, content } of run.inputs.replacements) {
 		const to = run.table.place(from)?.to;
 		if (!to) throw new StaleInput(`The move table deletes ${from}, which a replacement names`);
-		writeText(
-			run,
-			to,
-			typeof content === 'string' ? content : edited(to, readText(run, to), content)
-		);
+		if (typeof content === 'string') {
+			writeText(run, to, content);
+			continue;
+		}
+		const { text, problems } = applyEdits(to, readText(run, to), content);
+		if (problems.length) throw new StaleInput(problems.join('\n'));
+		writeText(run, to, text);
 	}
 }

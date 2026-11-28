@@ -2,12 +2,13 @@
  * The project files that the flat tree lacks: the shared compiler options, and per workspace
  * its TypeScript, Vitest and Knip projects and its Bun runtime config.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { WORKSPACES, type StarterWorkspace } from '../../.agents/skills/upstream-sync/layout/v3.ts';
-import { jsonText, writeText, type Run } from './run.ts';
+import { compareCodeUnits, jsonText, StaleInput, writeText, type Run } from './run.ts';
 import { WORKSPACE_EXPORTS_TEST } from './tree/workspace-exports-test.ts';
 
-interface ProjectFile {
+export interface ProjectFile {
 	readonly path: string;
 	readonly text: string;
 	/** Workspaces whose packages the file imports. */
@@ -234,7 +235,7 @@ export const PROJECT_FILES: readonly ProjectFile[] = [
 
 /** Writes every project file and records the workspace packages each one imports. */
 export function writeProjects(run: Run): void {
-	for (const file of PROJECT_FILES) {
+	for (const file of run.inputs.projectFiles) {
 		writeText(run, file.path, file.text);
 		const owner = (Object.keys(WORKSPACES) as StarterWorkspace[]).find(
 			(workspace) =>
@@ -245,4 +246,41 @@ export function writeProjects(run: Run): void {
 			run.projectEdges.set(owner, (run.projectEdges.get(owner) ?? new Set()).add(target));
 		}
 	}
+}
+
+export function outputProblems(
+	run: Pick<Run, 'checkout' | 'flatPaths' | 'table' | 'flatFile' | 'inputs'>
+): string[] {
+	const tracked = new Set(run.flatPaths);
+	const occupants = new Map<string, string>();
+	for (const path of run.flatPaths) {
+		const to = run.table.place(path)?.to;
+		if (to) occupants.set(to, path);
+	}
+	const outputs = [
+		...occupants.keys(),
+		...run.inputs.projectFiles.map(({ path }) => path),
+		...Object.values(WORKSPACES).map(({ root }) => `${root}package.json`)
+	];
+	const replaced = new Set(run.inputs.replacements.map(({ from }) => from));
+	const problems = new Set<string>();
+	for (const path of outputs) {
+		if (!tracked.has(path) && existsSync(join(run.checkout, path))) {
+			problems.add(`${path} is an output of the move, and an untracked or ignored file holds it`);
+		}
+	}
+	for (const { path, text } of run.inputs.projectFiles) {
+		const occupant = occupants.get(path);
+		if (occupant === undefined || replaced.has(occupant) || run.flatFile(occupant) === text)
+			continue;
+		problems.add(
+			`${path} is a project file of the generator, and the tracked ${occupant} lands there with other content`
+		);
+	}
+	return [...problems].sort(compareCodeUnits);
+}
+
+export function verifyOutputs(run: Run): void {
+	const problems = outputProblems(run);
+	if (problems.length) throw new StaleInput(problems.join('\n'));
 }

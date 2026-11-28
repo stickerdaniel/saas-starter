@@ -11,8 +11,8 @@
  *   bun scripts/layout/apply.ts
  */
 import { spawnSync } from 'node:child_process';
-import { STEPS, type Run } from './steps.ts';
-import { prepareRun, StaleInput } from './run.ts';
+import { INPUTS, STEPS, type Run } from './steps.ts';
+import { prepareRun, StaleInput, type Inputs } from './run.ts';
 
 function git(checkout: string, args: readonly string[]): string {
 	const result = spawnSync('git', args, { cwd: checkout, encoding: 'utf8' });
@@ -20,12 +20,16 @@ function git(checkout: string, args: readonly string[]): string {
 	return result.stdout;
 }
 
-export async function apply(checkout: string, log: (line: string) => void): Promise<Run> {
+export async function apply(
+	checkout: string,
+	log: (line: string) => void,
+	inputs: Inputs = INPUTS
+): Promise<Run> {
 	const dirty = git(checkout, ['status', '--porcelain', '--untracked-files=all']);
 	if (dirty.trim()) {
 		throw new StaleInput(`The checkout has uncommitted changes:\n${dirty.trimEnd()}`);
 	}
-	const run = await prepareRun(checkout, git(checkout, ['rev-parse', 'HEAD']).trim());
+	const run = await prepareRun(checkout, git(checkout, ['rev-parse', 'HEAD']).trim(), inputs);
 	log(`Source commit: ${run.source}`);
 	for (const step of STEPS) step.verify?.(run);
 	for (const step of STEPS) {

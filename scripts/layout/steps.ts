@@ -1,11 +1,18 @@
 import { checkExports, writeExports, writeImports } from './exports.ts';
 import { saveManifests, verifyOwners, writeManifests } from './manifests.ts';
 import { movePaths, rewriteSpecifiers } from './mapper-steps.ts';
-import { writeProjects } from './projects.ts';
-import { verifyReplacements, writeReplacements } from './replacements.ts';
-import type { Run } from './run.ts';
+import { OWNERS } from './owners.ts';
+import { PROJECT_FILES, verifyOutputs, writeProjects } from './projects.ts';
+import { REPLACEMENTS, verifyReplacements, writeReplacements } from './replacements.ts';
+import type { Inputs, Run } from './run.ts';
 
 export type { Run } from './run.ts';
+
+export const INPUTS: Inputs = {
+	owners: OWNERS,
+	projectFiles: PROJECT_FILES,
+	replacements: REPLACEMENTS
+};
 
 export interface Step {
 	readonly name: string;
@@ -29,7 +36,12 @@ export const STEPS: readonly Step[] = [
 		verify: verifyReplacements,
 		run: writeReplacements
 	},
-	{ name: 'projects', input: 'scripts/layout/projects.ts', run: writeProjects },
+	{
+		name: 'projects',
+		input: 'scripts/layout/projects.ts',
+		verify: verifyOutputs,
+		run: writeProjects
+	},
 	{
 		name: 'manifests',
 		input: 'scripts/layout/owners.ts',

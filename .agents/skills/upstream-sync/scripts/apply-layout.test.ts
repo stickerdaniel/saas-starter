@@ -14,6 +14,7 @@ import {
 	type StarterWorkspace
 } from '../layout/v3';
 import {
+	aliasImportEntries,
 	aliasMap,
 	checkTotality,
 	compareEdges,
@@ -238,14 +239,27 @@ describe('apply-layout plans', () => {
 			'scripts/dev.ts': "import { pathSets } from './path-sets';\n"
 		});
 		expect(layout(root, '--specifiers').stdout.trim().split('\n').sort()).toEqual([
-			'apps/web/scripts/dev.ts\t./path-sets\t@repo/tooling/path-sets',
-			'apps/web/src/routes/page.ts\t#lib/components/ui/button/index.js\t@repo/ui/src/components/ui/button/index.js',
+			'apps/web/scripts/dev.ts\t./path-sets\t@repo/tooling/path-sets.ts',
+			'apps/web/src/routes/page.ts\t#lib/components/ui/button/index.js\t@repo/ui/src/components/ui/button/index.ts',
 			'packages/backend/confect/x.ts\t../effect/errors\t../shared/effect/errors',
-			'packages/emails/src/templates/types.ts\t../../confect/support/fields\t@repo/backend/confect/support/fields',
+			'packages/emails/src/templates/types.ts\t../../confect/support/fields\t@repo/backend/confect/support/fields.ts',
 			'scripts/export-profile.ts\t./path-sets\t../packages/tooling/src/path-sets',
 			'scripts/template-setup.ts\t#lib/components/ui/button/index.js\t../packages/ui/src/components/ui/button/index.js',
 			'scripts/template-setup.ts\t../src/lib/content/legal-metadata\t../apps/web/src/lib/content/legal-metadata',
 			'scripts/template-setup.ts\t./path-sets\t../packages/tooling/src/path-sets'
+		]);
+	});
+
+	it('names a declaration file and a produced file by their real names in another workspace', () => {
+		const root = repository({
+			'package.json': '{}',
+			'src/lib/convex/_generated/dataModel.d.ts': '',
+			'src/lib/confect/templates.ts': "import { templates } from '../emails/generated/index.js';\n",
+			'src/routes/page.ts': "import type { Id } from '../lib/convex/_generated/dataModel';\n"
+		});
+		expect(layout(root, '--specifiers').stdout.trim().split('\n').sort()).toEqual([
+			'apps/web/src/routes/page.ts\t../lib/convex/_generated/dataModel\t@repo/backend/convex/_generated/dataModel.d.ts',
+			'packages/backend/confect/templates.ts\t../emails/generated/index.js\t@repo/emails/src/generated/index.ts'
 		]);
 	});
 
@@ -259,8 +273,8 @@ describe('apply-layout plans', () => {
 			'desktop/entry.tsx': `export const Hint = () => <p>Press \` to open</p>;\n${load}`
 		});
 		expect(layout(root, '--specifiers').stdout.trim().split('\n').sort()).toEqual([
-			'apps/desktop/entry.ts\t../src/lib/config/site\t@repo/product-config/src/config/site',
-			'apps/desktop/entry.tsx\t../src/lib/config/site\t@repo/product-config/src/config/site'
+			'apps/desktop/entry.ts\t../src/lib/config/site\t@repo/product-config/src/config/site.ts',
+			'apps/desktop/entry.tsx\t../src/lib/config/site\t@repo/product-config/src/config/site.ts'
 		]);
 	});
 
@@ -315,6 +329,25 @@ describe('apply-layout plans', () => {
 			'apps/voice/use.ts\t#voice/area/old.js\t./moved/old.js',
 			'apps/voice/use.ts\t#voice/old.js\t./renamed.js'
 		]);
+	});
+
+	it('gives the generator the prefix entry that keeps an alias', async () => {
+		const moves = [
+			['area/old.ts', 'moved/old.ts'],
+			['area/kept.ts', 'area/kept.ts'],
+			['use.ts', 'use.ts']
+		].map(([from, to]) => ({ from: `voice/${from}`, to: `apps/voice/${to}`, owner: 'voice' }));
+		const root = repository({
+			'package.json': JSON.stringify({ imports: { '#voice/*': './voice/*' } }),
+			'.upstream-sync.layout.ts': `export default { rules: ${JSON.stringify(moves)} };\n`,
+			'voice/area/old.ts': '',
+			'voice/area/kept.ts': '',
+			'voice/use.ts': "import '#voice/area/kept.js';\nimport '#voice/area/old.js';\n"
+		});
+		const { table } = await loadTable(root);
+		expect(
+			aliasImportEntries(table, readImportEdges(root, trackedPaths(root)), aliasMap(root))
+		).toEqual([{ owner: 'voice', prefix: '#voice/', key: '#voice/', root: 'apps/voice/' }]);
 	});
 
 	it('gives an alias into another product workspace a relative path', () => {

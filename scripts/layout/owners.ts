@@ -18,7 +18,7 @@ export const DEPENDENCY_OWNERS = {
 	'@better-svelte-email/components': ['emails'],
 	'@better-svelte-email/server': ['emails'],
 	'@confect/cli': ['backend'],
-	'@confect/core': ['root', 'web', 'backend'],
+	'@confect/core': ['web', 'backend'],
 	'@confect/server': ['web', 'backend'],
 	'@confect/test': ['backend'],
 	'@convex-dev/agent': ['web', 'backend'],
@@ -259,3 +259,26 @@ export const NEW_SCRIPTS = {
 	tooling: { check: 'tsc -p tsconfig.json --noEmit' },
 	'create-saas-starter': { check: 'tsc --noEmit' }
 } as const satisfies Partial<Record<StarterWorkspace, Readonly<Record<string, string>>>>;
+
+export const REPLACED_ROOT_SCRIPTS = {
+	postinstall:
+		'bun run install:cli && bun run generate:content && bun svelte-kit sync && varlock codegen && varlock codegen --path .env-convex.schema && bun run build:emails'
+} as const satisfies Partial<Record<keyof typeof NEW_SCRIPTS.root, string>>;
+
+export interface OwnerTables {
+	readonly dependencies: Readonly<Record<string, readonly Holder[]>>;
+	readonly peers: Readonly<Partial<Record<Holder, readonly string[]>>>;
+	readonly scripts: Readonly<Record<string, StarterWorkspace | null>>;
+	readonly newScripts: Readonly<
+		Partial<Record<StarterWorkspace, Readonly<Record<string, string>>>>
+	>;
+	readonly replacedRootScripts: Readonly<Record<string, string>>;
+}
+
+export const OWNERS: OwnerTables = {
+	dependencies: DEPENDENCY_OWNERS,
+	peers: PEER_DEPENDENCIES,
+	scripts: SCRIPT_OWNERS,
+	newScripts: NEW_SCRIPTS,
+	replacedRootScripts: REPLACED_ROOT_SCRIPTS
+};

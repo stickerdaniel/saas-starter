@@ -542,6 +542,10 @@ export const BASE_RULES: ReadonlyArray<MoveRule<StarterWorkspace>> = [
 	}
 ];
 
+export const PRODUCED_FILES: ReadonlyArray<{ producer: string; outputs: readonly string[] }> = [
+	{ producer: 'scripts/build-emails.ts', outputs: ['src/lib/emails/generated/index.ts'] }
+];
+
 export interface Placement<O extends Owner = Owner> {
 	readonly to: string | null;
 	readonly owner: O;

@@ -28,6 +28,7 @@ import {
 	createMoveTable,
 	EFFECT_LEAF_SET,
 	isAllowedEdge,
+	PRODUCED_FILES,
 	isStarterWorkspace,
 	ruleProblem,
 	WORKSPACES,
@@ -39,6 +40,8 @@ import {
 } from '../layout/v3';
 
 export const EXTENSION_FILE = '.upstream-sync.layout.ts';
+
+export const compareCodeUnits = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
 function overlaps(a: string, b: string): boolean {
 	return a === b || (a.endsWith('/') && b.startsWith(a)) || (b.endsWith('/') && a.startsWith(b));
@@ -208,6 +211,7 @@ export interface ImportEdge {
 	/** The tracked file the specifier resolves to, or the bare path when no tracked file matches. */
 	readonly target: string;
 	readonly kind: 'import' | 'kit' | 'path-read';
+	readonly literalOffset: number;
 }
 
 const SCANNED = /\.(?:[cm]?[jt]s|[jt]sx|svelte)$/;
@@ -263,22 +267,30 @@ function resolveTracked(path: string, tracked: ReadonlySet<string>): string {
 	for (const suffix of TYPED_SOURCES.get(runtime) ?? CANDIDATE_SUFFIXES) {
 		if (tracked.has(base + suffix)) return base + suffix;
 	}
-	return path;
+	return tracked.has(`${base}.d.ts`) ? `${base}.d.ts` : path;
 }
 
 interface Reference {
 	readonly text: string;
 	readonly line: number;
+	readonly literalOffset: number;
 	readonly kind: 'module' | 'path';
 }
 
 /** The `<script>` blocks of a Svelte component, each with the line it starts on. */
-function scriptBlocks(path: string, text: string): Array<{ code: string; firstLine: number }> {
-	if (!path.endsWith('.svelte')) return [{ code: text, firstLine: 0 }];
-	return [...text.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map((match) => ({
-		code: match[1]!,
-		firstLine: text.slice(0, match.index + match[0].indexOf('>') + 1).split('\n').length - 1
-	}));
+function scriptBlocks(
+	path: string,
+	text: string
+): Array<{ code: string; firstLine: number; offset: number }> {
+	if (!path.endsWith('.svelte')) return [{ code: text, firstLine: 0, offset: 0 }];
+	return [...text.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map((match) => {
+		const offset = match.index + match[0].indexOf('>') + 1;
+		return {
+			code: match[1]!,
+			firstLine: text.slice(0, offset).split('\n').length - 1,
+			offset
+		};
+	});
 }
 
 /**
@@ -287,18 +299,19 @@ function scriptBlocks(path: string, text: string): Array<{ code: string; firstLi
  */
 function references(path: string, text: string): Reference[] {
 	const found: Reference[] = [];
-	for (const { code, firstLine } of scriptBlocks(path, text)) {
+	for (const { code, firstLine, offset } of scriptBlocks(path, text)) {
 		const scriptKind = path.endsWith('.tsx')
 			? ts.ScriptKind.TSX
 			: path.endsWith('.jsx')
 				? ts.ScriptKind.JSX
 				: ts.ScriptKind.TS;
 		const source = ts.createSourceFile(path, code, ts.ScriptTarget.Latest, false, scriptKind);
-		const add = (node: ts.Node, value: string, kind: Reference['kind']) =>
+		const add = (node: ts.Node, literal: ts.Node, value: string, kind: Reference['kind']) =>
 			found.push({
 				text: value,
 				kind,
-				line: firstLine + source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1
+				line: firstLine + source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1,
+				literalOffset: offset + literal.getStart(source)
 			});
 		const visit = (node: ts.Node): void => {
 			if (
@@ -306,13 +319,13 @@ function references(path: string, text: string): Reference[] {
 				node.moduleSpecifier &&
 				ts.isStringLiteral(node.moduleSpecifier)
 			) {
-				add(node, node.moduleSpecifier.text, 'module');
+				add(node, node.moduleSpecifier, node.moduleSpecifier.text, 'module');
 			} else if (
 				ts.isImportTypeNode(node) &&
 				ts.isLiteralTypeNode(node.argument) &&
 				ts.isStringLiteral(node.argument.literal)
 			) {
-				add(node, node.argument.literal.text, 'module');
+				add(node, node.argument.literal, node.argument.literal.text, 'module');
 			} else if (ts.isCallExpression(node)) {
 				const callee = node.expression.getText(source);
 				const [first, ...rest] = node.arguments;
@@ -321,14 +334,14 @@ function references(path: string, text: string): Reference[] {
 					first &&
 					ts.isStringLiteralLike(first)
 				) {
-					add(node, first.text, 'module');
+					add(node, first, first.text, 'module');
 				} else if (
 					PATH_CALLS.has(callee) &&
 					first?.getText(source).replace(/!$/, '') === 'import.meta.dirname' &&
 					rest.length > 0 &&
 					rest.every(ts.isStringLiteralLike)
 				) {
-					add(node, posix.join(...rest.map((argument) => argument.text)), 'path');
+					add(node, first, posix.join(...rest.map((argument) => argument.text)), 'path');
 				}
 			}
 			ts.forEachChild(node, visit);
@@ -340,7 +353,7 @@ function references(path: string, text: string): Reference[] {
 
 /** Every import and path read of the scanned tracked files under `checkout`. */
 export function readImportEdges(checkout: string, paths: readonly string[]): ImportEdge[] {
-	const tracked = new Set(paths);
+	const tracked = new Set([...paths, ...PRODUCED_FILES.flatMap(({ outputs }) => outputs)]);
 	const aliases = aliasMap(checkout);
 	const edges: ImportEdge[] = [];
 	for (const from of paths) {
@@ -348,17 +361,18 @@ export function readImportEdges(checkout: string, paths: readonly string[]): Imp
 		const absolute = join(checkout, from);
 		if (!existsSync(absolute) || !lstatSync(absolute).isFile()) continue;
 		const directory = posix.dirname(from);
-		for (const { text: specifier, line, kind } of references(
+		for (const { text: specifier, line, literalOffset, kind } of references(
 			from,
 			readFileSync(absolute, 'utf8')
 		)) {
 			if (kind === 'path') {
 				const target = posix.join(directory, specifier);
-				if (tracked.has(target)) edges.push({ from, line, specifier, target, kind: 'path-read' });
+				if (tracked.has(target))
+					edges.push({ from, line, literalOffset, specifier, target, kind: 'path-read' });
 				continue;
 			}
 			if (KIT.test(specifier)) {
-				edges.push({ from, line, specifier, target: specifier, kind: 'kit' });
+				edges.push({ from, line, literalOffset, specifier, target: specifier, kind: 'kit' });
 				continue;
 			}
 			const bare = specifier.split('?')[0]!;
@@ -369,7 +383,14 @@ export function readImportEdges(checkout: string, paths: readonly string[]): Imp
 					? posix.join(directory, bare)
 					: undefined;
 			if (path === undefined || path.startsWith('../')) continue;
-			edges.push({ from, line, specifier, target: resolveTracked(path, tracked), kind: 'import' });
+			edges.push({
+				from,
+				line,
+				literalOffset,
+				specifier,
+				target: resolveTracked(path, tracked),
+				kind: 'import'
+			});
 		}
 	}
 	return edges;
@@ -410,7 +431,7 @@ export function forbiddenPairs(table: MoveTable, edges: readonly ImportEdge[]): 
 			[from, target]
 		])
 	);
-	return [...pairs].sort(([a], [b]) => a.localeCompare(b)).map(([, pair]) => pair);
+	return [...pairs].sort(([a], [b]) => compareCodeUnits(a, b)).map(([, pair]) => pair);
 }
 
 export function compareEdges(
@@ -502,27 +523,19 @@ function aliasEntries(imports: readonly AliasImport[]): Map<string, AliasEntry> 
 				(a, b) =>
 					b.count - a.count ||
 					a.entry.key.length - b.entry.key.length ||
-					a.entry.root.localeCompare(b.entry.root) ||
-					a.entry.key.localeCompare(b.entry.key)
+					compareCodeUnits(a.entry.root, b.entry.root) ||
+					compareCodeUnits(a.entry.key, b.entry.key)
 			)[0]!.entry
 		])
 	);
 }
 
-/**
- * The import specifiers the move breaks, with their replacements. Inside one workspace a relative
- * specifier gets the relative path between the new places. An alias stays while the one prefix
- * entry its workspace keeps for it still reaches the target, and gets the relative path otherwise.
- * An imports map reaches no other workspace, so an alias into one never stays.
- * Across workspaces a specifier becomes the package name and the path below the package's exported
- * directory. A root file runs before any install, so it gets a relative path to every target.
- */
-export function plannedSpecifiers(
+function specifierMoves(
 	table: MoveTable,
 	edges: readonly ImportEdge[],
 	aliases: ReadonlyArray<readonly [string, string]>
-): SpecifierChange[] {
-	const moves = edges.flatMap((edge) => {
+) {
+	return edges.flatMap((edge) => {
 		if (edge.kind !== 'import' || edge.target.startsWith('node_modules/')) return [];
 		const from = table.place(edge.from);
 		const to = table.place(edge.target);
@@ -540,9 +553,9 @@ export function plannedSpecifiers(
 				? WORKSPACES[to.owner]
 				: undefined;
 		const exported =
-			target === undefined || target.name === null
+			target === undefined || target.name === null || !to.to
 				? undefined
-				: `${target.name}/${next.slice(target.root.length + target.exports.length)}`;
+				: `${target.name}/${to.to.slice(target.root.length + target.exports.length)}`;
 		return [
 			{
 				file: from.to,
@@ -557,6 +570,43 @@ export function plannedSpecifiers(
 			}
 		];
 	});
+}
+
+export interface AliasImportEntry {
+	readonly owner: string;
+	readonly prefix: string;
+	readonly key: string;
+	readonly root: string;
+}
+
+export function aliasImportEntries(
+	table: MoveTable,
+	edges: readonly ImportEdge[],
+	aliases: ReadonlyArray<readonly [string, string]>
+): AliasImportEntry[] {
+	return [...aliasEntries(specifierMoves(table, edges, aliases))]
+		.map(([group, entry]) => {
+			const [owner = '', prefix = ''] = group.split('\t');
+			return { owner, prefix, ...entry };
+		})
+		.sort((a, b) => compareCodeUnits(a.owner, b.owner) || compareCodeUnits(a.prefix, b.prefix));
+}
+
+/**
+ * The import specifiers the move breaks, with their replacements. Inside one workspace a relative
+ * specifier gets the relative path between the new places. An alias stays while the one prefix
+ * entry its workspace keeps for it still reaches the target, and gets the relative path otherwise.
+ * An imports map reaches no other workspace, so an alias into one never stays.
+ * Across workspaces a specifier becomes the package name and the target's path below the package's
+ * exported directory, with the file's own name and extension. A root file runs before any install,
+ * so it gets a relative path to every target.
+ */
+export function plannedSpecifiers(
+	table: MoveTable,
+	edges: readonly ImportEdge[],
+	aliases: ReadonlyArray<readonly [string, string]>
+): SpecifierChange[] {
+	const moves = specifierMoves(table, edges, aliases);
 	const entries = aliasEntries(moves);
 	return moves.flatMap(
 		({ file, owner, specifier, path, query, next, exported, aliased, prefix }) => {

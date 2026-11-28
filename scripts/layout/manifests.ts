@@ -1,10 +1,25 @@
-import { existsSync } from 'node:fs';
-import { join, posix } from 'node:path';
+import { posix } from 'node:path';
 import { WORKSPACES, type StarterWorkspace } from '../../.agents/skills/upstream-sync/layout/v3.ts';
-import { DEPENDENCY_OWNERS, NEW_SCRIPTS, PEER_DEPENDENCIES, SCRIPT_OWNERS } from './owners.ts';
-import { jsonText, readText, StaleInput, writeText, type Manifest, type Run } from './run.ts';
+import { OWNERS, type OwnerTables } from './owners.ts';
+import {
+	compareCodeUnits,
+	jsonText,
+	StaleInput,
+	writeText,
+	type Manifest,
+	type Run
+} from './run.ts';
 
 type Section = 'dependencies' | 'devDependencies';
+
+const PLACED_SECTIONS = ['dependencies', 'devDependencies'] as const;
+const DEPENDENCY_SECTIONS = [
+	...PLACED_SECTIONS,
+	'optionalDependencies',
+	'peerDependencies'
+] as const;
+
+const KNIP_PINS = new Set(['knip']);
 
 const DEVELOPMENT_ONLY = new Set<StarterWorkspace>(['tooling', 'eslint-plugin']);
 
@@ -18,14 +33,13 @@ function packageName(workspace: StarterWorkspace): string {
 	return name;
 }
 
-function sorted(record: Readonly<Record<string, string>>): Record<string, string> {
-	return Object.fromEntries(Object.entries(record).sort(([a], [b]) => a.localeCompare(b)));
+export function sorted(record: Readonly<Record<string, string>>): Record<string, string> {
+	return Object.fromEntries(Object.entries(record).sort(([a], [b]) => compareCodeUnits(a, b)));
 }
 
-/** The root manifest's version of every dependency, with the section that declares it. */
 function rootVersions(manifest: Manifest): Map<string, { version: string; section: Section }> {
 	const versions = new Map<string, { version: string; section: Section }>();
-	for (const section of ['dependencies', 'devDependencies'] as const) {
+	for (const section of PLACED_SECTIONS) {
 		for (const [name, version] of Object.entries(manifest[section] ?? {})) {
 			versions.set(name, { version, section });
 		}
@@ -33,8 +47,27 @@ function rootVersions(manifest: Manifest): Map<string, { version: string; sectio
 	return versions;
 }
 
-function ownerTableProblems(versions: ReadonlyMap<string, unknown>): string[] {
-	const owned = new Set(Object.keys(DEPENDENCY_OWNERS));
+function sectionProblems(manifest: Manifest): string[] {
+	const seen = new Map<string, string>();
+	const problems: string[] = [];
+	for (const section of DEPENDENCY_SECTIONS) {
+		for (const name of Object.keys(manifest[section] ?? {})) {
+			if (!(PLACED_SECTIONS as readonly string[]).includes(section)) {
+				problems.push(
+					`${name} is a dependency in ${section} of the root manifest, which scripts/layout/manifests.ts does not place`
+				);
+			}
+			const earlier = seen.get(name);
+			if (earlier)
+				problems.push(`${name} stands in ${earlier} and ${section} of the root manifest`);
+			seen.set(name, section);
+		}
+	}
+	return problems;
+}
+
+function ownerTableProblems(versions: ReadonlyMap<string, unknown>, owners: OwnerTables): string[] {
+	const owned = new Set(Object.keys(owners.dependencies));
 	return [
 		...[...versions.keys()]
 			.filter((name) => !owned.has(name))
@@ -50,8 +83,14 @@ function ownerTableProblems(versions: ReadonlyMap<string, unknown>): string[] {
 	];
 }
 
-function scriptTableProblems(scripts: Readonly<Record<string, string>>): string[] {
-	const owned = new Set(Object.keys(SCRIPT_OWNERS));
+function scriptTableProblems(
+	scripts: Readonly<Record<string, string>>,
+	owners: OwnerTables
+): string[] {
+	const owned = new Set(Object.keys(owners.scripts));
+	const replaced = Object.keys(owners.newScripts.root ?? {}).filter(
+		(name) => owners.scripts[name] === 'root'
+	);
 	return [
 		...Object.keys(scripts)
 			.filter((name) => !owned.has(name))
@@ -64,17 +103,26 @@ function scriptTableProblems(scripts: Readonly<Record<string, string>>): string[
 			.map(
 				(name) =>
 					`scripts/layout/owners.ts names the script ${name}, which the root manifest does not declare`
+			),
+		...replaced
+			.filter((name) => owners.replacedRootScripts[name] !== scripts[name])
+			.map(
+				(name) =>
+					`The root script ${name} differs from the flat body its replacement in scripts/layout/owners.ts was written against`
 			)
 	];
 }
 
-/** The moved place of a flat path, file, directory or glob, or `undefined` when it names none. */
 type FlatTree = Pick<Run, 'flatPaths' | 'table'>;
 
 function movedPath(run: FlatTree, token: string): string | undefined {
 	const clean = token.replace(/^\.\//, '');
 	if (!clean || clean.startsWith('-')) return undefined;
-	if (run.flatPaths.includes(clean)) return run.table.place(clean)?.to ?? undefined;
+	if (run.flatPaths.includes(clean)) {
+		const to = run.table.place(clean)?.to;
+		if (to === null) throw new StaleInput(`It names ${token}, which the move deletes`);
+		return to;
+	}
 	if (!clean.includes('/')) return undefined;
 	const star = clean.indexOf('*');
 	const directory =
@@ -82,36 +130,33 @@ function movedPath(run: FlatTree, token: string): string | undefined {
 			? clean.replace(/\/$/, '')
 			: clean.slice(0, Math.max(0, clean.lastIndexOf('/', star)));
 	if (!directory) return undefined;
-	const below = run.flatPaths.find((tracked) => tracked.startsWith(`${directory}/`));
-	const to = below && run.table.place(below)?.to;
-	if (!below || !to) return undefined;
-	const rest = below.slice(directory.length);
-	if (!to.endsWith(rest)) {
-		throw new StaleInput(`The script path ${token} names a directory that the table splits`);
+	const below = run.flatPaths.filter((tracked) => tracked.startsWith(`${directory}/`));
+	if (!below.length) return undefined;
+	const kept = below.flatMap((tracked) => {
+		const to = run.table.place(tracked)?.to;
+		const rest = tracked.slice(directory.length);
+		if (to === null) return [];
+		return [to !== undefined && to.endsWith(rest) ? to.slice(0, to.length - rest.length) : ''];
+	});
+	if (!kept.length) throw new StaleInput(`It names ${token}, which the move deletes`);
+	const places = new Set(kept);
+	if (places.size !== 1 || places.has('')) {
+		throw new StaleInput(`It names ${token}, whose files the move sends to more than one place`);
 	}
-	return to.slice(0, to.length - rest.length) + clean.slice(directory.length);
+	return kept[0] + clean.slice(directory.length);
 }
 
-/**
- * A flat script body, moved to `owner`: each path names its moved place relative to the
- * owner, and `bun run <name>` of a script another workspace owns gains `--filter`.
- */
-export function moveScript(
+const QUOTED = /'[^']*'|"[^"]*"/g;
+const RUN_NAME_BEFORE = /\bbun run(?:\s+--?[\w-]+(?:[ =][^\s'"]+)?)*\s+$/;
+
+function movePaths(
 	run: FlatTree,
-	body: string,
+	text: string,
 	owner: StarterWorkspace,
-	scriptOwner: (name: string) => StarterWorkspace | null | undefined,
 	warn: (line: string) => void
-): string {
+) {
 	const root = WORKSPACES[owner].root;
-	const filtered = body.replace(/\bbun run (?!-)([\w:.-]+)/g, (whole, name: string) => {
-		const target = scriptOwner(name);
-		if (target === undefined || target === owner) return whole;
-		if (target === null) throw new StaleInput(`A script runs ${name}, which the move deletes`);
-		if (target === 'root') throw new StaleInput(`The ${owner} script runs the root script ${name}`);
-		return `bun run --filter ${packageName(target)} ${name}`;
-	});
-	return filtered
+	return text
 		.split(/(\s+)/)
 		.map((token) => {
 			const [flag, value] = token.match(/^(--[\w-]+=)(.*)$/)?.slice(1) ?? ['', token];
@@ -124,6 +169,52 @@ export function moveScript(
 				flag + (value!.startsWith('./') && !relative.startsWith('.') ? `./${relative}` : relative)
 			);
 		})
+		.join('');
+}
+
+/**
+ * A flat script body, moved to `owner`: each path outside quotes names its moved place relative
+ * to the owner, and `bun run <name>` of a script another workspace owns gains `--filter`. Text in
+ * quotes stays; a quoted script name or quoted path stops the run, as does a path the move
+ * deletes or a directory whose files land in more than one place.
+ */
+export function moveScript(
+	run: FlatTree,
+	body: string,
+	owner: StarterWorkspace,
+	scriptOwner: (name: string) => StarterWorkspace | null | undefined,
+	warn: (line: string) => void
+): string {
+	const pieces: Array<{ text: string; quoted: boolean }> = [];
+	let last = 0;
+	for (const match of body.matchAll(QUOTED)) {
+		pieces.push({ text: body.slice(last, match.index), quoted: false });
+		pieces.push({ text: match[0], quoted: true });
+		last = match.index + match[0].length;
+	}
+	pieces.push({ text: body.slice(last), quoted: false });
+	return pieces
+		.map(({ text, quoted }, index) => {
+			if (quoted) {
+				if (RUN_NAME_BEFORE.test(pieces[index - 1]?.text ?? '')) {
+					throw new StaleInput(`It runs the quoted script name ${text}`);
+				}
+				for (const token of text.slice(1, -1).split(/\s+/)) {
+					if (movedPath(run, token) !== undefined) {
+						throw new StaleInput(`It names the quoted path ${token}`);
+					}
+				}
+				return text;
+			}
+			const filtered = text.replace(/\bbun run (?!-)([\w:.-]+)/g, (whole, name: string) => {
+				const target = scriptOwner(name);
+				if (target === undefined || target === owner) return whole;
+				if (target === null) throw new StaleInput(`It runs ${name}, which the move deletes`);
+				if (target === 'root') throw new StaleInput(`It runs the root script ${name}`);
+				return `bun run --filter ${packageName(target)} ${name}`;
+			});
+			return movePaths(run, filtered, owner, warn);
+		})
 		.join('')
 		.replace(/bun run --cwd \. /g, 'bun run ');
 }
@@ -133,24 +224,28 @@ function scriptsOf(
 	owner: StarterWorkspace,
 	warn: (line: string) => void
 ): Record<string, string> {
+	const { scripts: owners, newScripts } = run.inputs.owners;
 	const flat = run.flatManifest.scripts ?? {};
-	const added: Readonly<Record<string, string>> =
-		(NEW_SCRIPTS as Partial<Record<StarterWorkspace, Readonly<Record<string, string>>>>)[owner] ??
-		{};
+	const added = newScripts[owner] ?? {};
 	const scriptOwner = (name: string): StarterWorkspace | null | undefined =>
-		owner === 'root' && Object.hasOwn(added, name)
-			? 'root'
-			: (SCRIPT_OWNERS as Record<string, StarterWorkspace | null>)[name];
+		owner === 'root' && Object.hasOwn(added, name) ? 'root' : owners[name];
 	const moved = Object.entries(flat).flatMap(([name, body]) => {
-		if ((SCRIPT_OWNERS as Record<string, StarterWorkspace | null>)[name] !== owner) return [];
+		if (owners[name] !== owner) return [];
 		if (owner === 'root' && Object.hasOwn(added, name)) return [];
-		return [[name, moveScript(run, body, owner, scriptOwner, warn)] as const];
+		try {
+			return [[name, moveScript(run, body, owner, scriptOwner, warn)] as const];
+		} catch (error) {
+			if (!(error instanceof StaleInput)) throw error;
+			throw new StaleInput(`The root script ${name} cannot move: ${error.message}`);
+		}
 	});
 	return { ...Object.fromEntries(moved), ...added };
 }
 
 /** The workspaces whose packages a workspace imports after the move. */
-function workspaceEdges(run: Run): Map<StarterWorkspace, Set<StarterWorkspace>> {
+type EdgeInputs = Pick<Run, 'rewrites' | 'projectEdges'>;
+
+function workspaceEdges(run: EdgeInputs): Map<StarterWorkspace, Set<StarterWorkspace>> {
 	const edges = new Map<StarterWorkspace, Set<StarterWorkspace>>();
 	const add = (from: StarterWorkspace, to: StarterWorkspace) => {
 		if (from === to || from === 'root') return;
@@ -166,7 +261,7 @@ function workspaceEdges(run: Run): Map<StarterWorkspace, Set<StarterWorkspace>> 
 }
 
 function dependenciesOf(
-	run: Run,
+	run: Pick<Run, 'inputs'>,
 	owner: StarterWorkspace,
 	versions: ReadonlyMap<string, { version: string; section: Section }>,
 	edges: ReadonlyMap<StarterWorkspace, ReadonlySet<StarterWorkspace>>
@@ -175,7 +270,7 @@ function dependenciesOf(
 		dependencies: {},
 		devDependencies: {}
 	};
-	for (const [name, holders] of Object.entries(DEPENDENCY_OWNERS)) {
+	for (const [name, holders] of Object.entries(run.inputs.owners.dependencies)) {
 		if (!(holders as readonly StarterWorkspace[]).includes(owner)) continue;
 		const { version, section } = versions.get(name)!;
 		declared[section][name] = version;
@@ -203,15 +298,44 @@ function literalOverrides(
 }
 
 /** The dependencies and scripts of a flat root manifest that `owners.ts` does not place, and back. */
-export function ownerProblems(manifest: Manifest): string[] {
+export function ownerProblems(manifest: Manifest, owners: OwnerTables = OWNERS): string[] {
 	return [
-		...ownerTableProblems(rootVersions(manifest)),
-		...scriptTableProblems(manifest.scripts ?? {})
+		...sectionProblems(manifest),
+		...ownerTableProblems(rootVersions(manifest), owners),
+		...scriptTableProblems(manifest.scripts ?? {}, owners)
 	];
 }
 
+type ManifestInputs = Pick<Run, 'flatPaths' | 'table' | 'flatFile'>;
+
+function trackedManifest(run: ManifestInputs, path: string): Manifest | undefined {
+	const flat = run.flatPaths.find((tracked) => run.table.place(tracked)?.to === path);
+	return flat === undefined ? undefined : JSON.parse(run.flatFile(flat));
+}
+
+export function pinProblems(
+	run: ManifestInputs & EdgeInputs & Pick<Run, 'inputs' | 'flatManifest'>
+): string[] {
+	const versions = rootVersions(run.flatManifest);
+	const edges = workspaceEdges(run);
+	return (Object.keys(WORKSPACES) as StarterWorkspace[]).flatMap((workspace) => {
+		if (workspace === 'root') return [];
+		const path = manifestPath(workspace);
+		const existing = trackedManifest(run, path);
+		if (!existing) return [];
+		const declared = dependenciesOf(run, workspace, versions, edges);
+		return PLACED_SECTIONS.flatMap((section) =>
+			Object.entries(declared[section]).flatMap(([name, version]) => {
+				const pinned = existing.dependencies?.[name] ?? existing.devDependencies?.[name];
+				if (pinned === undefined || pinned === version || KNIP_PINS.has(name)) return [];
+				return [`${path} pins ${name} at ${pinned}, and the root manifest at ${version}`];
+			})
+		);
+	});
+}
+
 export function verifyOwners(run: Run): void {
-	const problems = ownerProblems(run.flatManifest);
+	const problems = [...ownerProblems(run.flatManifest, run.inputs.owners), ...pinProblems(run)];
 	if (problems.length) throw new StaleInput(problems.join('\n'));
 }
 
@@ -222,7 +346,7 @@ export function verifyOwners(run: Run): void {
 export function writeManifests(run: Run, warn: (line: string) => void = console.warn): void {
 	const versions = rootVersions(run.flatManifest);
 	const edges = workspaceEdges(run);
-	const peers: Partial<Record<StarterWorkspace, readonly string[]>> = PEER_DEPENDENCIES;
+	const peers: Partial<Record<StarterWorkspace, readonly string[]>> = run.inputs.owners.peers;
 	for (const workspace of Object.keys(WORKSPACES) as StarterWorkspace[]) {
 		const path = manifestPath(workspace);
 		const declared = dependenciesOf(run, workspace, versions, edges);
@@ -240,9 +364,7 @@ export function writeManifests(run: Run, warn: (line: string) => void = console.
 			});
 			continue;
 		}
-		const existing: Manifest | undefined = existsSync(join(run.checkout, path))
-			? JSON.parse(readText(run, path))
-			: undefined;
+		const existing = trackedManifest(run, path);
 		const peerNames = peers[workspace] ?? [];
 		const merge = (section: Section, current: Readonly<Record<string, string>> = {}) => {
 			const result = { ...current };

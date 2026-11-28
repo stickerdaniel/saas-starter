@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import type { Run } from './run.ts';
+import { compareCodeUnits, StaleInput, type Run } from './run.ts';
 
 /** Moves and deletes every tracked path the table sends elsewhere. */
 export function movePaths(run: Run): void {
@@ -22,46 +22,45 @@ export function movePaths(run: Run): void {
 
 export interface SpecifierEdit {
 	readonly file: string;
-	readonly line: number;
+	readonly literalOffset: number;
 	readonly from: string;
 	readonly to: string;
 }
 
-const QUOTES = ["'", '"', '`'] as const;
+const QUOTES = new Set(["'", '"', '`']);
 
-function lineStart(text: string, line: number): number {
-	let offset = 0;
-	for (let current = 1; current < line; current += 1) {
-		const next = text.indexOf('\n', offset);
-		if (next === -1) return text.length;
-		offset = next + 1;
+export function editedText(
+	file: string,
+	text: string,
+	edits: readonly SpecifierEdit[]
+): { text: string; problems: string[] } {
+	const problems: string[] = [];
+	let result = text;
+	const ordered = [...edits].sort((a, b) => b.literalOffset - a.literalOffset);
+	for (const [index, edit] of ordered.entries()) {
+		const at = edit.literalOffset;
+		const quote = text[at] ?? '';
+		const fits =
+			QUOTES.has(quote) &&
+			text.startsWith(edit.from, at + 1) &&
+			text[at + 1 + edit.from.length] === quote &&
+			ordered[index - 1]?.literalOffset !== at;
+		if (!fits) {
+			problems.push(`${file}: no literal ${edit.from} at offset ${at}`);
+			continue;
+		}
+		result = result.slice(0, at + 1) + edit.to + result.slice(at + 1 + edit.from.length);
 	}
-	return offset;
+	return { text: result, problems };
 }
 
-/**
- * Replaces each specifier on the line where its reference starts: the first quoted occurrence of
- * the specifier from that line is the reference, since an import's bindings and a call's callee
- * hold no string equal to it.
- */
+/** Replaces each specifier at the literal the mapper read it from, and stops on one that is not there. */
 export function editSpecifiers(checkout: string, edits: readonly SpecifierEdit[]): void {
 	const byFile = Map.groupBy(edits, (edit) => edit.file);
-	for (const [file, fileEdits] of [...byFile].sort(([a], [b]) => a.localeCompare(b))) {
+	for (const [file, fileEdits] of [...byFile].sort(([a], [b]) => compareCodeUnits(a, b))) {
 		const absolute = join(checkout, file);
-		let text = readFileSync(absolute, 'utf8');
-		const located = new Map<number, SpecifierEdit>();
-		for (const edit of fileEdits) {
-			const from = lineStart(text, edit.line);
-			const found = QUOTES.flatMap((quote) => {
-				const at = text.indexOf(`${quote}${edit.from}${quote}`, from);
-				return at === -1 ? [] : [at + 1];
-			});
-			if (!found.length) throw new Error(`${file}:${edit.line} holds no quoted ${edit.from}`);
-			located.set(Math.min(...found), edit);
-		}
-		for (const [at, edit] of [...located].sort(([a], [b]) => b - a)) {
-			text = text.slice(0, at) + edit.to + text.slice(at + edit.from.length);
-		}
+		const { text, problems } = editedText(file, readFileSync(absolute, 'utf8'), fileEdits);
+		if (problems.length) throw new StaleInput(problems.join('\n'));
 		writeFileSync(absolute, text);
 	}
 }
@@ -70,9 +69,9 @@ export function editSpecifiers(checkout: string, edits: readonly SpecifierEdit[]
 export function rewriteSpecifiers(run: Run): void {
 	editSpecifiers(
 		run.checkout,
-		run.rewrites.map(({ file, line, specifier, next }) => ({
+		run.rewrites.map(({ file, literalOffset, specifier, next }) => ({
 			file,
-			line,
+			literalOffset,
 			from: specifier,
 			to: next
 		}))

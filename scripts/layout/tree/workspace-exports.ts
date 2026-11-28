@@ -76,16 +76,51 @@ function matches(key: string, subpath: string): boolean {
 	return subpath.startsWith(key.slice(0, star)) && subpath.endsWith(key.slice(star + 1));
 }
 
+function entryProblems(workspace: WorkspacePackage, exists: (path: string) => boolean): string[] {
+	const problems: string[] = [];
+	const keysOf = new Map<string, string[]>();
+	const directories = new Set<string>();
+	for (const [key, value] of Object.entries(workspace.exports)) {
+		const named = key.startsWith(TESTING) ? `./${key.slice(TESTING.length)}` : key;
+		if (key === '.' || key.includes('*')) continue;
+		if (posix.extname(named) === '') {
+			if (!exists(posix.join(workspace.root, value))) {
+				problems.push(`${workspace.name} exports ${key} as ${value}, which names no file`);
+			}
+			continue;
+		}
+		if (!value.endsWith(named.slice(1))) {
+			problems.push(`${workspace.name} exports ${key} as ${value}, which is another file`);
+		} else {
+			directories.add(value.slice(0, value.length - named.length + 1));
+		}
+		const file = posix.join(workspace.root, value);
+		if (!exists(file))
+			problems.push(`${workspace.name} exports ${key} as ${value}, which names no file`);
+		keysOf.set(file, [...(keysOf.get(file) ?? []), key]);
+	}
+	if (directories.size > 1) {
+		problems.push(`${workspace.name} exports from ${[...directories].sort().join(' and ')}`);
+	}
+	for (const [file, keys] of keysOf) {
+		if (keys.length > 1)
+			problems.push(`${workspace.name} exports ${file} as ${keys.sort().join(' and ')}`);
+	}
+	return problems;
+}
+
 /**
  * Why the `exports` maps of `packages` do not fit the imports of the tree: an entry that no file
- * of another workspace imports, an entry outside `./testing/` that only suite files import, and a
- * package specifier that names no entry.
+ * of another workspace imports, an entry outside `./testing/` that only suite files import, a
+ * package specifier that names no entry, an entry whose value names no file or another file
+ * than its key, and a file that two entries name.
  */
 export function exportProblems(
 	packages: readonly WorkspacePackage[],
-	imports: readonly PackageImport[]
+	imports: readonly PackageImport[],
+	exists: (path: string) => boolean
 ): string[] {
-	const problems: string[] = [];
+	const problems: string[] = packages.flatMap((workspace) => entryProblems(workspace, exists));
 	const importers = new Map<string, PackageImport[]>();
 	for (const item of imports) {
 		for (const workspace of packages) {
@@ -119,8 +154,8 @@ export function exportProblems(
 	return problems.sort();
 }
 
-function presentFiles(checkout: string): string[] {
-	const listed = spawnSync('git', ['ls-files', '-co', '--exclude-standard', '-z'], {
+export function checkoutFiles(checkout: string): string[] {
+	const listed = spawnSync('git', ['ls-files', '-co', '--exclude-per-directory=.gitignore', '-z'], {
 		cwd: checkout,
 		encoding: 'utf8',
 		maxBuffer: 64 * 1024 * 1024
@@ -133,8 +168,11 @@ function presentFiles(checkout: string): string[] {
 		.sort();
 }
 
-/** The member packages of the root manifest's `workspaces`, with their `exports` maps. */
-export function readWorkspacePackages(checkout: string): WorkspacePackage[] {
+/** The member packages of the root manifest's `workspaces` among `files`, with their `exports` maps. */
+export function readWorkspacePackages(
+	checkout: string,
+	files: readonly string[]
+): WorkspacePackage[] {
 	const root: { workspaces?: string[] } = JSON.parse(
 		readFileSync(join(checkout, 'package.json'), 'utf8')
 	);
@@ -144,7 +182,7 @@ export function readWorkspacePackages(checkout: string): WorkspacePackage[] {
 				? posix.dirname(posix.dirname(path)) === pattern.slice(0, -2)
 				: posix.dirname(path) === pattern
 		);
-	return presentFiles(checkout)
+	return files
 		.filter((path) => path.endsWith('/package.json') && member(path))
 		.map((path) => {
 			const manifest: { name: string; exports?: Record<string, string> | string } = JSON.parse(
@@ -156,14 +194,15 @@ export function readWorkspacePackages(checkout: string): WorkspacePackage[] {
 		});
 }
 
-/** Every import of a workspace package by name in the checkout. */
+/** Every import of a workspace package by name in `files`. */
 export function readPackageImports(
 	checkout: string,
+	files: readonly string[],
 	packages: readonly WorkspacePackage[],
 	isSuite: (path: string) => boolean
 ): PackageImport[] {
 	const names = packages.map((workspace) => workspace.name);
-	return presentFiles(checkout)
+	return files
 		.filter((path) => SCANNED.test(path) && !path.split('/').includes('node_modules'))
 		.flatMap((file) =>
 			moduleSpecifiers(file, readFileSync(join(checkout, file), 'utf8'))
